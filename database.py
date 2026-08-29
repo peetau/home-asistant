@@ -69,6 +69,29 @@ def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc):
         )
 
 
+def nacti_pro_graf(hodin=24):
+    """
+    Vrátí měření za posledních 'hodin' hodin, seřazená od nejstaršího.
+
+    Pro graf potřebujeme opačné pořadí než pro výpis: čas musí růst
+    zleva doprava, takže ORDER BY id ASC (vzestupně).
+
+    Filtrování času necháváme na databázi (WHERE) - je to její práce
+    a je v tom rychlejší, než kdybychom načetli všechno a třídili v Pythonu.
+    """
+    with _spojeni() as db:
+        # datetime('now', 'localtime', '-24 hours') je funkce SQLite:
+        # spočítá časovou hranici přímo v databázi.
+        kurzor = db.execute(
+            "SELECT cas, vykon_panelu, denni_vyroba, baterie_soc "
+            "FROM mereni "
+            "WHERE cas >= datetime('now', 'localtime', ?) "
+            "ORDER BY id ASC",
+            (f"-{int(hodin)} hours",),
+        )
+        return kurzor.fetchall()
+
+
 def nacti_mereni(limit=10):
     """
     Vrátí posledních 'limit' měření, nejnovější první.

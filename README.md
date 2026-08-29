@@ -8,13 +8,13 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 
 ## Aktuální fáze
 
-**Fáze 3 — databáze (SQLite).** Fáze 1 (čtení zařízení) a jádro Fáze 2 (web) hotové.
+**Fáze 3 — databáze (SQLite) hotová.** Další na řadě je Fáze 4 — přihlašování / rodinné účty.
 
 - [x] Fáze 1 — čtení Nanoleaf (lokální REST API) a SolaX (lokálně z Wi-Fi dongle)
 - [x] Fáze 2 — webový dashboard (Flask + šablona + CSS ve třech vrstvách)
 - [x] Fáze 3, krok 1 — databáze umí uložit a přečíst měření
 - [x] Fáze 3, krok 2 — `sber.py` plní databázi sám
-- [ ] **Fáze 3, krok 3 — graf z historie na stránce  ← DALŠÍ KROK**
+- [x] Fáze 3, krok 3 — grafy z historie na stránce
 
 Data se sbírají do `asistent.db`, dokud běží `sber.py`.
 
@@ -30,6 +30,7 @@ templates/
 main.py             vstupní bod konzolové verze
 sber.py             sběrač měření (plní databázi)
 database.py         práce s databází (SQLite)
+graf.py             převod dat na souřadnice pro SVG graf
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu
