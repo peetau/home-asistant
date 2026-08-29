@@ -8,13 +8,15 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 
 ## Aktuální fáze
 
-**Fáze 3 — databáze (SQLite) hotová.** Další na řadě je Fáze 4 — přihlašování / rodinné účty.
+**Fáze 4 — přihlašování / rodinné účty.** Fáze 1–3 hotové.
 
 - [x] Fáze 1 — čtení Nanoleaf (lokální REST API) a SolaX (lokálně z Wi-Fi dongle)
 - [x] Fáze 2 — webový dashboard (Flask + šablona + CSS ve třech vrstvách)
 - [x] Fáze 3, krok 1 — databáze umí uložit a přečíst měření
 - [x] Fáze 3, krok 2 — `sber.py` plní databázi sám
 - [x] Fáze 3, krok 3 — grafy z historie na stránce
+- [x] Fáze 4 — přihlašování (účty, hashovaná hesla, zamčený dashboard)
+- [ ] **Fáze 5 — nákupní seznam / ovládání zařízení  ← DALŠÍ KROK**
 
 Data se sbírají do `asistent.db`, dokud běží `sber.py`.
 
@@ -31,6 +33,7 @@ main.py             vstupní bod konzolové verze
 sber.py             sběrač měření (plní databázi)
 database.py         práce s databází (SQLite)
 graf.py             převod dat na souřadnice pro SVG graf
+sprava_uctu.py      zakládání a mazání rodinných účtů
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu
@@ -63,6 +66,9 @@ Pak podle toho, co chceš:
 
 :: C) sběrač měření — necháš běžet v samostatném okně, plní databázi
 .venv\Scripts\python.exe sber.py
+
+:: D) správa rodinných účtů (přidat/smazat uživatele)
+.venv\Scripts\python.exe sprava_uctu.py
 ```
 
 Web (B) a sběrač (C) běží každý ve **svém okně** zároveň: sběrač zapisuje
