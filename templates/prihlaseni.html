@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Přihlášení — Domácí asistent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="obal obal-uzky">
+
+    <div class="karta karta-prihlaseni">
+        <h1 class="prihlaseni-nadpis">🏠 Domácí asistent</h1>
+
+        {# Chybová hláška se ukáže jen tehdy, když ji Python pošle. #}
+        {% if chyba %}
+            <p class="chyba">{{ chyba }}</p>
+        {% endif %}
+
+        {# FORMULÁŘ.
+           method="post" znamená, že se údaje pošlou v TĚLE požadavku,
+           ne v adrese. To je důležité: kdyby to bylo GET, heslo by se
+           objevilo v adresním řádku, v historii prohlížeče i v logu serveru.
+
+           Každý <input> má name="..." - pod tímhle jménem si hodnotu
+           v Pythonu vyzvedneme z request.form. #}
+        <form method="post" class="formular">
+            <label>
+                <span>Jméno</span>
+                <input type="text" name="jmeno" required autofocus
+                       autocomplete="username">
+            </label>
+
+            <label>
+                <span>Heslo</span>
+                {# type="password" zajistí, že se znaky zobrazují jako tečky #}
+                <input type="password" name="heslo" required
+                       autocomplete="current-password">
+            </label>
+
+            <button type="submit">Přihlásit se</button>
+        </form>
+    </div>
+
+</div>
+</body>
+</html>

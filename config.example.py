@@ -18,3 +18,8 @@ NANOLEAF_TOKEN = "sem-patri-token"  # token vygenerovaný podržením tlačítka
 SOLAX_TOKEN = "sem-patri-token"   # token ze SolaX Cloud
 SOLAX_DONGLE_IP = "192.168.0.0"   # IP Wi-Fi dongle v domácí síti (u SolaXu se čte lokálně, ne z cloudu)
 SOLAX_WIFI_SN = "sem-patri-SN"    # sériové číslo Wi-Fi modulu měniče
+
+# --- Podpisovy klic pro prihlasovaci cookie (Flask session) ---
+# Vygeneruj si vlastni nahodny:
+#     python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY = "sem-patri-nahodny-retezec"

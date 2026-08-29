@@ -17,7 +17,10 @@
 
     <header>
         <h1>🏠 Domácí asistent</h1>
-        <span class="cas">aktualizováno {{ cas }}</span>
+        <span class="cas">
+            {{ uzivatel }} · aktualizováno {{ cas }} ·
+            <a href="{{ url_for('odhlaseni') }}">odhlásit</a>
+        </span>
     </header>
 
     {# ---------- Solární elektrárna ---------- #}
