@@ -8,11 +8,15 @@ Kompletní zadání a roadmapa: [`inputs/plan-domaci-asistent.md`](inputs/plan-d
 
 ## Aktuální fáze
 
-Fáze 2 — webové rozhraní (Flask). Fáze 1 — čtení dat ze zařízení čistým Python skriptem.
-Zatím **bez webu a bez databáze**.
+**Fáze 3 — databáze (SQLite).** Fáze 1 (čtení zařízení) a jádro Fáze 2 (web) hotové.
 
-- [x] Úkol A — čtení stavu Nanoleaf (lokální REST API)
-- [x] Úkol B — čtení stavu SolaX (cloud API)
+- [x] Fáze 1 — čtení Nanoleaf (lokální REST API) a SolaX (lokálně z Wi-Fi dongle)
+- [x] Fáze 2 — webový dashboard (Flask + šablona + CSS ve třech vrstvách)
+- [x] Fáze 3, krok 1 — databáze umí uložit a přečíst měření
+- [x] Fáze 3, krok 2 — `sber.py` plní databázi sám
+- [ ] **Fáze 3, krok 3 — graf z historie na stránce  ← DALŠÍ KROK**
+
+Data se sbírají do `asistent.db`, dokud běží `sber.py`.
 
 ## Struktura
 
