@@ -2,58 +2,84 @@
 <html lang="cs">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Domácí asistent</title>
 
-    {# Automatické obnovení stránky každých 10 sekund. #}
-    {# http-equiv="refresh" je pokyn prohlížeči "za 10 s se znovu načti". #}
-    {# Řešíme tím to otravné mačkání F5 - data se osvěží sama. #}
+    {# Automatické obnovení každých 10 s (osvěží data bez mačkání F5). #}
     <meta http-equiv="refresh" content="10">
 
-    {# Trocha stylu, ať to není holý text. Zatím rovnou tady v hlavičce; #}
-    {# až toho bude víc, přesuneme styly do zvláštního .css souboru. #}
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto;
-               padding: 0 1rem; color: #222; }
-        h1 { border-bottom: 2px solid #eee; padding-bottom: .3rem; }
-        .karta { border: 1px solid #ddd; border-radius: 8px;
-                 padding: 1rem 1.2rem; margin: 1rem 0; }
-        .karta h2 { margin-top: 0; }
-        .hodnota { font-weight: bold; }
-        .chyba { color: #b00; }
-    </style>
+    {# CSS načteme z Flask složky static/. url_for('static', ...) vyrobí #}
+    {# správnou adresu - nikdy nepiš cestu ručně, tohle je spolehlivější. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Domácí asistent</h1>
+<div class="obal">
 
+    <header>
+        <h1>🏠 Domácí asistent</h1>
+        <span class="cas">aktualizováno {{ cas }}</span>
+    </header>
+
+    {# ---------- Solární elektrárna ---------- #}
     <div class="karta">
-        <h2>Nanoleaf</h2>
+        <h2>☀️ Solární elektrárna</h2>
 
-        {# {% if %} rozhoduje PŘÍMO v HTML: máme data, nebo se čtení nepovedlo? #}
-        {% if nanoleaf %}
-            {# {{ }} vloží hodnotu. Podmínku zapnuto/vypnuto zvládne i Jinja. #}
-            <p>Stav: <span class="hodnota">
-                {{ "zapnuto" if nanoleaf.on else "vypnuto" }}</span></p>
-            <p>Jas: <span class="hodnota">{{ nanoleaf.brightness }} %</span></p>
-            <p>Efekt: <span class="hodnota">{{ nanoleaf.effect }}</span></p>
-        {% else %}
-            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
-        {% endif %}
-    </div>
-
-    <div class="karta">
-        <h2>Solární elektrárna</h2>
         {% if solax %}
-            <p>Výkon panelů: <span class="hodnota">{{ solax.vykon_panelu }} W</span></p>
-            <p>Do sítě/domu: <span class="hodnota">{{ solax.vykon_do_site }} W</span></p>
-            <p>Dnešní výroba: <span class="hodnota">{{ solax.denni_vyroba }} kWh</span></p>
-            <p>Baterie: <span class="hodnota">{{ solax.baterie_soc }} %</span>
-               ({{ solax.baterie_zbyva }} kWh)</p>
+            {# Hlavní číslo: aktuální výkon panelů, přepočtený z W na kW. #}
+            {# "%.2f"|format(...) zaokrouhlí na 2 desetinná místa. #}
+            <div class="hero">
+                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
+                <span class="jednotka">kW právě vyrábí</span>
+            </div>
+
+            <div class="dlazdice">
+                <div class="polozka">
+                    <div class="popisek">Dnešní výroba</div>
+                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Do sítě / domu</div>
+                    <div class="hodnota">{{ solax.vykon_do_site }} W</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Baterie</div>
+                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
+                    {# Šířku proužku řídíme přímo hodnotou SOC. #}
+                    <div class="baterie-pruh">
+                        <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
+                    </div>
+                </div>
+            </div>
         {% else %}
             <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
         {% endif %}
     </div>
 
-    <p style="color:#888; font-size:.85rem;">
-        Stránka se sama obnovuje každých 10 sekund.</p>
+    {# ---------- Nanoleaf ---------- #}
+    <div class="karta">
+        <h2>💡 Nanoleaf</h2>
+
+        {% if nanoleaf %}
+            <div class="stav-radek">
+                {# Barva tečky podle stavu: třída se poskládá v Jinja. #}
+                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
+                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
+            </div>
+            <div class="radek">
+                <span class="popisek">Jas</span>
+                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Efekt</span>
+                <span class="hodnota">{{ nanoleaf.effect }}</span>
+            </div>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        {% endif %}
+    </div>
+
+    <footer>Stránka se sama obnovuje každých 10 sekund.</footer>
+
+</div>
 </body>
 </html>

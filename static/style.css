@@ -1,0 +1,116 @@
+/*
+  Vzhled domácího asistenta.
+
+  Tenhle soubor drží VŠECHEN vzhled (barvy, rozestupy, rámečky).
+  HTML v templates/dashboard.html řeší jen strukturu (co kde je),
+  Python ve web.py jen data. Tři vrstvy, každá zvlášť - to je ono.
+
+  Flask servíruje soubory z této složky (static/) na adrese /static/...
+*/
+
+/* Proměnné s barvami na jednom místě - když budeš chtít změnit vzhled,
+   měníš je tady, ne na deseti místech. Používá se přes var(--nazev). */
+:root {
+    --pozadi:      #eef2f5;
+    --karta:       #ffffff;
+    --text:        #1f2933;
+    --text-slaby:  #7b8794;
+    --zelena:      #16a34a;
+    --zelena-svet: #dcfce7;
+    --amber:       #f59e0b;
+    --cervena:     #dc2626;
+    --stin:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --radius:      14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--pozadi);
+    color: var(--text);
+    margin: 0;
+    padding: 1.5rem 1rem 3rem;
+    line-height: 1.5;
+}
+
+.obal { max-width: 760px; margin: 0 auto; }
+
+/* --- Hlavička --- */
+header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+}
+header h1 { font-size: 1.6rem; margin: 0; }
+header .cas { color: var(--text-slaby); font-size: .9rem; }
+
+/* --- Karta (základní stavební blok) --- */
+.karta {
+    background: var(--karta);
+    border-radius: var(--radius);
+    box-shadow: var(--stin);
+    padding: 1.3rem 1.5rem;
+    margin-bottom: 1.2rem;
+}
+.karta h2 {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-slaby);
+    margin: 0 0 1rem;
+}
+
+/* --- Hlavní číslo (aktuální výkon) --- */
+.hero { display: flex; align-items: baseline; gap: .4rem; margin-bottom: 1.2rem; }
+.hero .cislo { font-size: 3rem; font-weight: 700; line-height: 1; color: var(--zelena); }
+.hero .jednotka { font-size: 1.1rem; color: var(--text-slaby); }
+
+/* --- Mřížka menších hodnot --- */
+.dlazdice {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+}
+.dlazdice .polozka .popisek { color: var(--text-slaby); font-size: .85rem; }
+.dlazdice .polozka .hodnota { font-size: 1.4rem; font-weight: 600; }
+
+/* --- Baterie: proužek --- */
+.baterie-pruh {
+    background: #e4e9ee;
+    border-radius: 999px;
+    height: 12px;
+    overflow: hidden;
+    margin-top: .4rem;
+}
+.baterie-pruh .naplneni {
+    background: var(--zelena);
+    height: 100%;
+    border-radius: 999px;
+    transition: width .4s ease;
+}
+
+/* --- Nanoleaf: stavová tečka --- */
+.stav-radek { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+.tecka { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.tecka.zapnuto { background: var(--zelena); box-shadow: 0 0 0 4px var(--zelena-svet); }
+.tecka.vypnuto { background: var(--text-slaby); }
+.radek { display: flex; justify-content: space-between; padding: .35rem 0;
+         border-top: 1px solid #f0f3f6; }
+.radek:first-of-type { border-top: none; }
+.radek .popisek { color: var(--text-slaby); }
+.radek .hodnota { font-weight: 600; }
+
+/* --- Chybová hláška --- */
+.chyba {
+    color: var(--cervena);
+    background: #fef2f2;
+    padding: .8rem 1rem;
+    border-radius: 8px;
+    font-size: .95rem;
+}
+
+footer { text-align: center; color: var(--text-slaby); font-size: .8rem; margin-top: 1.5rem; }

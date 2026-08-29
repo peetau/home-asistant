@@ -12,6 +12,8 @@ Vzhled stránky je oddělený v souboru templates/dashboard.html (šablona).
 Tenhle soubor řeší jen LOGIKU: přečti zařízení a předej data šabloně.
 """
 
+from datetime import datetime
+
 from flask import Flask, render_template
 
 import config
@@ -53,6 +55,7 @@ def dashboard():
         "dashboard.html",
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
+        cas=datetime.now().strftime("%H:%M:%S"),
     )
 
 
