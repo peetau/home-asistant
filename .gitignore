@@ -29,3 +29,8 @@ asistent.db
 # Zápisky z učení jsou soukromé, do veřejného repozitáře nepatří.
 # Soubory zůstávají na disku, jen je Git přestane sledovat.
 poznamky/
+
+# --- Vstupní soubory od uživatele ---
+# Odkládací složka pro podklady (screenshoty, exporty, dokumenty).
+# Můžou obsahovat osobní údaje -> do repozitáře nepatří.
+inputs/

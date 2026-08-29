@@ -4,7 +4,7 @@ Učební projekt: postupně stavíme domácí asistenta pro rodinu.
 Dlouhodobý cíl je webová aplikace s dashboardem (data z domácnosti),
 kolaborativním nákupním seznamem a ovládáním chytrých zařízení.
 
-Kompletní zadání a roadmapa: [`inputs/plan-domaci-asistent.md`](inputs/plan-domaci-asistent.md)
+Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu.md)
 
 ## Aktuální fáze
 
@@ -33,6 +33,8 @@ database.py         práce s databází (SQLite)
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu
+docs/
+  zadani-projektu.md  zadání a roadmapa projektu
 requirements.txt    seznam potřebných knihoven
 ```
 
