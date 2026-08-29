@@ -20,7 +20,10 @@ Zatím **bez webu a bez databáze**.
 devices/
   nanoleaf.py       čtení stavu Nanoleaf panelů
   solax.py          čtení stavu solární elektrárny
-main.py             vstupní bod, tohle se spouští
+web.py              webový server (Flask) — spouští stránku v prohlížeči
+templates/
+  dashboard.html    vzhled webové stránky (odděleně od logiky)
+main.py             vstupní bod konzolové verze
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu

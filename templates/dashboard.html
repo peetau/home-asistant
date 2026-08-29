@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <title>Domácí asistent</title>
+
+    {# Automatické obnovení stránky každých 10 sekund. #}
+    {# http-equiv="refresh" je pokyn prohlížeči "za 10 s se znovu načti". #}
+    {# Řešíme tím to otravné mačkání F5 - data se osvěží sama. #}
+    <meta http-equiv="refresh" content="10">
+
+    {# Trocha stylu, ať to není holý text. Zatím rovnou tady v hlavičce; #}
+    {# až toho bude víc, přesuneme styly do zvláštního .css souboru. #}
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto;
+               padding: 0 1rem; color: #222; }
+        h1 { border-bottom: 2px solid #eee; padding-bottom: .3rem; }
+        .karta { border: 1px solid #ddd; border-radius: 8px;
+                 padding: 1rem 1.2rem; margin: 1rem 0; }
+        .karta h2 { margin-top: 0; }
+        .hodnota { font-weight: bold; }
+        .chyba { color: #b00; }
+    </style>
+</head>
+<body>
+    <h1>Domácí asistent</h1>
+
+    <div class="karta">
+        <h2>Nanoleaf</h2>
+
+        {# {% if %} rozhoduje PŘÍMO v HTML: máme data, nebo se čtení nepovedlo? #}
+        {% if nanoleaf %}
+            {# {{ }} vloží hodnotu. Podmínku zapnuto/vypnuto zvládne i Jinja. #}
+            <p>Stav: <span class="hodnota">
+                {{ "zapnuto" if nanoleaf.on else "vypnuto" }}</span></p>
+            <p>Jas: <span class="hodnota">{{ nanoleaf.brightness }} %</span></p>
+            <p>Efekt: <span class="hodnota">{{ nanoleaf.effect }}</span></p>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        {% endif %}
+    </div>
+
+    <div class="karta">
+        <h2>Solární elektrárna</h2>
+        {% if solax %}
+            <p>Výkon panelů: <span class="hodnota">{{ solax.vykon_panelu }} W</span></p>
+            <p>Do sítě/domu: <span class="hodnota">{{ solax.vykon_do_site }} W</span></p>
+            <p>Dnešní výroba: <span class="hodnota">{{ solax.denni_vyroba }} kWh</span></p>
+            <p>Baterie: <span class="hodnota">{{ solax.baterie_soc }} %</span>
+               ({{ solax.baterie_zbyva }} kWh)</p>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
+        {% endif %}
+    </div>
+
+    <p style="color:#888; font-size:.85rem;">
+        Stránka se sama obnovuje každých 10 sekund.</p>
+</body>
+</html>
