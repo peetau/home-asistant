@@ -32,18 +32,32 @@ requirements.txt    seznam potřebných knihoven
 
 ## Jak to spustit
 
-```powershell
-# 1) aktivovat virtuální prostředí
-.venv\Scripts\Activate.ps1
+Návod je pro **cmd** (příkazový řádek). `.venv\Scripts\python.exe` je Python
+z virtuálního prostředí — použít ho přímo je jednodušší než venv aktivovat.
 
-# 2) nainstalovat knihovny (stačí jednou, nebo když přibude nová)
-pip install -r requirements.txt
-
-# 3) vyplnit reálné údaje v config.py
-
-# 4) spustit
-python main.py
 ```
+:: přepnout se do složky projektu (i mezi disky, díky /d)
+cd /d E:\Claudi\Home_asistant
+
+:: knihovny stačí nainstalovat jednou (nebo když přibude nová)
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Pak podle toho, co chceš:
+
+```
+:: A) rychlý výpis stavu do konzole (nic neběží dál)
+.venv\Scripts\python.exe main.py
+
+:: B) webový dashboard — necháš běžet, otevřeš 127.0.0.1:5000 v prohlížeči
+.venv\Scripts\python.exe web.py
+
+:: C) sběrač měření — necháš běžet v samostatném okně, plní databázi
+.venv\Scripts\python.exe sber.py
+```
+
+Web (B) a sběrač (C) běží každý ve **svém okně** zároveň: sběrač zapisuje
+měření do `asistent.db`, web z ní čte. Obojí zastavíš `Ctrl+C`.
 
 Pokud `config.py` neexistuje (třeba po stažení z GitHubu), vyrob ho kopií šablony:
 
