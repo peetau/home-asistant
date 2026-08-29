@@ -10,6 +10,7 @@ import requests
 
 import config
 from devices.nanoleaf import get_nanoleaf_status
+from devices.solax import get_solax_status
 
 
 def vypis_nanoleaf():
@@ -38,14 +39,34 @@ def vypis_nanoleaf():
     print(f"  efekt: {stav['effect']}")
 
 
+def vypis_solax():
+    """Načte a vytiskne aktuální stav solární elektrárny."""
+    if "sem-patri" in config.SOLAX_WIFI_SN:
+        print("SolaX: v config.py chybí registrační číslo dongle")
+        return
+
+    # Stejná pojistka jako u Nanoleafu: čtení přes síť může selhat,
+    # jedno nedostupné zařízení nesmí shodit celý skript.
+    try:
+        stav = get_solax_status(config.SOLAX_DONGLE_IP, config.SOLAX_WIFI_SN)
+    except (OSError, ValueError, KeyError) as chyba:
+        print(f"SolaX: nepodařilo se přečíst stav ({chyba})")
+        return
+
+    print("SolaX (solární elektrárna):")
+    print(f"  výkon panelů: {stav['vykon_panelu']} W "
+          f"(string 1: {stav['mppt1']} W, string 2: {stav['mppt2']} W)")
+    print(f"  do sítě/domu: {stav['vykon_do_site']} W")
+    print(f"  frekvence:    {stav['frekvence']} Hz")
+
+
 def main():
     print("=== Domácí asistent ===")
     print()
 
     vypis_nanoleaf()
-
     print()
-    print("Další krok: Úkol B — čtení výkonu solárů ze SolaX.")
+    vypis_solax()
 
 
 # Tahle podmínka znamená: "spusť main() jen když se soubor spouští přímo,

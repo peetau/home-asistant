@@ -16,4 +16,5 @@ NANOLEAF_TOKEN = "sem-patri-token"  # token vygenerovaný podržením tlačítka
 
 # --- SolaX (cloudové API měniče) ---
 SOLAX_TOKEN = "sem-patri-token"   # token ze SolaX Cloud
+SOLAX_DONGLE_IP = "192.168.0.0"   # IP Wi-Fi dongle v domácí síti (u SolaXu se čte lokálně, ne z cloudu)
 SOLAX_WIFI_SN = "sem-patri-SN"    # sériové číslo Wi-Fi modulu měniče

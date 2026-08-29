@@ -12,7 +12,7 @@ Fáze 1 — čtení dat ze zařízení čistým Python skriptem.
 Zatím **bez webu a bez databáze**.
 
 - [x] Úkol A — čtení stavu Nanoleaf (lokální REST API)
-- [ ] Úkol B — čtení stavu SolaX (cloud API)
+- [x] Úkol B — čtení stavu SolaX (cloud API)
 
 ## Struktura
 
