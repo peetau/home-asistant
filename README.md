@@ -28,6 +28,8 @@ web.py              webový server (Flask) — spouští stránku v prohlížeč
 templates/
   dashboard.html    vzhled webové stránky (odděleně od logiky)
 main.py             vstupní bod konzolové verze
+sber.py             sběrač měření (plní databázi)
+database.py         práce s databází (SQLite)
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu

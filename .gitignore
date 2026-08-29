@@ -24,3 +24,8 @@ desktop.ini
 # asistent.db vzniká za běhu a plní se měřeními. Do Gitu nepatří:
 # je to lokální datový soubor, každý stroj si ho vytvoří sám.
 asistent.db
+
+# --- Osobní studijní poznámky ---
+# Zápisky z učení jsou soukromé, do veřejného repozitáře nepatří.
+# Soubory zůstávají na disku, jen je Git přestane sledovat.
+poznamky/
