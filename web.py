@@ -8,11 +8,10 @@ Spuštění (cmd):
     .venv\Scripts\python.exe web.py
 pak v prohlížeči:  127.0.0.1:5000
 
-Vzhled stránky je oddělený v souboru templates/dashboard.html (šablona).
-Tenhle soubor řeší jen LOGIKU: přečti zařízení a předej data šabloně.
+Vzhled je oddělený v templates/ - společnou kostru drží zaklad.html,
+jednotlivé stránky ji dědí. Tenhle soubor řeší jen LOGIKU:
+přečti data a předej je šabloně.
 """
-
-from datetime import datetime
 
 from functools import wraps
 
@@ -111,18 +110,39 @@ def _bezpecne(nacti):
         return None, str(chyba)
 
 
+def _stav_nanoleaf():
+    """Přečte Nanoleaf. Vrací (data, chyba) - jedno z toho je vždy None."""
+    return _bezpecne(
+        lambda: get_nanoleaf_status(config.NANOLEAF_IP, config.NANOLEAF_TOKEN))
+
+
+def _stav_solax():
+    """Přečte soláry. Vrací (data, chyba)."""
+    return _bezpecne(
+        lambda: get_solax_status(config.SOLAX_DONGLE_IP, config.SOLAX_WIFI_SN))
+
+
 @app.route("/")
 @vyzaduje_prihlaseni
 def dashboard():
-    # Přečteme obě zařízení. lambda je "funkce na jeden řádek bez jména" -
-    # tady jen zabalí volání s parametry, aby ho _bezpecne mohlo spustit.
-    nanoleaf, nanoleaf_chyba = _bezpecne(
-        lambda: get_nanoleaf_status(config.NANOLEAF_IP, config.NANOLEAF_TOKEN))
-    solax, solax_chyba = _bezpecne(
-        lambda: get_solax_status(config.SOLAX_DONGLE_IP, config.SOLAX_WIFI_SN))
+    """Přehled - od každého zařízení to nejdůležitější."""
+    nanoleaf, nanoleaf_chyba = _stav_nanoleaf()
+    solax, solax_chyba = _stav_solax()
 
-    # render_template vezme šablonu a doplní do ní pojmenovaná data.
-    # Co tady pošleme (nanoleaf=...), tím jménem se to v šabloně objeví.
+    return render_template(
+        "prehled.html", aktivni="prehled",
+        nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
+        solax=solax, solax_chyba=solax_chyba,
+        uzivatel=session.get("uzivatel"),
+    )
+
+
+@app.route("/solary")
+@vyzaduje_prihlaseni
+def solary():
+    """Detail solární elektrárny: aktuální stav, grafy, historie."""
+    solax, solax_chyba = _stav_solax()
+
     # Historie z databáze pro grafy. Sloupce řádku jsou v pořadí, v jakém
     # je vrací nacti_pro_graf(): 0=cas, 1=vykon_panelu, 2=denni_vyroba, 3=soc.
     #
@@ -140,12 +160,32 @@ def dashboard():
         jednotka="%", desetin=0)
 
     return render_template(
-        "dashboard.html",
-        nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
+        "solary.html", aktivni="solary",
         solax=solax, solax_chyba=solax_chyba,
         graf_vykon=graf_vykon, graf_baterie=graf_baterie,
         historie=list(reversed(historie))[:20],   # tabulka: nejnovější nahoře
-        cas=datetime.now().strftime("%H:%M:%S"),
+        uzivatel=session.get("uzivatel"),
+    )
+
+
+@app.route("/nanoleaf")
+@vyzaduje_prihlaseni
+def nanoleaf():
+    """Detail Nanoleaf. Ovládání přibude ve Fázi 5."""
+    stav, chyba = _stav_nanoleaf()
+    return render_template(
+        "nanoleaf.html", aktivni="nanoleaf",
+        nanoleaf=stav, nanoleaf_chyba=chyba,
+        uzivatel=session.get("uzivatel"),
+    )
+
+
+@app.route("/nakup")
+@vyzaduje_prihlaseni
+def nakup():
+    """Nákupní seznam. Obsah přijde jako další krok."""
+    return render_template(
+        "nakup.html", aktivni="nakup",
         uzivatel=session.get("uzivatel"),
     )
 

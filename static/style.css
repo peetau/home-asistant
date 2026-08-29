@@ -203,3 +203,95 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .formular button:hover { background: #12833b; }
 
 header .cas a { color: var(--text-slaby); }
+
+/* ==================== Navigace mezi zařízeními ==================== */
+
+/*
+  VÝCHOZÍ STAV = POČÍTAČ: vodorovné taby pod hlavičkou.
+  Pravidla pro mobil přijdou níž v @media - píše se to v tomhle pořadí,
+  protože specifičtější pravidlo musí přebít obecnější.
+*/
+.taby {
+    display: flex;
+    gap: .3rem;
+    margin-bottom: 1.2rem;
+    border-bottom: 1px solid #dfe5ea;
+}
+
+.taby a {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .6rem .9rem;
+    text-decoration: none;
+    color: var(--text-slaby);
+    font-weight: 600;
+    font-size: .95rem;
+    border-radius: 8px 8px 0 0;
+    /* Průhledný okraj drží výšku i u neaktivních tabů, aby se stránka
+       při přepnutí nepatrně neposkočila. */
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.taby a:hover { background: #f3f6f8; color: var(--text); }
+
+.taby a.aktivni {
+    color: var(--zelena);
+    border-bottom-color: var(--zelena);
+}
+
+main { min-height: 40vh; }
+
+.odkaz-detail { margin: 1rem 0 0; font-size: .9rem; }
+.odkaz-detail a { color: var(--zelena); text-decoration: none; font-weight: 600; }
+.odkaz-detail a:hover { text-decoration: underline; }
+
+
+/* ==================== Mobil: lišta dole u palce ==================== */
+
+/*
+  @media je "podmínka pro CSS": pravidla uvnitř platí jen tehdy, když
+  podmínka sedí. Tady: obrazovka užší než 640 px, tedy telefon.
+
+  Proč lišta dole? Nákupní seznam se používá v obchodě jednou rukou -
+  palec dosáhne dolů, ne nahoru přes celý displej.
+*/
+@media (max-width: 640px) {
+
+    /* Lišta se přilepí ke spodku okna a zůstane tam i při rolování. */
+    .taby {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: 0;
+        background: var(--karta);
+        border-top: 1px solid #dfe5ea;
+        border-bottom: none;
+        /* Odsazení pro gesto/lištu na iPhonech s "bradou" */
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        box-shadow: 0 -1px 6px rgba(0,0,0,.06);
+        z-index: 10;
+    }
+
+    /* Čtyři stejně široké dlaždice, ikona nad textem. */
+    .taby a {
+        flex: 1;
+        flex-direction: column;
+        gap: .15rem;
+        padding: .55rem .2rem;
+        border-radius: 0;
+        border-bottom: none;
+        border-top: 2px solid transparent;
+        margin-bottom: 0;
+        font-size: .7rem;
+    }
+    .taby a.aktivni { border-top-color: var(--zelena); background: transparent; }
+
+    .tab-ikona { font-size: 1.25rem; line-height: 1; }
+
+    /* Aby fixní lišta nezakrývala konec stránky. */
+    body { padding-bottom: 5rem; }
+
+    header h1 { font-size: 1.25rem; }
+}

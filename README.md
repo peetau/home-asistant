@@ -28,7 +28,13 @@ devices/
   solax.py          čtení stavu solární elektrárny
 web.py              webový server (Flask) — spouští stránku v prohlížeči
 templates/
-  dashboard.html    vzhled webové stránky (odděleně od logiky)
+  zaklad.html       společná kostra všech stránek (hlavička, navigace)
+  makra.html        znovupoužitelné kousky (graf, tabulka)
+  prehled.html      tab Přehled
+  solary.html       tab Soláry
+  nanoleaf.html     tab Nanoleaf
+  nakup.html        tab Nákup
+  prihlaseni.html   přihlašovací stránka
 main.py             vstupní bod konzolové verze
 sber.py             sběrač měření (plní databázi)
 database.py         práce s databází (SQLite)

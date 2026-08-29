@@ -1,0 +1,75 @@
+{% extends "zaklad.html" %}
+
+{# import = "půjč mi makra z jiného souboru". Stejný princip jako
+   import v Pythonu, jen pro kusy HTML. #}
+{% from "makra.html" import nakresli_graf, tabulka_mereni %}
+
+{% block titulek %}Soláry — Domácí asistent{% endblock %}
+
+{% block hlava_navic %}
+    <meta http-equiv="refresh" content="30">
+{% endblock %}
+
+{% block obsah %}
+
+    {# ---------- Aktuální stav ---------- #}
+    <div class="karta">
+        <h2>☀️ Aktuální stav</h2>
+        {% if solax %}
+            <div class="hero">
+                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
+                <span class="jednotka">kW právě vyrábí</span>
+            </div>
+
+            <div class="dlazdice">
+                <div class="polozka">
+                    <div class="popisek">Dnešní výroba</div>
+                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Do sítě / domu</div>
+                    <div class="hodnota">{{ solax.vykon_do_site }} W</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Baterie</div>
+                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
+                    <div class="baterie-pruh">
+                        <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
+                    </div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Frekvence sítě</div>
+                    <div class="hodnota">{{ solax.frekvence }} Hz</div>
+                </div>
+            </div>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
+        {% endif %}
+    </div>
+
+    {# ---------- Rozdělení výroby mezi řetězce panelů ---------- #}
+    {% if solax %}
+    <div class="karta">
+        <h2>Řetězce panelů</h2>
+        <div class="dlazdice">
+            <div class="polozka">
+                <div class="popisek">String 1</div>
+                <div class="hodnota">{{ solax.mppt1 }} W</div>
+            </div>
+            <div class="polozka">
+                <div class="popisek">String 2</div>
+                <div class="hodnota">{{ solax.mppt2 }} W</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ---------- Grafy z historie ---------- #}
+    {{ nakresli_graf(graf_vykon, "📈 Výkon panelů za 24 h", "aktuálně") }}
+    {{ nakresli_graf(graf_baterie, "🔋 Nabití baterie za 24 h", "aktuálně") }}
+
+    {{ tabulka_mereni(historie) }}
+
+{% endblock %}
+
+{% block paticka %}Data sbírá <code>sber.py</code> každých 5 minut.{% endblock %}

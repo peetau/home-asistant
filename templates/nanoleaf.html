@@ -1,0 +1,45 @@
+{% extends "zaklad.html" %}
+
+{% block titulek %}Nanoleaf — Domácí asistent{% endblock %}
+
+{% block hlava_navic %}
+    <meta http-equiv="refresh" content="15">
+{% endblock %}
+
+{% block obsah %}
+
+    <div class="karta">
+        <h2>💡 Stav</h2>
+        {% if nanoleaf %}
+            <div class="stav-radek">
+                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
+                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
+            </div>
+            <div class="radek">
+                <span class="popisek">Zařízení</span>
+                <span class="hodnota">{{ nanoleaf.name }}</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Jas</span>
+                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Efekt</span>
+                <span class="hodnota">{{ nanoleaf.effect }}</span>
+            </div>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        {% endif %}
+    </div>
+
+    {# Ovládání přijde ve Fázi 5. Zatím jen čteme stav - zápis do zařízení
+       je jiná liga: musí se ošetřit, co když příkaz selže napůl. #}
+    <div class="karta">
+        <h2>🎛️ Ovládání</h2>
+        <p class="prazdno">
+            Zapínání, jas a výběr efektu přibude ve Fázi 5.
+            Zatím stav jen čteme.
+        </p>
+    </div>
+
+{% endblock %}

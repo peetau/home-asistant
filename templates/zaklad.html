@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {# Titulek stránky. {% block %} je "díra", kterou si každá konkrétní     #}
+    {# stránka vyplní po svém. Text mezi block a endblock je výchozí hodnota #}
+    {# pro případ, že si ji stránka nevyplní.                                #}
+    <title>{% block titulek %}Domácí asistent{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    {# Stránky, které chtějí automatické obnovování, si tuhle díru vyplní. #}
+    {% block hlava_navic %}{% endblock %}
+</head>
+<body>
+<div class="obal">
+
+    <header>
+        <h1>🏠 Domácí asistent</h1>
+        <span class="cas">
+            {{ uzivatel }} · <a href="{{ url_for('odhlaseni') }}">odhlásit</a>
+        </span>
+    </header>
+
+    {# ---------- Navigace mezi zařízeními ---------- #}
+    {#
+       Tahle jedna navigace platí pro všechny stránky - to je hlavní důvod,
+       proč základní šablona vznikla. Přidat tab znamená upravit JEDEN soubor.
+
+       Aktivní tab poznáme podle proměnné 'aktivni', kterou každá stránka
+       pošle z Pythonu. Podle ní přidáme třídu, kterou CSS zvýrazní.
+
+       request.endpoint by fungoval taky, ale explicitní proměnná je čitelnější
+       a nesváže šablonu s tím, jak se zrovna jmenují funkce v Pythonu.
+    #}
+    <nav class="taby">
+        <a href="{{ url_for('dashboard') }}"
+           class="{{ 'aktivni' if aktivni == 'prehled' }}">
+            <span class="tab-ikona">📊</span><span class="tab-text">Přehled</span>
+        </a>
+        <a href="{{ url_for('solary') }}"
+           class="{{ 'aktivni' if aktivni == 'solary' }}">
+            <span class="tab-ikona">☀️</span><span class="tab-text">Soláry</span>
+        </a>
+        <a href="{{ url_for('nanoleaf') }}"
+           class="{{ 'aktivni' if aktivni == 'nanoleaf' }}">
+            <span class="tab-ikona">💡</span><span class="tab-text">Nanoleaf</span>
+        </a>
+        <a href="{{ url_for('nakup') }}"
+           class="{{ 'aktivni' if aktivni == 'nakup' }}">
+            <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
+        </a>
+    </nav>
+
+    {# ---------- Obsah konkrétní stránky ---------- #}
+    <main>
+        {% block obsah %}{% endblock %}
+    </main>
+
+    <footer>{% block paticka %}{% endblock %}</footer>
+
+</div>
+</body>
+</html>
