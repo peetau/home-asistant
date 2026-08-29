@@ -19,3 +19,8 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# --- Databáze (data, ne kód) ---
+# asistent.db vzniká za běhu a plní se měřeními. Do Gitu nepatří:
+# je to lokální datový soubor, každý stroj si ho vytvoří sám.
+asistent.db
