@@ -1,0 +1,21 @@
+# --- Tajné údaje (tokeny, hesla, IP adresy) ---
+# Tenhle řádek je nejdůležitější v celém souboru.
+# config.py obsahuje reálné tokeny -> NIKDY se nesmí dostat do Gitu.
+config.py
+.env
+
+# --- Virtuální prostředí ---
+# Nainstalované knihovny se do Gitu nedávají, kdokoliv si je obnoví
+# z requirements.txt příkazem: pip install -r requirements.txt
+.venv/
+venv/
+
+# --- Smetí, které vyrábí Python sám ---
+__pycache__/
+*.pyc
+
+# --- Smetí, které vyrábí Windows / editor ---
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

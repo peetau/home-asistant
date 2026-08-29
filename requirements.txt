@@ -1,0 +1,6 @@
+# Knihovny, které projekt potřebuje.
+# Instalace: pip install -r requirements.txt
+#
+# requests = knihovna pro posílání HTTP dotazů (to, co dělá prohlížeč,
+# když načítá stránku — jen z Pythonu a bez zobrazování).
+requests
