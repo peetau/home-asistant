@@ -11,6 +11,11 @@ Ukládáme sem měření ze solární elektrárny, ať máme HISTORII v čase
 import os
 import sqlite3
 
+# Funkce na bezpečnou práci s hesly. Werkzeug přišel automaticky s Flaskem,
+# takže se nic neinstaluje. Sami si hashování NIKDY nepíšeme - je to oblast,
+# kde se snadno udělá chyba s vážnými následky, a tyhle funkce ji řeší správně.
+from werkzeug.security import generate_password_hash, check_password_hash
+
 # Cesta k souboru databáze. Skládáme ji z místa, kde leží tenhle .py soubor,
 # aby databáze vždy vznikla ve složce projektu - ať skript spustíš odkudkoliv.
 DB_SOUBOR = os.path.join(os.path.dirname(__file__), "asistent.db")
@@ -47,7 +52,82 @@ def init_db():
                 baterie_soc   INTEGER
             )
         """)
+
+        # Tabulka uživatelů (rodinné účty).
+        #
+        # POZOR na sloupec heslo_hash: ukládáme HASH, nikdy samotné heslo.
+        # Hash je výsledek jednosměrné funkce - z hesla ho spočítáš snadno,
+        # ale z hashe heslo zpátky nedostaneš. Kdyby někdo databázi ukradl,
+        # hesla rodiny nezíská.
+        #
+        # UNIQUE u jména znamená, že databáze sama odmítne druhého uživatele
+        # se stejným jménem - nemusíme to hlídat v Pythonu.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS uzivatele (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                jmeno       TEXT    NOT NULL UNIQUE,
+                heslo_hash  TEXT    NOT NULL,
+                vytvoren    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
+
+
+def vytvor_uzivatele(jmeno, heslo):
+    """
+    Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
+
+    Vrací True když se povedlo, False když jméno už existuje.
+    """
+    # generate_password_hash dělá tři důležité věci naráz:
+    #  1) zahashuje heslo jednosměrnou funkcí
+    #  2) přidá "sůl" - náhodnou přísadu, takže dva lidé se stejným heslem
+    #     mají různý hash (jinak by šlo poznat, kdo má stejné heslo)
+    #  3) je schválně POMALÁ, aby útočník nemohl zkoušet miliony hesel za sekundu
+    hash_hesla = generate_password_hash(heslo)
+
+    try:
+        with _spojeni() as db:
+            db.execute(
+                "INSERT INTO uzivatele (jmeno, heslo_hash) VALUES (?, ?)",
+                (jmeno, hash_hesla),
+            )
+        return True
+    except sqlite3.IntegrityError:
+        # Sem se dostaneme, když jméno porušilo pravidlo UNIQUE.
+        return False
+
+
+def over_uzivatele(jmeno, heslo):
+    """
+    Ověří přihlašovací údaje.
+
+    Vrací slovník {"id": ..., "jmeno": ...} když sedí, jinak None.
+
+    Všimni si, že heslo NEHLEDÁME v databázi. Vytáhneme uloženy hash
+    a necháme check_password_hash spočítat, jestli k němu zadané heslo
+    pasuje. Databáze původní heslo nezná a znát nemá.
+    """
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT id, jmeno, heslo_hash FROM uzivatele WHERE jmeno = ?",
+            (jmeno,),
+        ).fetchone()
+
+    if radek is None:
+        return None
+
+    id_uzivatele, jmeno_z_db, hash_z_db = radek
+    if check_password_hash(hash_z_db, heslo):
+        return {"id": id_uzivatele, "jmeno": jmeno_z_db}
+    return None
+
+
+def seznam_uzivatelu():
+    """Vrátí jména všech založených uživatelů (bez hesel, ta nikam nepatří)."""
+    with _spojeni() as db:
+        kurzor = db.execute("SELECT id, jmeno, vytvoren FROM uzivatele ORDER BY id")
+        return kurzor.fetchall()
 
 
 def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc):
