@@ -23,13 +23,24 @@ co přijde, dokud spojení samo neskončí.
 import socket
 import json
 
-# Mapa indexů v poli "Data". Odvozeno z reálných hodnot, ověřeno součtem
-# fázových výkonů (index 6+7+8 == index 9). Platí pro třífázový měnič (type 14).
+# Mapa indexů v poli "Data". Odvozeno z reálných hodnot, ověřeno dvěma způsoby:
+#  - fyzikou (fázová napětí ~230 V, frekvence 50 Hz, součet fází 6+7+8 == index 9)
+#  - sledováním v čase: denní hodnoty jen rostou a v daný okamžik sedí na to,
+#    co ukazuje SolaX aplikace (viz screenshot dashboardu).
+# Platí pro třífázový měnič (type 14).
 IDX_VYKON_FAZE = (6, 7, 8)     # výkon jednotlivých fází [W]
 IDX_VYKON_AC = 9              # celkový střídavý výkon do sítě/domu [W]
 IDX_VYKON_MPPT1 = 14          # výkon 1. řetězce panelů [W]
 IDX_VYKON_MPPT2 = 15          # výkon 2. řetězce panelů [W]
 IDX_FREKVENCE = 16           # frekvence sítě ×100 [Hz]
+IDX_DENNI_VYROBA = 82        # dnešní výroba panelů ×10 [kWh]
+IDX_BATERIE_SOC = 103        # nabití baterie [%]
+IDX_BATERIE_ZBYVA = 106      # energie zbývající v baterii ×10 [kWh]
+
+# Celoživotní výroba (na dashboardu "Total") v lokálních datech NENÍ.
+# Real-time endpoint dongle posílá jen okamžité a denní hodnoty; celkové
+# součty si SolaX drží v cloudu. Kdybychom je chtěli, museli bychom jít
+# přes SolaX Cloud API (jiná cesta, zatím ji nemáme rozchozenou).
 
 
 def _precti_syrova_data(ip, pwd):
@@ -84,10 +95,13 @@ def get_solax_status(ip, pwd):
             "mppt1": 3650,          # výkon 1. řetězce panelů [W]
             "mppt2": 2588,          # výkon 2. řetězce panelů [W]
             "frekvence": 50.04,     # frekvence sítě [Hz]
+            "denni_vyroba": 28.6,   # kolik panely vyrobily dnes [kWh]
+            "baterie_soc": 69,      # nabití baterie [%]
+            "baterie_zbyva": 7.9,   # energie zbývající v baterii [kWh]
         }
 
-    (Denní a celkovou výrobu zatím nečteme — jejich index v poli ještě
-     musíme ověřit porovnáním s hodnotou v SolaX aplikaci.)
+    (Celoživotní "Total" výrobu lokální API neposílá — viz poznámka
+     u konstant výše.)
     """
     d = _precti_syrova_data(ip, pwd)
     data = d["Data"]
@@ -101,4 +115,9 @@ def get_solax_status(ip, pwd):
         "mppt1": mppt1,
         "mppt2": mppt2,
         "frekvence": data[IDX_FREKVENCE] / 100,
+        # Dělíme deseti, protože SolaX ukládá kWh jako celé číslo ×10
+        # (286 v poli znamená 28,6 kWh). SOC je rovnou v procentech.
+        "denni_vyroba": data[IDX_DENNI_VYROBA] / 10,
+        "baterie_soc": data[IDX_BATERIE_SOC],
+        "baterie_zbyva": data[IDX_BATERIE_ZBYVA] / 10,
     }

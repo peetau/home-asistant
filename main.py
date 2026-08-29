@@ -54,10 +54,13 @@ def vypis_solax():
         return
 
     print("SolaX (solární elektrárna):")
-    print(f"  výkon panelů: {stav['vykon_panelu']} W "
+    print(f"  výkon panelů:  {stav['vykon_panelu']} W "
           f"(string 1: {stav['mppt1']} W, string 2: {stav['mppt2']} W)")
-    print(f"  do sítě/domu: {stav['vykon_do_site']} W")
-    print(f"  frekvence:    {stav['frekvence']} Hz")
+    print(f"  do sítě/domu:  {stav['vykon_do_site']} W")
+    print(f"  dnešní výroba: {stav['denni_vyroba']} kWh")
+    print(f"  baterie:       {stav['baterie_soc']} % "
+          f"({stav['baterie_zbyva']} kWh)")
+    print(f"  frekvence:     {stav['frekvence']} Hz")
 
 
 def main():
