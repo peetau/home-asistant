@@ -4,3 +4,8 @@
 # requests = knihovna pro posílání HTTP dotazů (to, co dělá prohlížeč,
 # když načítá stránku — jen z Pythonu a bez zobrazování).
 requests
+
+# flask = mikroframework pro tvorbu webových stránek v Pythonu.
+# "Mikro" znamená, že dělá jen to nutné (poslouchá požadavky, směruje je
+# na funkce) a nenutí ti spoustu struktury navíc jako větší frameworky.
+flask

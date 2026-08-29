@@ -8,7 +8,7 @@ Kompletní zadání a roadmapa: [`inputs/plan-domaci-asistent.md`](inputs/plan-d
 
 ## Aktuální fáze
 
-Fáze 1 — čtení dat ze zařízení čistým Python skriptem.
+Fáze 2 — webové rozhraní (Flask). Fáze 1 — čtení dat ze zařízení čistým Python skriptem.
 Zatím **bez webu a bez databáze**.
 
 - [x] Úkol A — čtení stavu Nanoleaf (lokální REST API)
