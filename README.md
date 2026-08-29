@@ -11,7 +11,7 @@ Kompletní zadání a roadmapa: [`inputs/plan-domaci-asistent.md`](inputs/plan-d
 Fáze 1 — čtení dat ze zařízení čistým Python skriptem.
 Zatím **bez webu a bez databáze**.
 
-- [ ] Úkol A — čtení stavu Nanoleaf (lokální REST API)
+- [x] Úkol A — čtení stavu Nanoleaf (lokální REST API)
 - [ ] Úkol B — čtení stavu SolaX (cloud API)
 
 ## Struktura
@@ -21,6 +21,7 @@ devices/
   nanoleaf.py       čtení stavu Nanoleaf panelů
   solax.py          čtení stavu solární elektrárny
 main.py             vstupní bod, tohle se spouští
+ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
 config.py           REÁLNÉ tokeny — není v Gitu!
 config.example.py   šablona configu — je v Gitu
 requirements.txt    seznam potřebných knihoven
