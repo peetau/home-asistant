@@ -9,3 +9,14 @@ requests
 # "Mikro" znamená, že dělá jen to nutné (poslouchá požadavky, směruje je
 # na funkce) a nenutí ti spoustu struktury navíc jako větší frameworky.
 flask
+
+# gunicorn = aplikační server pro produkci.
+#
+# Flask má vlastní vestavěný server, ale ten je jen na vývoj - zvládne
+# jednoho člověka a při chybě vypisuje vnitřnosti aplikace (proto to
+# varování "development server" při spuštění).
+#
+# Gunicorn umí obsloužit víc lidí naráz a je stavěný na trvalý provoz.
+# Na Windows nefunguje a není tam potřeba - doma se pořád spouští
+# python web.py. Instaluje se až na serveru.
+gunicorn; sys_platform != "win32"

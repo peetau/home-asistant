@@ -247,13 +247,29 @@ def vytvor_uzivatele(jmeno, heslo, prava=None):
 
     try:
         with _spojeni() as db:
+            # ÚPLNĚ PRVNÍ účet dostane všechna práva, ať se zadá cokoliv.
+            #
+            # Bez tohohle by na čerstvé databázi (třeba na novém serveru)
+            # vznikl první uživatel jen s právem na nákup - a protože by
+            # nikdo neměl Správu, nešlo by ji nikomu přidělit. Zamčeno
+            # zvenku hned při prvním spuštění.
+            prvni = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] == 0
+
             kurzor = db.execute(
                 "INSERT INTO uzivatele (jmeno, heslo_hash) VALUES (?, ?)",
                 (jmeno, hash_hesla),
             )
+
+            if prvni:
+                udelit = VSECHNY_TABY
+            elif prava is not None:
+                udelit = prava
+            else:
+                udelit = VYCHOZI_PRAVA
+
             # lastrowid = id právě vloženého řádku. Potřebujeme ho hned,
-            # abychom novému účtu rovnou udělili výchozí práva.
-            for tab in prava if prava is not None else VYCHOZI_PRAVA:
+            # abychom novému účtu rovnou udělili práva.
+            for tab in udelit:
                 if tab in VSECHNY_TABY:
                     db.execute(
                         "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",

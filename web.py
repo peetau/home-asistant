@@ -13,9 +13,11 @@ jednotlivé stránky ji dědí. Tenhle soubor řeší jen LOGIKU:
 přečti data a předej je šabloně.
 """
 
+import os
 from functools import wraps
 
 from flask import Flask, render_template, request, redirect, url_for, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
 import database
@@ -23,12 +25,52 @@ import graf
 from devices.nanoleaf import get_nanoleaf_status
 from devices.solax import get_solax_status
 
+# Běžíme na serveru, nebo doma při vývoji?
+#
+# Ten samý kód se chová na dvou místech trochu jinak. Rozhoduje o tom
+# proměnná prostředí - nastavení, které kód dostane zvenku od systému,
+# místo aby ho měl napsané v sobě. Na serveru ji nastaví systemd,
+# doma není nastavená vůbec, takže tam vyjde False.
+PRODUKCE = os.environ.get("ASISTENT_PRODUKCE") == "1"
+
 app = Flask(__name__)
 
 # Tajný klíč, kterým Flask PODEPISUJE přihlašovací cookie. Bez něj by
 # session vůbec nefungovala. Obsah cookie je čitelný, ale díky podpisu
 # ho uživatel nemůže změnit, aniž by to server nepoznal.
 app.secret_key = config.SECRET_KEY
+
+# --- Zabezpečení přihlašovací cookie ---
+app.config.update(
+    # Cookie se nesmí odeslat po nešifrovaném spojení. Bez toho by ji
+    # šlo na cizí Wi-Fi odposlechnout a přihlásit se jako někdo jiný.
+    # Doma to musí zůstat vypnuté, jinak by se přes http:// nedalo
+    # přihlásit vůbec.
+    SESSION_COOKIE_SECURE=PRODUKCE,
+
+    # JavaScript na stránce se k cookie nedostane. Kdyby se někdy povedlo
+    # propašovat na web cizí skript, přihlášení rodiny mu zůstane skryté.
+    SESSION_COOKIE_HTTPONLY=True,
+
+    # Cookie se nepošle, když na náš web někdo odkáže z cizí stránky
+    # formulářem. Ochrana proti tomu, aby tě podvržený odkaz odhlásil
+    # nebo něco provedl tvým jménem.
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+
+if PRODUKCE:
+    # Na serveru stojí před aplikací Caddy (reverzní proxy). Aplikace by
+    # tedy každý požadavek viděla jako "HTTP z adresy 127.0.0.1" - Caddy
+    # je totiž její jediný soused.
+    #
+    # ProxyFix ji naučí číst hlavičky, které Caddy přidává: skutečnou
+    # adresu návštěvníka a to, že spojení bylo HTTPS. Bez toho by
+    # url_for() skládal odkazy s http:// a cookie s příznakem Secure
+    # by se nikdy neodeslala.
+    #
+    # x_for/x_proto=1 znamená "věř přesně jedné proxy před sebou" -
+    # tolik jich tam je. Vyšší číslo by dovolilo hlavičky podvrhnout.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Lidské názvy tabů pro Správu. Klíče musí sedět na database.VSECHNY_TABY.
 POPISY_TABU = {

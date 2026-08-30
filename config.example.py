@@ -22,4 +22,8 @@ SOLAX_WIFI_SN = "sem-patri-SN"    # sériové číslo Wi-Fi modulu měniče
 # --- Podpisovy klic pro prihlasovaci cookie (Flask session) ---
 # Vygeneruj si vlastni nahodny:
 #     python -c "import secrets; print(secrets.token_hex(32))"
+#
+# POZOR: kazde nasazeni ma SVUJ vlastni klic. Vyvojovy klic se na server
+# NEKOPIRUJE - kdyby jeden z pocitacu nekdo ziskal, mohl by si podvrhnout
+# prihlaseni i na tom druhem. Na serveru si vygeneruj novy.
 SECRET_KEY = "sem-patri-nahodny-retezec"
