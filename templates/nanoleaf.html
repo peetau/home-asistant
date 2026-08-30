@@ -2,44 +2,295 @@
 
 {% block titulek %}Nanoleaf — Domácí asistent{% endblock %}
 
-{% block hlava_navic %}
-    <meta http-equiv="refresh" content="15">
-{% endblock %}
-
 {% block obsah %}
 
-    <div class="karta">
-        <h2>💡 Stav</h2>
+<div class="karta zarizeni">
+
+    {# ---------- Hlavička: tečka, název, vypínač ---------- #}
+    <div class="zarizeni-hlava">
+        {# Tečka má tři stavy:
+             zelená = svítí
+             šedá   = nesvítí
+             červená = zařízení neodpovídá
+           Barva sama o sobě není dost - kdo barvy nerozliší, potřebuje
+           i text. Proto je vedle vždy popisek. #}
+        <span class="stavova-tecka
+            {% if not nanoleaf %}chyba{% elif nanoleaf.on %}sviti{% else %}zhasnuto{% endif %}">
+        </span>
+
+        <div class="zarizeni-nazev">
+            <strong>{{ nanoleaf.name if nanoleaf else "Nanoleaf" }}</strong>
+            <span class="zarizeni-stav">
+                {% if not nanoleaf %}nedostupné
+                {% elif nanoleaf.on %}svítí
+                {% else %}zhasnuto{% endif %}
+            </span>
+        </div>
+
         {% if nanoleaf %}
-            <div class="stav-radek">
-                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
-                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
-            </div>
-            <div class="radek">
-                <span class="popisek">Zařízení</span>
-                <span class="hodnota">{{ nanoleaf.name }}</span>
-            </div>
-            <div class="radek">
-                <span class="popisek">Jas</span>
-                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
-            </div>
-            <div class="radek">
-                <span class="popisek">Efekt</span>
-                <span class="hodnota">{{ nanoleaf.effect }}</span>
-            </div>
-        {% else %}
-            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        <form method="post" action="{{ url_for('nanoleaf_prepnout') }}"
+              id="form-prepnout">
+            <button type="submit" class="vypinac {{ 'sviti' if nanoleaf.on }}">
+                {{ "Vypnout" if nanoleaf.on else "Zapnout" }}
+            </button>
+        </form>
         {% endif %}
     </div>
 
-    {# Ovládání přijde ve Fázi 5. Zatím jen čteme stav - zápis do zařízení
-       je jiná liga: musí se ošetřit, co když příkaz selže napůl. #}
-    <div class="karta">
-        <h2>🎛️ Ovládání</h2>
-        <p class="prazdno">
-            Zapínání, jas a výběr efektu přibude ve Fázi 5.
-            Zatím stav jen čteme.
-        </p>
+    {% if not nanoleaf %}
+        <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+    {% else %}
+
+    {# ---------- Rozložení panelů ---------- #}
+    {#
+       Kreslíme podle skutečných pozic ze zařízení. Panely mění průhlednost
+       podle jasu, takže obrázek odpovídá tomu, co vidíš na zdi.
+    #}
+    <p class="nahled-hlaska" id="nahled-hlaska" hidden></p>
+
+    <div class="rozlozeni">
+        <svg viewBox="0 0 {{ nanoleaf.rozlozeni.sirka }} {{ nanoleaf.rozlozeni.vyska }}"
+             role="img"
+             aria-label="Rozložení {{ nanoleaf.rozlozeni.tvary|length }} panelů na zdi">
+            {# Jemná záře pod svítícími panely - obrázek pak působí,
+               že opravdu svítí, ne že je to jen barevná plocha. #}
+            <defs>
+                <filter id="zare" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="9" result="rozmazane"/>
+                    <feMerge>
+                        <feMergeNode in="rozmazane"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </defs>
+
+            <g {% if nanoleaf.on %}filter="url(#zare)"{% endif %}>
+            {% for tvar in nanoleaf.rozlozeni.tvary %}
+                {% if tvar.druh == 'panel' %}
+                    <polygon points="{{ tvar.body }}"
+                             class="tvar panel {{ 'sviti' if nanoleaf.on }}"
+                             {% if nanoleaf.on %}
+                             style="opacity: {{ 0.25 + 0.75 * nanoleaf.brightness / 100 }}"
+                             {% endif %}/>
+                {% endif %}
+            {% endfor %}
+            </g>
+
+            {# ---------- Řídicí jednotka = druhý vypínač ---------- #}
+            {#
+               role a tabindex z ní dělají tlačítko i pro klávesnici
+               a čtečky obrazovky - jinak by to byla jen kresba.
+            #}
+            {% for tvar in nanoleaf.rozlozeni.tvary %}
+                {% if tvar.druh == 'ovladac' %}
+                <g id="ovladac-vypinac" class="ovladac {{ 'sviti' if nanoleaf.on }}"
+                   role="button" tabindex="0"
+                   aria-label="{{ 'Vypnout' if nanoleaf.on else 'Zapnout' }} panely">
+                    <title>{{ "Vypnout" if nanoleaf.on else "Zapnout" }} panely</title>
+
+                    <rect x="{{ tvar.x }}" y="{{ tvar.y }}"
+                          width="{{ tvar.strana }}" height="{{ tvar.strana }}"
+                          rx="{{ (tvar.strana / 3.5)|round|int }}"
+                          class="ovladac-telo"/>
+
+                    {# Symbol zapnutí: oblouk s čárkou nahoře. Kreslený
+                       rovnou v SVG, aby se dal obarvit podle stavu. #}
+                    <g class="ovladac-ikona"
+                       transform="translate({{ tvar.x + tvar.strana / 2 }},
+                                            {{ tvar.y + tvar.strana / 2 }})">
+                        <path d="M -8 -4 A 11 11 0 1 0 8 -4"/>
+                        <line x1="0" y1="-13" x2="0" y2="-1"/>
+                    </g>
+                </g>
+                {% endif %}
+            {% endfor %}
+        </svg>
     </div>
 
+    {# ---------- Jas ---------- #}
+    <div class="ovladac-blok">
+        <div class="ovladac-hlava">
+            <span>Jas</span>
+            <strong id="jas-hodnota">{{ nanoleaf.brightness }} %</strong>
+        </div>
+
+        <form method="post" action="{{ url_for('nanoleaf_jas') }}"
+              id="form-jas" class="jas-form">
+            <input type="range" name="jas" min="0" max="100" step="1"
+                   value="{{ nanoleaf.brightness }}" class="jas-bar">
+            {# Tlačítko je pro případ, že nejede JavaScript. Když jede,
+               skript ho schová a formulář odešle sám po puštění posuvníku. #}
+            <button type="submit" class="jas-potvrdit">Nastavit</button>
+        </form>
+    </div>
+
+    {# ---------- Efekty ---------- #}
+    <div class="ovladac-blok">
+        <div class="ovladac-hlava">
+            <span>Efekt</span>
+            <strong>{{ nanoleaf.effect }}</strong>
+        </div>
+
+        <form method="post" action="{{ url_for('nanoleaf_efekt') }}"
+              id="form-efekt" class="efekt-form">
+            <select name="efekt" class="efekt-vyber">
+                {% for e in nanoleaf.efekty %}
+                    <option value="{{ e }}" {{ "selected" if e == nanoleaf.effect }}>
+                        {{ e }}</option>
+                {% endfor %}
+            </select>
+            {# Jas se posílá spolu s efektem - v režimu návrhu se totiž
+               do panelů samostatně neodesílá. Vyplní ho JavaScript
+               těsně před odesláním. #}
+            <input type="hidden" name="jas" id="efekt-jas">
+            <button type="submit" class="efekt-potvrdit">Potvrdit</button>
+            {# Reset = prosté znovunačtení stránky. Výběr se tím vrátí
+               na efekt, který na panelech opravdu běží. #}
+            <a href="{{ url_for('nanoleaf') }}" class="efekt-reset"
+               title="Vrátit na aktuální efekt">Zpět</a>
+        </form>
+    </div>
+
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block paticka %}
+<script>
+(function () {
+    var panely = Array.prototype.slice.call(
+        document.querySelectorAll("polygon.panel"));
+    var vyber = document.querySelector(".efekt-vyber");
+    var formJas = document.getElementById("form-jas");
+    var formEfekt = document.getElementById("form-efekt");
+    var hlaska = document.getElementById("nahled-hlaska");
+    var popisekJasu = document.getElementById("jas-hodnota");
+    var posuvnik = formJas ? formJas.querySelector("input[type=range]") : null;
+
+    if (!panely.length || !vyber || !posuvnik) return;
+
+    // Skutečný stav panelů, jak přišel ze serveru
+    var realnyEfekt = vyber.value;
+    var realnyJas = Number(posuvnik.value);
+    var sviti = panely[0].classList.contains("sviti");
+
+    var casovac = null;
+    var pamet = {};        // stažené palety, ať se neptáme dvakrát
+
+    // REŽIM NÁVRHU = je vybraný jiný efekt, než na panelech opravdu běží.
+    // V něm se do zařízení neposílá NIC - ani efekt, ani jas. Až Potvrdit.
+    function vNavrhu() { return vyber.value !== realnyEfekt; }
+
+    function nastavKryti(jas) {
+        var kryti = 0.25 + 0.75 * jas / 100;
+        panely.forEach(function (p) {
+            if (p.classList.contains("sviti")) p.style.opacity = kryti;
+        });
+    }
+
+    function animuj(barvy) {
+        if (casovac) { clearInterval(casovac); casovac = null; }
+        if (!barvy || !barvy.length) {
+            panely.forEach(function (p) { p.style.fill = ""; });
+            return;
+        }
+        var krok = 0;
+        function prekresli() {
+            panely.forEach(function (panel, i) {
+                // Posun o krok vyvolá dojem, že barvy putují sestavou.
+                // Dělitel 2 u indexu zpomalí vlnu - sousední panely se pak
+                // střídají po dvojicích a vypadá to klidněji než pruh.
+                panel.style.fill =
+                    barvy[(Math.floor(i / 2) + krok) % barvy.length];
+            });
+            krok++;
+        }
+        prekresli();
+        // Interval je delší než přechod barvy v CSS (1,1 s), takže se barvy
+        // stihnou plynule prolnout a nikde to neškube.
+        casovac = setInterval(prekresli, 1600);
+    }
+
+    function zobrazEfekt(nazev) {
+        if (pamet[nazev]) { animuj(pamet[nazev]); return; }
+        fetch("/nanoleaf/paleta?efekt=" + encodeURIComponent(nazev))
+            .then(function (o) { return o.json(); })
+            .then(function (data) {
+                if (data.barvy) { pamet[nazev] = data.barvy; animuj(data.barvy); }
+            })
+            .catch(function () { animuj(null); });
+    }
+
+    function prekresliHlasku() {
+        if (!hlaska) return;
+        hlaska.hidden = !vNavrhu();
+        if (vNavrhu()) {
+            hlaska.textContent = "Návrh: " + vyber.value + ", jas " +
+                posuvnik.value + " % — do panelů se zatím nic neposlalo.";
+        }
+    }
+
+    // ---------- Výběr efektu ----------
+    vyber.addEventListener("change", function () {
+        if (!vNavrhu()) {
+            // Vrátili jsme se na skutečný efekt -> i jas zpátky na skutečný
+            posuvnik.value = realnyJas;
+            if (popisekJasu) popisekJasu.textContent = realnyJas + " %";
+            nastavKryti(realnyJas);
+        }
+        zobrazEfekt(vyber.value);
+        prekresliHlasku();
+    });
+
+    // ---------- Jas ----------
+    // Obrázek reaguje průběžně vždycky. Do panelů se pošle jen tehdy,
+    // když NEJSME v návrhu - jinak se to schová na Potvrdit.
+    posuvnik.addEventListener("input", function () {
+        if (popisekJasu) popisekJasu.textContent = posuvnik.value + " %";
+        nastavKryti(Number(posuvnik.value));
+        prekresliHlasku();
+    });
+
+    posuvnik.addEventListener("change", function () {
+        if (vNavrhu()) return;      // v návrhu se neposílá
+        realnyJas = Number(posuvnik.value);
+        fetch(formJas.action, {
+            method: "POST",
+            body: new FormData(formJas),
+            headers: { "X-Pozadavek": "fetch" }
+        }).catch(function () {});
+    });
+
+    var tlacitkoJas = formJas.querySelector("button");
+    if (tlacitkoJas) tlacitkoJas.hidden = true;
+
+    // ---------- Potvrzení návrhu ----------
+    // Do skrytého pole doplníme jas, aby se odeslal spolu s efektem.
+    if (formEfekt) {
+        formEfekt.addEventListener("submit", function () {
+            document.getElementById("efekt-jas").value = posuvnik.value;
+        });
+    }
+
+    // ---------- Řídicí jednotka jako vypínač ----------
+    // Klik do čtverečku v obrázku udělá totéž co tlačítko nahoře.
+    // Tlačítko zůstává - je to záloha, když nejede JavaScript.
+    var ctverecek = document.getElementById("ovladac-vypinac");
+    var formPrepnout = document.getElementById("form-prepnout");
+    if (ctverecek && formPrepnout) {
+        ctverecek.addEventListener("click", function () { formPrepnout.submit(); });
+        // Klávesnice: Enter i mezerník, jak je u tlačítek zvykem
+        ctverecek.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                formPrepnout.submit();
+            }
+        });
+    }
+
+    // Po načtení ukázat, co na panelech opravdu běží (když svítí).
+    if (sviti) zobrazEfekt(realnyEfekt);
+})();
+</script>
 {% endblock %}

@@ -16,13 +16,16 @@ přečti data a předej je šabloně.
 import os
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, session, g
+from flask import (Flask, render_template, request, redirect, url_for,
+                   session, g, jsonify)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
 import database
 import graf
-from devices.nanoleaf import get_nanoleaf_status
+from devices.nanoleaf import (get_nanoleaf_status, get_nanoleaf_detail,
+                             set_nanoleaf_on, set_nanoleaf_brightness,
+                             set_nanoleaf_effect, get_nanoleaf_paleta)
 from devices.solax import get_solax_status
 
 # Běžíme na serveru, nebo doma při vývoji?
@@ -304,12 +307,116 @@ def solary():
 @app.route("/nanoleaf")
 @vyzaduje_pravo("nanoleaf")
 def nanoleaf():
-    """Detail Nanoleaf. Ovládání přibude ve Fázi 5."""
-    stav, chyba = _stav_nanoleaf()
+    """Detail Nanoleaf: stav, rozložení panelů, ovládání."""
+    stav, chyba = _bezpecne(lambda: get_nanoleaf_detail(
+        config.NANOLEAF_IP, config.NANOLEAF_TOKEN))
     return render_template(
         "nanoleaf.html", aktivni="nanoleaf",
         nanoleaf=stav, nanoleaf_chyba=chyba,
     )
+
+
+# ---------------------------------------------------------------------------
+# Ovládání Nanoleaf.
+#
+# Zápis do zařízení je POST + redirect, stejně jako u nákupu: GET musí
+# zůstat bezpečný. Kdyby zhasnutí světla bylo obyčejný odkaz, stačilo by,
+# aby ho prohlížeč načetl na pozadí, a světlo by zhaslo samo od sebe.
+# ---------------------------------------------------------------------------
+
+@app.route("/nanoleaf/prepnout", methods=["POST"])
+@vyzaduje_pravo("nanoleaf")
+def nanoleaf_prepnout():
+    """Zapne nebo vypne panely - podle toho, jak svítí teď."""
+    stav, chyba = _stav_nanoleaf()
+    if stav is not None:
+        _bezpecne(lambda: set_nanoleaf_on(
+            config.NANOLEAF_IP, config.NANOLEAF_TOKEN, not stav["on"]))
+    return redirect(url_for("nanoleaf"))
+
+
+@app.route("/nanoleaf/jas", methods=["POST"])
+@vyzaduje_pravo("nanoleaf")
+def nanoleaf_jas():
+    """
+    Nastaví jas podle posuvníku.
+
+    Umí odpovědět dvěma způsoby:
+      - obyčejné odeslání formuláře -> přesměrování zpět na stránku
+      - volání z JavaScriptu        -> jen data, stránka se nenačítá znovu
+
+    To druhé je potřeba kvůli náhledu efektu: kdyby se stránka překreslila,
+    rozpracovaný náhled by zmizel.
+    """
+    z_javascriptu = request.headers.get("X-Pozadavek") == "fetch"
+
+    try:
+        jas = int(request.form.get("jas", 0))
+    except ValueError:
+        return (jsonify({"chyba": "neplatná hodnota"}), 400) if z_javascriptu             else redirect(url_for("nanoleaf"))
+
+    nastaveno, chyba = _bezpecne(lambda: set_nanoleaf_brightness(
+        config.NANOLEAF_IP, config.NANOLEAF_TOKEN, jas))
+
+    if z_javascriptu:
+        if nastaveno is None:
+            return jsonify({"chyba": chyba}), 502
+        return jsonify({"jas": nastaveno})
+    return redirect(url_for("nanoleaf"))
+
+
+@app.route("/nanoleaf/efekt", methods=["POST"])
+@vyzaduje_pravo("nanoleaf")
+def nanoleaf_efekt():
+    """
+    Potvrzení návrhu: přepne efekt a zároveň nastaví jas.
+
+    Obojí naráz proto, že v režimu návrhu se ani jedno do panelů neposílá -
+    uživatel si to skládá v prohlížeči a odešle to jedním tlačítkem.
+
+    Pořadí není náhodné: nejdřív efekt, pak jas. Některé efekty si totiž
+    jas přenastavují samy, takže kdyby šel jas první, efekt by ho přepsal.
+    """
+    nazev = request.form.get("efekt", "")
+    if nazev:
+        _bezpecne(lambda: set_nanoleaf_effect(
+            config.NANOLEAF_IP, config.NANOLEAF_TOKEN, nazev))
+
+    if request.form.get("jas"):
+        try:
+            jas = int(request.form["jas"])
+        except ValueError:
+            jas = None
+        if jas is not None:
+            _bezpecne(lambda: set_nanoleaf_brightness(
+                config.NANOLEAF_IP, config.NANOLEAF_TOKEN, jas))
+
+    return redirect(url_for("nanoleaf"))
+
+
+@app.route("/nanoleaf/paleta")
+@vyzaduje_pravo("nanoleaf")
+def nanoleaf_paleta():
+    """
+    Vrátí barvy zvoleného efektu jako JSON - pro náhled v prohlížeči.
+
+    Tohle je první adresa, která nevrací STRÁNKU, ale DATA. Používá ji
+    JavaScript: uživatel vybere efekt, prohlížeč si sem řekne o barvy
+    a nakreslí náhled - a to všechno bez znovunačtení stránky
+    a bez jediného příkazu do panelů.
+
+    Je to GET a je to v pořádku: nic se tím nemění, jen se čte.
+    """
+    nazev = request.args.get("efekt", "")
+    if not nazev:
+        return jsonify({"chyba": "chybí jméno efektu"}), 400
+
+    paleta, chyba = _bezpecne(lambda: get_nanoleaf_paleta(
+        config.NANOLEAF_IP, config.NANOLEAF_TOKEN, nazev))
+
+    if paleta is None:
+        return jsonify({"chyba": chyba}), 502
+    return jsonify(paleta)
 
 
 @app.route("/nakup")

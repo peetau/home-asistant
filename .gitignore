@@ -34,3 +34,8 @@ poznamky/
 # Odkládací složka pro podklady (screenshoty, exporty, dokumenty).
 # Můžou obsahovat osobní údaje -> do repozitáře nepatří.
 inputs/
+
+# --- Pracovni vetve Claude Code ---
+# .claude/worktrees jsou docasne pracovni kopie repozitare.
+# Samy o sobe jsou git repozitare, do naseho repozitare nepatri.
+.claude/worktrees/
