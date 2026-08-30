@@ -17,6 +17,7 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 - [x] Fáze 3, krok 3 — grafy z historie na stránce
 - [x] Fáze 4 — přihlašování (účty, hashovaná hesla, zamčený dashboard)
 - [x] Nákupní seznam — společný pro rodinu (přidávání, odškrtávání, úklid)
+- [x] Správa uživatelů — účty a práva na jednotlivé taby
 - [ ] **Fáze 5 — ovládání zařízení (zapínání Nanoleaf)  ← DALŠÍ KROK**
 - [ ] Fáze 7 — nasazení na cloudový server
 
@@ -40,6 +41,7 @@ templates/
   solary.html       tab Soláry
   nanoleaf.html     tab Nanoleaf
   nakup.html        tab Nákup
+  sprava.html       tab Správa (účty a práva)
   prihlaseni.html   přihlašovací stránka
 main.py             vstupní bod konzolové verze
 sber.py             sběrač měření (plní databázi)

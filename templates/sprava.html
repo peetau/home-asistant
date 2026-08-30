@@ -1,0 +1,85 @@
+{% extends "zaklad.html" %}
+
+{% block titulek %}Správa — Domácí asistent{% endblock %}
+
+{% block obsah %}
+
+    {# Hlášky po akci. Přišly přes adresu, protože každá akce končí
+       redirectem (POST -> redirect -> GET) a bez toho by se ztratily. #}
+    {% if chyba %}<p class="chyba">{{ chyba }}</p>{% endif %}
+    {% if zprava %}<p class="zprava">{{ zprava }}</p>{% endif %}
+
+    {# ---------- Nový účet ---------- #}
+    <div class="karta">
+        <h2>➕ Nový účet</h2>
+        <form method="post" action="{{ url_for('sprava_pridat') }}"
+              class="novy-ucet" autocomplete="off">
+            <input type="text" name="jmeno" placeholder="Jméno"
+                   required maxlength="40">
+            <input type="password" name="heslo" placeholder="Heslo (min. 6 znaků)"
+                   required minlength="6">
+            <button type="submit">Založit</button>
+        </form>
+        <p class="prazdno">Nový účet dostane zatím jen Nákup.
+           Zbytek mu zaškrtneš níž.</p>
+    </div>
+
+    {# ---------- Existující účty ---------- #}
+    {% for ucet in ucty %}
+    <div class="karta ucet">
+
+        <div class="ucet-hlava">
+            <h2>
+                {{ ucet.jmeno }}
+                {% if ucet.id == muj_id %}<span class="ja">to jsi ty</span>{% endif %}
+            </h2>
+
+            {# Mazání jen u cizích účtů - sám sebe smazat nejde.
+               Server to hlídá taky, tohle je jen aby tlačítko nemátlo. #}
+            {% if ucet.id != muj_id %}
+            <form method="post"
+                  action="{{ url_for('sprava_smazat', id_uzivatele=ucet.id) }}">
+                <button type="submit" class="smazat-ucet">Smazat účet</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {# --- Práva na taby --- #}
+        <form method="post"
+              action="{{ url_for('sprava_prava', id_uzivatele=ucet.id) }}">
+            <div class="prava-mrizka">
+                {% for tab in vsechny_taby %}
+                    <label class="pravo">
+                        {# Všechna zaškrtávátka mají stejné name="tab".
+                           Odešlou se jen ta ZAŠKRTNUTÁ a server je vezme
+                           přes getlist() jako seznam. Nezaškrtnuté se
+                           neodešlou vůbec - tím se právo odebírá. #}
+                        <input type="checkbox" name="tab" value="{{ tab }}"
+                               {{ "checked" if tab in ucet.prava }}>
+                        <span>{{ popisy_tabu[tab] }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            <div class="ucet-akce">
+                <span class="prazdno">Přehled má vždy každý.</span>
+                <button type="submit">Uložit práva</button>
+            </div>
+        </form>
+
+        {# --- Reset hesla --- #}
+        <details class="reset-heslo">
+            <summary>Nastavit nové heslo</summary>
+            <form method="post"
+                  action="{{ url_for('sprava_heslo', id_uzivatele=ucet.id) }}"
+                  class="heslo-form" autocomplete="off">
+                <input type="password" name="heslo"
+                       placeholder="Nové heslo (min. 6 znaků)"
+                       required minlength="6">
+                <button type="submit">Změnit heslo</button>
+            </form>
+        </details>
+
+    </div>
+    {% endfor %}
+
+{% endblock %}

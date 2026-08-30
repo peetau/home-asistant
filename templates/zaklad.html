@@ -49,18 +49,35 @@
            class="domu {{ 'aktivni' if aktivni == 'prehled' }}">
             <span class="tab-ikona">🏠</span><span class="tab-text">Přehled</span>
         </a>
+        {# Ostatní taby jen tomu, kdo na ně má právo. Tohle je POHODLÍ,
+           ne ochrana - tu dělá dekorátor vyzaduje_pravo na routách. #}
+        {% if "solary" in prava %}
         <a href="{{ url_for('solary') }}"
            class="{{ 'aktivni' if aktivni == 'solary' }}">
             <span class="tab-ikona">☀️</span><span class="tab-text">Soláry</span>
         </a>
+        {% endif %}
+
+        {% if "nanoleaf" in prava %}
         <a href="{{ url_for('nanoleaf') }}"
            class="{{ 'aktivni' if aktivni == 'nanoleaf' }}">
             <span class="tab-ikona">💡</span><span class="tab-text">Nanoleaf</span>
         </a>
+        {% endif %}
+
+        {% if "nakup" in prava %}
         <a href="{{ url_for('nakup') }}"
            class="{{ 'aktivni' if aktivni == 'nakup' }}">
             <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
         </a>
+        {% endif %}
+
+        {% if "sprava" in prava %}
+        <a href="{{ url_for('sprava') }}"
+           class="{{ 'aktivni' if aktivni == 'sprava' }}">
+            <span class="tab-ikona">⚙️</span><span class="tab-text">Správa</span>
+        </a>
+        {% endif %}
     </nav>
 
     {# ---------- Obsah konkrétní stránky ---------- #}

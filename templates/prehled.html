@@ -11,6 +11,9 @@
 {% block obsah %}
 
     {# ---------- Soláry: to nejdůležitější ---------- #}
+    {# Přehled vidí každý přihlášený, ale poskládá se jen z toho,
+       na co má právo. Kdo nemá Soláry, tuhle kartu prostě neuvidí. #}
+    {% if "solary" in prava %}
     <div class="karta">
         <h2>☀️ Solární elektrárna</h2>
         {% if solax %}
@@ -43,8 +46,10 @@
             <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
         {% endif %}
     </div>
+    {% endif %}
 
     {# ---------- Nanoleaf: to nejdůležitější ---------- #}
+    {% if "nanoleaf" in prava %}
     <div class="karta">
         <h2>💡 Nanoleaf</h2>
         {% if nanoleaf %}
@@ -67,6 +72,22 @@
             <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
         {% endif %}
     </div>
+    {% endif %}
+
+    {# Když uživatel nemá právo na žádné zařízení, ať nekouká na prázdno. #}
+    {% if "solary" not in prava and "nanoleaf" not in prava %}
+    <div class="karta">
+        <h2>👋 Vítej</h2>
+        {% if "nakup" in prava %}
+            <p class="prazdno">Zařízení máš skrytá.
+               Co ti zbývá koupit, najdeš na
+               <a href="{{ url_for('nakup') }}">nákupním seznamu</a>.</p>
+        {% else %}
+            <p class="prazdno">Zatím ti nikdo nepřidělil přístup k žádné části.
+               Řekni si správci.</p>
+        {% endif %}
+    </div>
+    {% endif %}
 
 {% endblock %}
 

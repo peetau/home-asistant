@@ -581,3 +581,136 @@ details.karta[open] summary { margin-bottom: 1rem; }
     box-shadow: 0 0 0 3px var(--zelena-svet);
     border-color: var(--zelena);
 }
+
+/* ==================== Správa uživatelů ==================== */
+
+.zprava {
+    color: var(--zelena);
+    background: var(--zelena-svet);
+    padding: .8rem 1rem;
+    border-radius: 8px;
+    font-size: .95rem;
+    margin: 0 0 1.2rem;
+}
+.chyba { margin: 0 0 1.2rem; }
+
+.novy-ucet { display: flex; gap: .5rem; flex-wrap: wrap; }
+.novy-ucet input {
+    flex: 1; min-width: 140px;
+    font: inherit; color: var(--text);
+    padding: .6rem .75rem;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    background: var(--karta-2);
+}
+.novy-ucet input:focus {
+    outline: none;
+    border-color: var(--zelena);
+    box-shadow: 0 0 0 3px var(--zelena-svet);
+}
+.novy-ucet button, .heslo-form button, .ucet-akce button {
+    font: inherit; font-weight: 600;
+    padding: .6rem 1.1rem;
+    border: none; border-radius: 8px;
+    background: var(--zelena); color: var(--na-zelene);
+    cursor: pointer;
+}
+.novy-ucet button:hover, .heslo-form button:hover,
+.ucet-akce button:hover { background: var(--zelena-tmava); }
+.novy-ucet + .prazdno { margin: .8rem 0 0; font-size: .85rem; }
+
+.ucet-hlava {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.ucet-hlava h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+}
+.ucet-hlava .ja {
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-slaby);
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    padding: .1rem .5rem;
+    margin-left: .4rem;
+    vertical-align: middle;
+}
+.ucet-hlava form { margin: 0; }
+
+.smazat-ucet {
+    font: inherit; font-size: .8rem;
+    background: none;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    padding: .35rem .7rem;
+    color: var(--text-slaby);
+    cursor: pointer;
+}
+.smazat-ucet:hover { border-color: var(--cervena); color: var(--cervena); }
+
+.prava-mrizka {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .5rem;
+    margin-bottom: 1rem;
+}
+.pravo {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem .7rem;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    background: var(--karta-2);
+    cursor: pointer;
+    font-size: .9rem;
+}
+.pravo:hover { border-color: var(--text-slaby); }
+/* :has() = "štítek, uvnitř kterého je zaškrtnuté políčko" - tím se
+   zvýrazní celá dlaždice, ne jen samotné políčko. */
+.pravo:has(input:checked) {
+    border-color: var(--zelena);
+    background: var(--zelena-svet);
+}
+.pravo input { width: 16px; height: 16px; accent-color: var(--zelena); }
+
+.ucet-akce {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.ucet-akce .prazdno { margin: 0; font-size: .8rem; }
+
+.reset-heslo { margin-top: 1rem; border-top: 1px solid var(--okraj-jemny);
+               padding-top: .8rem; }
+.reset-heslo summary {
+    cursor: pointer;
+    color: var(--text-slaby);
+    font-size: .85rem;
+}
+.heslo-form { display: flex; gap: .5rem; margin-top: .8rem; flex-wrap: wrap; }
+.heslo-form input {
+    flex: 1; min-width: 160px;
+    font: inherit; color: var(--text);
+    padding: .6rem .75rem;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    background: var(--karta-2);
+}
+.heslo-form input:focus {
+    outline: none;
+    border-color: var(--zelena);
+    box-shadow: 0 0 0 3px var(--zelena-svet);
+}

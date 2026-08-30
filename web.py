@@ -30,6 +30,14 @@ app = Flask(__name__)
 # ho uživatel nemůže změnit, aniž by to server nepoznal.
 app.secret_key = config.SECRET_KEY
 
+# Lidské názvy tabů pro Správu. Klíče musí sedět na database.VSECHNY_TABY.
+POPISY_TABU = {
+    "solary": "☀️ Soláry",
+    "nanoleaf": "💡 Nanoleaf",
+    "nakup": "🛒 Nákup",
+    "sprava": "⚙️ Správa",
+}
+
 
 def vyzaduje_prihlaseni(funkce):
     """
@@ -178,8 +186,15 @@ def _stav_solax():
 @vyzaduje_prihlaseni
 def dashboard():
     """Přehled - od každého zařízení to nejdůležitější."""
-    nanoleaf, nanoleaf_chyba = _stav_nanoleaf()
-    solax, solax_chyba = _stav_solax()
+    # Čteme jen zařízení, na která má uživatel právo. Nejde jen o úsporu:
+    # každé čtení je volání po síti, takže bez téhle podmínky by se čekalo
+    # i na data, která se stejně nezobrazí.
+    prava = session.get("prava", [])
+
+    nanoleaf, nanoleaf_chyba = (
+        _stav_nanoleaf() if "nanoleaf" in prava else (None, None))
+    solax, solax_chyba = (
+        _stav_solax() if "solary" in prava else (None, None))
 
     return render_template(
         "prehled.html", aktivni="prehled",
@@ -292,6 +307,100 @@ def nakup_uklidit():
     """Smaže všechny odškrtnuté položky naráz."""
     database.smaz_koupene()
     return redirect(url_for("nakup"))
+
+
+# ===========================================================================
+# Správa uživatelů
+#
+# Kdo má právo "sprava", spravuje ostatní. Žádné zvláštní role - Správa
+# je prostě další tab jako Soláry nebo Nákup.
+#
+# Hlášky (chyba/zprava) se předávají přes query parametr v adrese. Je to
+# nejjednodušší způsob, jak přežít redirect po POSTu; Flask má na tohle
+# i hezčí nástroj (flash zprávy), ale ten by sem přinesl nový koncept.
+# ===========================================================================
+
+@app.route("/sprava")
+@vyzaduje_pravo("sprava")
+def sprava():
+    """Seznam účtů, jejich práva a zakládání nových."""
+    return render_template(
+        "sprava.html", aktivni="sprava",
+        ucty=database.uzivatele_s_pravy(),
+        vsechny_taby=database.VSECHNY_TABY,
+        popisy_tabu=POPISY_TABU,
+        muj_id=session.get("uzivatel_id"),
+        chyba=request.args.get("chyba"),
+        zprava=request.args.get("zprava"),
+    )
+
+
+def _obnov_svoje_prava(id_uzivatele):
+    """
+    Když správce změní práva SÁM SOBĚ, musí se to promítnout i do session.
+
+    Session se plní při přihlášení. Bez tohohle by si nová práva všiml
+    až po odhlášení a přihlášení - a hlavně by mu zůstala i ta, která
+    si právě odebral.
+    """
+    if id_uzivatele == session.get("uzivatel_id"):
+        session["prava"] = sorted(database.prava_uzivatele(id_uzivatele))
+
+
+@app.route("/sprava/pridat", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_pridat():
+    jmeno = request.form.get("jmeno", "").strip()
+    heslo = request.form.get("heslo", "")
+
+    if not jmeno:
+        return redirect(url_for("sprava", chyba="Jméno nesmí být prázdné."))
+    if len(heslo) < 6:
+        return redirect(url_for("sprava", chyba="Heslo musí mít aspoň 6 znaků."))
+
+    if database.vytvor_uzivatele(jmeno, heslo):
+        return redirect(url_for(
+            "sprava", zprava=f"Účet {jmeno} vytvořen (zatím jen Nákup)."))
+    return redirect(url_for("sprava", chyba=f"Účet {jmeno} už existuje."))
+
+
+@app.route("/sprava/<int:id_uzivatele>/prava", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_prava(id_uzivatele):
+    # getlist, ne get: zaškrtávátek se stejným name je víc a chceme
+    # VŠECHNA zaškrtnutá. Nezaškrtnutá se neodešlou vůbec - proto stačí
+    # vzít, co přišlo, a zbytek se odebere.
+    taby = request.form.getlist("tab")
+
+    ok, chyba = database.nastav_prava(id_uzivatele, taby)
+    if not ok:
+        return redirect(url_for("sprava", chyba=chyba))
+
+    _obnov_svoje_prava(id_uzivatele)
+    return redirect(url_for("sprava", zprava="Práva uložena."))
+
+
+@app.route("/sprava/<int:id_uzivatele>/heslo", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_heslo(id_uzivatele):
+    ok, chyba = database.zmen_heslo(id_uzivatele, request.form.get("heslo", ""))
+    if not ok:
+        return redirect(url_for("sprava", chyba=chyba))
+    return redirect(url_for("sprava", zprava="Heslo změněno."))
+
+
+@app.route("/sprava/<int:id_uzivatele>/smazat", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_smazat(id_uzivatele):
+    # Pojistka proti sebevraždě. Databáze hlídá "poslední správce",
+    # tohle navíc brání i tomu, aby ses smazal, když jsou správci dva.
+    if id_uzivatele == session.get("uzivatel_id"):
+        return redirect(url_for("sprava", chyba="Sám sebe smazat nemůžeš."))
+
+    ok, chyba = database.smaz_uzivatele(id_uzivatele)
+    if not ok:
+        return redirect(url_for("sprava", chyba=chyba))
+    return redirect(url_for("sprava", zprava="Účet smazán."))
 
 
 if __name__ == "__main__":
