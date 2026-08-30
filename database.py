@@ -133,6 +133,41 @@ def init_db():
             )
         """)
 
+        # Historie nákupů - z čeho se nabízí rychlé přidání.
+        #
+        # PROČ ZVLÁŠTNÍ TABULKA: "Smazat odškrtnuté" řádky z tabulky nakup
+        # zahodí a s nimi i informaci, co se kupuje často. Tahle tabulka
+        # se nikdy nemaže, takže historie úklid přežije.
+        #
+        # klic je název malými písmeny - díky němu se "Mléko" a "mléko"
+        # počítají jako jedna položka.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS historie_nakupu (
+                klic      TEXT PRIMARY KEY,
+                text      TEXT    NOT NULL,
+                pocet     INTEGER NOT NULL DEFAULT 1,
+                naposledy TEXT    NOT NULL
+            )
+        """)
+
+        # MIGRACE: sloupec s množstvím.
+        #
+        # Tabulka nakup uz obsahuje data, takze ji nestaci vytvorit jinak -
+        # CREATE TABLE IF NOT EXISTS by u existujici tabulky neudelal nic.
+        # Musime ji zmenit prikazem ALTER TABLE.
+        #
+        # Sloupec pridavame jen kdyz chybi. PRAGMA table_info vrati popis
+        # sloupcu tabulky - podivame se, jestli mezi nimi mnozstvi uz je.
+        sloupce = [r[1] for r in db.execute("PRAGMA table_info(nakup)")]
+        if "mnozstvi" not in sloupce:
+            try:
+                db.execute("ALTER TABLE nakup ADD COLUMN mnozstvi TEXT")
+            except sqlite3.OperationalError:
+                # Gunicorn ma dva workery a mohly by se o migraci pokusit
+                # oba naraz. Ten druhy dostane chybu "sloupec uz existuje"
+                # a to je v poradku - prace je hotova.
+                pass
+
         # MIGRACE existující databáze.
         #
         # Tabulka uživatelů už obsahuje účty založené dřív, než oprávnění
@@ -157,8 +192,13 @@ def init_db():
 
 # ==================== Nákupní seznam ====================
 
-def pridej_polozku(text, kdo):
-    """Přidá položku na nákupní seznam. Vrací False u prázdného textu."""
+def pridej_polozku(text, kdo, mnozstvi=None):
+    """
+    Přidá položku na nákupní seznam a započítá ji do historie.
+
+    mnozstvi je volný text ("2 l", "3x", "půl kila") a je nepovinné -
+    potraviny se nedají nacpat do jednoho formátu.
+    """
     text = text.strip()
     if not text:
         return False
@@ -166,13 +206,57 @@ def pridej_polozku(text, kdo):
     # Rozumný strop na délku. Bez něj by šlo do databáze poslat megabajty
     # textu - ne kvůli zlému úmyslu, stačí omylem vložený text ze schránky.
     text = text[:200]
+    mnozstvi = (mnozstvi or "").strip()[:40] or None
 
     with _spojeni() as db:
         db.execute(
-            "INSERT INTO nakup (text, pridal) VALUES (?, ?)",
-            (text, kdo),
+            "INSERT INTO nakup (text, mnozstvi, pridal) VALUES (?, ?, ?)",
+            (text, mnozstvi, kdo),
+        )
+
+        # Zápis do historie. ON CONFLICT znamená "když už takový klíč
+        # existuje, místo vložení udělej tohle" - tady zvýšíme počítadlo
+        # a zapamatujeme si poslední zápis názvu.
+        db.execute("""
+            INSERT INTO historie_nakupu (klic, text, pocet, naposledy)
+            VALUES (?, ?, 1, datetime('now', 'localtime'))
+            ON CONFLICT(klic) DO UPDATE SET
+                pocet = pocet + 1,
+                text = excluded.text,
+                naposledy = excluded.naposledy
+        """, (text.lower(), text))
+    return True
+
+
+def uprav_polozku(id_polozky, text, mnozstvi=None):
+    """Změní název a množství existující položky."""
+    text = text.strip()[:200]
+    if not text:
+        return False
+
+    with _spojeni() as db:
+        db.execute(
+            "UPDATE nakup SET text = ?, mnozstvi = ? WHERE id = ?",
+            (text, (mnozstvi or "").strip()[:40] or None, id_polozky),
         )
     return True
+
+
+def caste_polozky(limit=8):
+    """
+    Nejčastěji kupované položky pro rychlé přidání.
+
+    Vynechává to, co už na seznamu je - nemá smysl nabízet položku,
+    která tam visí. Řeší to poddotaz v NOT IN.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT text FROM historie_nakupu
+            WHERE klic NOT IN (SELECT LOWER(text) FROM nakup)
+            ORDER BY pocet DESC, naposledy DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+    return [r[0] for r in radky]
 
 
 def seznam_nakupu():
@@ -185,7 +269,7 @@ def seznam_nakupu():
     """
     with _spojeni() as db:
         kurzor = db.execute(
-            "SELECT id, text, koupeno, pridal, koupil "
+            "SELECT id, text, koupeno, pridal, koupil, mnozstvi "
             "FROM nakup ORDER BY koupeno ASC, id DESC"
         )
         return kurzor.fetchall()

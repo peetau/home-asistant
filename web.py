@@ -40,6 +40,11 @@ from devices.solax import get_solax_status
 # doma není nastavená vůbec, takže tam vyjde False.
 PRODUKCE = os.environ.get("ASISTENT_PRODUKCE") == "1"
 
+# Připravit databázi (vytvořit chybějící tabulky, doplnit nové sloupce).
+# Volá to i sber.py; je to bezpečné volat opakovaně a díky tomu se migrace
+# spustí i tehdy, když se restartuje jen web.
+database.init_db()
+
 app = Flask(__name__)
 
 # Tajný klíč, kterým Flask PODEPISUJE přihlašovací cookie. Bez něj by
@@ -502,12 +507,15 @@ def nakup():
     """Nákupní seznam - společný pro celou rodinu."""
     polozky = database.seznam_nakupu()
 
-    # Kolik ještě chybí - hodí se do nadpisu.
-    chybi = sum(1 for p in polozky if not p[2])
+    # Rozdělíme rovnou tady, ať to šablona nemusí filtrovat dvakrát.
+    # Index 2 je sloupec 'koupeno'.
+    chybejici = [p for p in polozky if not p[2]]
+    koupene = [p for p in polozky if p[2]]
 
     return render_template(
         "nakup.html", aktivni="nakup",
-        polozky=polozky, chybi=chybi,
+        chybejici=chybejici, koupene=koupene,
+        caste=_bezpecne(database.caste_polozky)[0] or [],
     )
 
 
@@ -531,6 +539,7 @@ def nakup_pridat():
     database.pridej_polozku(
         request.form.get("text", ""),
         session.get("uzivatel"),
+        request.form.get("mnozstvi", ""),
     )
     return redirect(url_for("nakup"))
 
@@ -543,6 +552,17 @@ def nakup_pridat():
 @vyzaduje_pravo("nakup")
 def nakup_prepnout(id_polozky):
     database.prepni_koupeno(id_polozky, session.get("uzivatel"))
+    return redirect(url_for("nakup"))
+
+
+@app.route("/nakup/<int:id_polozky>/upravit", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_upravit(id_polozky):
+    database.uprav_polozku(
+        id_polozky,
+        request.form.get("text", ""),
+        request.form.get("mnozstvi", ""),
+    )
     return redirect(url_for("nakup"))
 
 

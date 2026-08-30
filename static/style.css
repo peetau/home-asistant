@@ -1060,3 +1060,109 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .pocasi-teploty span { color: var(--text-slaby); }
 
 .pocasi-nazev { font-size: .7rem; color: var(--text-slaby); }
+
+/* --- Nákup: množství, historie, úprava --- */
+
+.pole-mnozstvi { flex: 0 0 5.5rem; min-width: 0; }
+
+/* Množství v řádku: drobný odznak vedle názvu. */
+.mnozstvi {
+    flex: none;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--text-slaby);
+    background: var(--karta-2);
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    padding: .1rem .5rem;
+    white-space: nowrap;
+}
+.hotovo .mnozstvi { opacity: .55; }
+
+/* --- Rychlé přidání z historie --- */
+.caste {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    margin-top: .9rem;
+}
+.caste form { margin: 0; }
+.caste-popisek { font-size: .8rem; color: var(--text-slaby); }
+
+.caste-tlacitko {
+    font: inherit;
+    font-size: .8rem;
+    padding: .3rem .7rem;
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    background: var(--karta-2);
+    color: var(--text-slaby);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.caste-tlacitko:hover {
+    border-color: var(--zelena);
+    color: var(--zelena);
+}
+
+/* --- Úprava položky --- */
+.uprava { flex: none; }
+.uprava summary {
+    cursor: pointer;
+    list-style: none;
+    padding: .5rem .35rem;
+    color: var(--text-slaby);
+    opacity: .5;
+    font-size: .95rem;
+}
+.uprava summary::-webkit-details-marker { display: none; }
+.uprava summary:hover { opacity: 1; color: var(--text); }
+
+/* Formulář úpravy se rozbalí přes celou šířku řádku. */
+.uprava[open] {
+    position: absolute;
+    left: 0; right: 0;
+    top: 100%;
+    z-index: 5;
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: 10px;
+    box-shadow: var(--stin-2);
+    padding: .7rem;
+}
+.uprava[open] summary { display: none; }
+
+.uprava-form { display: flex; gap: .4rem; }
+.uprava-form input {
+    flex: 1;
+    font: inherit;
+    color: var(--text);
+    padding: .5rem .6rem;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    background: var(--karta-2);
+    min-width: 0;
+}
+.uprava-form input:focus {
+    outline: none;
+    border-color: var(--zelena);
+    box-shadow: 0 0 0 3px var(--zelena-svet);
+}
+.uprava-form button {
+    font: inherit; font-weight: 600;
+    padding: .5rem .9rem;
+    border: none; border-radius: 8px;
+    background: var(--zelena); color: var(--na-zelene);
+    cursor: pointer; white-space: nowrap;
+}
+
+/* --- Sbalené koupené položky --- */
+.koupene-blok summary {
+    cursor: pointer;
+    color: var(--text-slaby);
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.koupene-blok[open] summary { margin-bottom: .8rem; }
