@@ -18,7 +18,7 @@
 <div class="obal">
 
     <header>
-        <h1>🏠 Domácí asistent</h1>
+        <h1>Domácí asistent</h1>
         <span class="cas">
             {{ uzivatel }} · <a href="{{ url_for('odhlaseni') }}">odhlásit</a>
         </span>
@@ -36,9 +36,11 @@
        a nesváže šablonu s tím, jak se zrovna jmenují funkce v Pythonu.
     #}
     <nav class="taby">
+        {# Přehled je "domácí tlačítko" - záchytný bod, odkud se dá vždy
+           začít znovu. Proto je výraznější a oddělený od ostatních tabů. #}
         <a href="{{ url_for('dashboard') }}"
-           class="{{ 'aktivni' if aktivni == 'prehled' }}">
-            <span class="tab-ikona">📊</span><span class="tab-text">Přehled</span>
+           class="domu {{ 'aktivni' if aktivni == 'prehled' }}">
+            <span class="tab-ikona">🏠</span><span class="tab-text">Přehled</span>
         </a>
         <a href="{{ url_for('solary') }}"
            class="{{ 'aktivni' if aktivni == 'solary' }}">
