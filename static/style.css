@@ -1,27 +1,126 @@
 /*
   Vzhled domácího asistenta.
 
-  Tenhle soubor drží VŠECHEN vzhled (barvy, rozestupy, rámečky).
-  HTML v templates/dashboard.html řeší jen strukturu (co kde je),
-  Python ve web.py jen data. Tři vrstvy, každá zvlášť - to je ono.
+  STRUKTURA SOUBORU:
+    1) barevné proměnné - světlý režim
+    2) barevné proměnné - tmavý režim
+    3) základní prvky (stránka, hlavička, navigace, karty)
+    4) jednotlivé části (grafy, tabulka, přihlášení, nákup)
+    5) mobil (@media)
 
-  Flask servíruje soubory z této složky (static/) na adrese /static/...
+  PROČ PROMĚNNÉ: barva se zapíše JEDNOU nahoře a všude jinde se na ni jen
+  odkazuje přes var(--nazev). Díky tomu stačí pro tmavý režim předefinovat
+  těch pár hodnot nahoře - a celý web se přebarví. Bez proměnných by se
+  musela hledat každá barva zvlášť na desítkách míst.
 */
 
-/* Proměnné s barvami na jednom místě - když budeš chtít změnit vzhled,
-   měníš je tady, ne na deseti místech. Používá se přes var(--nazev). */
+
+/* ==================== 1) Světlý režim ==================== */
+
 :root {
-    --pozadi:      #eef2f5;
-    --karta:       #ffffff;
-    --text:        #1f2933;
-    --text-slaby:  #7b8794;
-    --zelena:      #16a34a;
-    --zelena-svet: #dcfce7;
-    --amber:       #f59e0b;
-    --cervena:     #dc2626;
-    --stin:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-    --radius:      14px;
+    color-scheme: light;
+
+    --pozadi:       #eef2f5;
+    --karta:        #ffffff;
+    --karta-2:      #f6f8fa;   /* jemně odlišený podklad uvnitř karet */
+    --text:         #1f2933;
+    --text-slaby:   #6b7684;
+    --okraj:        #dfe5ea;
+    --okraj-jemny:  #f0f3f6;
+
+    --zelena:       #16a34a;
+    --zelena-tmava: #12833b;
+    --zelena-svet:  #dcfce7;
+    /* Barva textu NA zelené ploše. Ve světlém režimu bílá; v tmavém je
+       zelená světlejší, takže by na ní bílá zanikla - proto tam tmavá.
+       Ověřeno výpočtem kontrastu, ne odhadem. */
+    --na-zelene:    #ffffff;
+    --cervena:      #dc2626;
+    --cervena-pozadi: #fef2f2;
+
+    /* Barvy grafů. Pro tmavý režim mají VLASTNÍ odstíny (níž) - tmavý
+       režim není převrácení světlého. Obě sady prošly kontrolou na
+       rozlišitelnost při barvosleposti i na kontrast vůči pozadí. */
+    --serie-vykon:   #eb6834;
+    --serie-baterie: #2a78d6;
+    --mrizka:        #e1e0d9;
+    --osa:           #898781;
+
+    --stin:   0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --stin-2: 0 2px 6px rgba(0,0,0,.10);
+    --radius: 14px;
 }
+
+
+/* ==================== 2) Tmavý režim ==================== */
+
+/*
+  @media (prefers-color-scheme: dark) = "když má uživatel v systému
+  nastavený tmavý režim". Nic se nepřepíná ručně, web se přizpůsobí sám.
+
+  Zápis :root:not([data-theme="light"]) navíc počítá s budoucím
+  přepínačem: až ho přidáme, nastaví atribut data-theme a přebije
+  systémové nastavení. Zatím se ten atribut nikde nenastavuje.
+*/
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+
+        --pozadi:       #15181c;
+        --karta:        #1e2228;
+        --karta-2:      #262b32;
+        --text:         #e6e9ed;
+        --text-slaby:   #98a2ad;
+        --okraj:        #2f353d;
+        --okraj-jemny:  #272c33;
+
+        --zelena:       #22c55e;
+        --zelena-tmava: #16a34a;
+        --zelena-svet:  rgba(34,197,94,.20);
+        --na-zelene:    #0b1f13;
+        --cervena:      #f87171;
+        --cervena-pozadi: rgba(248,113,113,.12);
+
+        --serie-vykon:   #d95926;
+        --serie-baterie: #3987e5;
+        --mrizka:        #2f353d;
+        --osa:           #98a2ad;
+
+        --stin:   0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+        --stin-2: 0 2px 8px rgba(0,0,0,.45);
+    }
+}
+
+/* Ruční přepnutí na tmavý (pro budoucí přepínač - přebije systém). */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --pozadi:       #15181c;
+    --karta:        #1e2228;
+    --karta-2:      #262b32;
+    --text:         #e6e9ed;
+    --text-slaby:   #98a2ad;
+    --okraj:        #2f353d;
+    --okraj-jemny:  #272c33;
+
+    --zelena:       #22c55e;
+    --zelena-tmava: #16a34a;
+    --zelena-svet:  rgba(34,197,94,.20);
+    --na-zelene:    #0b1f13;
+    --cervena:      #f87171;
+    --cervena-pozadi: rgba(248,113,113,.12);
+
+    --serie-vykon:   #d95926;
+    --serie-baterie: #3987e5;
+    --mrizka:        #2f353d;
+    --osa:           #98a2ad;
+
+    --stin:   0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    --stin-2: 0 2px 8px rgba(0,0,0,.45);
+}
+
+
+/* ==================== 3) Základ ==================== */
 
 * { box-sizing: border-box; }
 
@@ -35,6 +134,7 @@ body {
 }
 
 .obal { max-width: 760px; margin: 0 auto; }
+.obal-uzky { max-width: 380px; margin: 12vh auto 0; }
 
 /* --- Hlavička --- */
 header {
@@ -43,12 +143,99 @@ header {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: .5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
-header h1 { font-size: 1.6rem; margin: 0; }
+header h1 { font-size: 1.5rem; margin: 0; }
 header .cas { color: var(--text-slaby); font-size: .9rem; }
+header .cas a { color: var(--text-slaby); }
 
-/* --- Karta (základní stavební blok) --- */
+main { min-height: 40vh; }
+
+footer {
+    text-align: center;
+    color: var(--text-slaby);
+    font-size: .8rem;
+    margin-top: 1.5rem;
+}
+
+
+/* ==================== Navigace ==================== */
+
+.taby {
+    display: flex;
+    align-items: stretch;
+    gap: .15rem;
+    margin-bottom: 1.2rem;
+    border-bottom: 1px solid var(--okraj);
+}
+
+/* Běžný tab: jen text, žádná výplň - drží se v pozadí. */
+.taby a {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .6rem .9rem;
+    text-decoration: none;
+    color: var(--text-slaby);
+    font-weight: 600;
+    font-size: .95rem;
+    border-radius: 8px 8px 0 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.taby a:hover { color: var(--text); }
+.taby a.aktivni { color: var(--zelena); border-bottom-color: var(--zelena); }
+
+
+/* --- Domácí tlačítko (Přehled) --- */
+/*
+  Přehled není "jeden z tabů", je to záchytný bod - odkud se dá vždy začít
+  znovu. Proto vypadá jako TLAČÍTKO, kdežto ostatní jsou jen text: má výplň,
+  rámeček, stín a je oddělený svislou čárkou.
+
+  Odlišuje se tvarem, ne další barvou - zelená na liště už znamená
+  "tady zrovna jsi" a dvojí význam jedné barvy by mátl.
+*/
+.taby a.domu {
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: 10px;
+    box-shadow: var(--stin);
+    color: var(--text);
+    padding: .55rem 1rem;
+    margin: 0 1rem .35rem 0;
+    align-self: center;
+    border-bottom-width: 1px;
+}
+.taby a.domu::after {
+    content: "";
+    position: absolute;
+    right: -.55rem;
+    top: 15%;
+    bottom: 15%;
+    width: 1px;
+    background: var(--okraj);
+}
+.taby a.domu { position: relative; }
+
+.taby a.domu:hover {
+    background: var(--karta-2);
+    box-shadow: var(--stin-2);
+}
+
+/* Aktivní domeček: plná zelená - nejvýraznější stav na celé liště. */
+.taby a.domu.aktivni {
+    background: var(--zelena);
+    border-color: var(--zelena);
+    color: var(--na-zelene);
+}
+.taby a.domu.aktivni:hover { background: var(--zelena-tmava); }
+
+.taby a.domu .tab-ikona { font-size: 1.1rem; }
+
+
+/* ==================== Karty a hodnoty ==================== */
+
 .karta {
     background: var(--karta);
     border-radius: var(--radius);
@@ -64,12 +251,12 @@ header .cas { color: var(--text-slaby); font-size: .9rem; }
     margin: 0 0 1rem;
 }
 
-/* --- Hlavní číslo (aktuální výkon) --- */
+/* Hlavní číslo (aktuální výkon) */
 .hero { display: flex; align-items: baseline; gap: .4rem; margin-bottom: 1.2rem; }
 .hero .cislo { font-size: 3rem; font-weight: 700; line-height: 1; color: var(--zelena); }
 .hero .jednotka { font-size: 1.1rem; color: var(--text-slaby); }
 
-/* --- Mřížka menších hodnot --- */
+/* Mřížka menších hodnot */
 .dlazdice {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -78,9 +265,9 @@ header .cas { color: var(--text-slaby); font-size: .9rem; }
 .dlazdice .polozka .popisek { color: var(--text-slaby); font-size: .85rem; }
 .dlazdice .polozka .hodnota { font-size: 1.4rem; font-weight: 600; }
 
-/* --- Baterie: proužek --- */
+/* Baterie: proužek */
 .baterie-pruh {
-    background: #e4e9ee;
+    background: var(--okraj);
     border-radius: 999px;
     height: 12px;
     overflow: hidden;
@@ -93,29 +280,42 @@ header .cas { color: var(--text-slaby); font-size: .9rem; }
     transition: width .4s ease;
 }
 
-/* --- Nanoleaf: stavová tečka --- */
+/* Nanoleaf: stavová tečka */
 .stav-radek { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
 .tecka { width: 12px; height: 12px; border-radius: 50%; flex: none; }
 .tecka.zapnuto { background: var(--zelena); box-shadow: 0 0 0 4px var(--zelena-svet); }
 .tecka.vypnuto { background: var(--text-slaby); }
-.radek { display: flex; justify-content: space-between; padding: .35rem 0;
-         border-top: 1px solid #f0f3f6; }
+
+.radek {
+    display: flex;
+    justify-content: space-between;
+    padding: .35rem 0;
+    border-top: 1px solid var(--okraj-jemny);
+}
 .radek:first-of-type { border-top: none; }
 .radek .popisek { color: var(--text-slaby); }
 .radek .hodnota { font-weight: 600; }
 
-/* --- Chybová hláška --- */
+.odkaz-detail { margin: 1rem 0 0; font-size: .9rem; }
+.odkaz-detail a { color: var(--zelena); text-decoration: none; font-weight: 600; }
+.odkaz-detail a:hover { text-decoration: underline; }
+
 .chyba {
     color: var(--cervena);
-    background: #fef2f2;
+    background: var(--cervena-pozadi);
     padding: .8rem 1rem;
     border-radius: 8px;
     font-size: .95rem;
 }
+.prazdno { color: var(--text-slaby); font-size: .95rem; }
+.prazdno code {
+    background: var(--karta-2);
+    padding: .1rem .35rem;
+    border-radius: 4px;
+}
 
-footer { text-align: center; color: var(--text-slaby); font-size: .8rem; margin-top: 1.5rem; }
 
-/* ==================== Grafy ==================== */
+/* ==================== 4a) Grafy ==================== */
 
 .graf-hlava {
     display: flex;
@@ -127,22 +327,19 @@ footer { text-align: center; color: var(--text-slaby); font-size: .8rem; margin-
 .graf-aktualni { font-size: 1.6rem; font-weight: 700; line-height: 1; }
 .graf-popis { color: var(--text-slaby); font-size: .85rem; }
 
-/* SVG se roztáhne na šířku karty, výšku si drží podle poměru stran. */
 .graf { width: 100%; height: auto; display: block; }
 
-/* Mřížka a popisky os musí být POTICHU - jsou to pomocné čáry,
-   ne obsah. Kdyby byly výrazné, přebíjely by vlastní data. */
-.mrizka { stroke: #e1e0d9; stroke-width: 1; }
-.osa-popisek { fill: #898781; font-size: 11px;
-               font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-
-/* Kroužky pro najetí myší jsou průhledné, ale kurzor napoví, že tam něco je. */
+/* Mřížka a popisky os musí být POTICHU - jsou to pomocné čáry, ne obsah. */
+.mrizka { stroke: var(--mrizka); stroke-width: 1; }
+.osa-popisek {
+    fill: var(--osa);
+    font-size: 11px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 .graf circle { cursor: crosshair; }
 
-.prazdno { color: var(--text-slaby); font-size: .95rem; }
-.prazdno code { background: #f0f3f6; padding: .1rem .35rem; border-radius: 4px; }
 
-/* ==================== Tabulka dat ==================== */
+/* ==================== 4b) Tabulka dat ==================== */
 
 details.karta summary {
     cursor: pointer;
@@ -160,14 +357,13 @@ details.karta[open] summary { margin-bottom: 1rem; }
     font-weight: 600;
     font-size: .8rem;
     padding: .4rem .5rem;
-    border-bottom: 1px solid #e4e9ee;
+    border-bottom: 1px solid var(--okraj);
 }
-.tabulka td { padding: .35rem .5rem; border-bottom: 1px solid #f0f3f6; }
+.tabulka td { padding: .35rem .5rem; border-bottom: 1px solid var(--okraj-jemny); }
 .tabulka td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ==================== Přihlášení ==================== */
 
-.obal-uzky { max-width: 380px; margin-top: 12vh; }
+/* ==================== 4c) Přihlášení ==================== */
 
 .karta-prihlaseni { padding: 2rem; }
 .prihlaseni-nadpis { font-size: 1.3rem; margin: 0 0 1.5rem; text-align: center; }
@@ -176,131 +372,43 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .formular label { display: flex; flex-direction: column; gap: .3rem; }
 .formular label span { font-size: .85rem; color: var(--text-slaby); }
 
-.formular input {
+.formular input,
+.pridat-form input {
     font: inherit;
-    padding: .6rem .7rem;
-    border: 1px solid #d6dde4;
+    color: var(--text);
+    padding: .65rem .75rem;
+    border: 1px solid var(--okraj);
     border-radius: 8px;
-    background: #fbfcfd;
+    background: var(--karta-2);
 }
-.formular input:focus {
+.formular input:focus,
+.pridat-form input:focus {
     outline: none;
     border-color: var(--zelena);
     box-shadow: 0 0 0 3px var(--zelena-svet);
 }
 
-.formular button {
+.formular button,
+.pridat-form button {
     font: inherit;
     font-weight: 600;
-    padding: .65rem;
+    padding: .65rem 1.2rem;
     border: none;
     border-radius: 8px;
     background: var(--zelena);
-    color: #fff;
+    color: var(--na-zelene);
     cursor: pointer;
-    margin-top: .3rem;
 }
-.formular button:hover { background: #12833b; }
-
-header .cas a { color: var(--text-slaby); }
-
-/* ==================== Navigace mezi zařízeními ==================== */
-
-/*
-  VÝCHOZÍ STAV = POČÍTAČ: vodorovné taby pod hlavičkou.
-  Pravidla pro mobil přijdou níž v @media - píše se to v tomhle pořadí,
-  protože specifičtější pravidlo musí přebít obecnější.
-*/
-.taby {
-    display: flex;
-    gap: .3rem;
-    margin-bottom: 1.2rem;
-    border-bottom: 1px solid #dfe5ea;
-}
-
-.taby a {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    padding: .6rem .9rem;
-    text-decoration: none;
-    color: var(--text-slaby);
-    font-weight: 600;
-    font-size: .95rem;
-    border-radius: 8px 8px 0 0;
-    /* Průhledný okraj drží výšku i u neaktivních tabů, aby se stránka
-       při přepnutí nepatrně neposkočila. */
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-}
-.taby a:hover { background: #f3f6f8; color: var(--text); }
-
-.taby a.aktivni {
-    color: var(--zelena);
-    border-bottom-color: var(--zelena);
-}
-
-main { min-height: 40vh; }
-
-.odkaz-detail { margin: 1rem 0 0; font-size: .9rem; }
-.odkaz-detail a { color: var(--zelena); text-decoration: none; font-weight: 600; }
-.odkaz-detail a:hover { text-decoration: underline; }
+.formular button { margin-top: .3rem; padding: .65rem; }
+.formular button:hover,
+.pridat-form button:hover { background: var(--zelena-tmava); }
 
 
-/* ==================== Mobil: lišta dole u palce ==================== */
-
-/*
-  @media je "podmínka pro CSS": pravidla uvnitř platí jen tehdy, když
-  podmínka sedí. Tady: obrazovka užší než 640 px, tedy telefon.
-
-  Proč lišta dole? Nákupní seznam se používá v obchodě jednou rukou -
-  palec dosáhne dolů, ne nahoru přes celý displej.
-*/
-@media (max-width: 640px) {
-
-    /* Lišta se přilepí ke spodku okna a zůstane tam i při rolování. */
-    .taby {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        margin: 0;
-        background: var(--karta);
-        border-top: 1px solid #dfe5ea;
-        border-bottom: none;
-        /* Odsazení pro gesto/lištu na iPhonech s "bradou" */
-        padding-bottom: env(safe-area-inset-bottom, 0);
-        box-shadow: 0 -1px 6px rgba(0,0,0,.06);
-        z-index: 10;
-    }
-
-    /* Čtyři stejně široké dlaždice, ikona nad textem. */
-    .taby a {
-        flex: 1;
-        flex-direction: column;
-        gap: .15rem;
-        padding: .55rem .2rem;
-        border-radius: 0;
-        border-bottom: none;
-        border-top: 2px solid transparent;
-        margin-bottom: 0;
-        font-size: .7rem;
-    }
-    .taby a.aktivni { border-top-color: var(--zelena); background: transparent; }
-
-    .tab-ikona { font-size: 1.25rem; line-height: 1; }
-
-    /* Aby fixní lišta nezakrývala konec stránky. */
-    body { padding-bottom: 5rem; }
-
-    header h1 { font-size: 1.25rem; }
-}
-
-/* ==================== Nákupní seznam ==================== */
+/* ==================== 4d) Nákupní seznam ==================== */
 
 .pocet {
     background: var(--zelena);
-    color: #fff;
+    color: var(--na-zelene);
     font-size: .75rem;
     padding: .1rem .45rem;
     border-radius: 999px;
@@ -309,38 +417,20 @@ main { min-height: 40vh; }
 }
 
 .pridat-form { display: flex; gap: .5rem; }
-.pridat-form input {
-    flex: 1;
-    font: inherit;
-    padding: .7rem .8rem;
-    border: 1px solid #d6dde4;
-    border-radius: 8px;
-    background: #fbfcfd;
-    min-width: 0;   /* aby se input uvnitř flexu mohl zmenšit na mobilu */
-}
-.pridat-form input:focus {
-    outline: none;
-    border-color: var(--zelena);
-    box-shadow: 0 0 0 3px var(--zelena-svet);
-}
-.pridat-form button {
-    font: inherit; font-weight: 600;
-    padding: .7rem 1.2rem;
-    border: none; border-radius: 8px;
-    background: var(--zelena); color: #fff; cursor: pointer;
-}
-.pridat-form button:hover { background: #12833b; }
+.pridat-form input { flex: 1; min-width: 0; padding: .7rem .8rem; }
 
 .seznam { list-style: none; margin: 0; padding: 0; }
 .seznam li {
     display: flex;
     align-items: center;
     gap: .5rem;
-    border-bottom: 1px solid #f0f3f6;
+    border-bottom: 1px solid var(--okraj-jemny);
+    position: relative;
 }
 .seznam li:last-child { border-bottom: none; }
 
 .polozka-form { margin: 0; display: flex; }
+.seznam li > .polozka-form:first-child { flex: 1; min-width: 0; }
 
 /* Tlačítko na odškrtnutí zabírá celou šířku - velký cíl pro palec. */
 .odskrtnout {
@@ -356,21 +446,18 @@ main { min-height: 40vh; }
     cursor: pointer;
     color: var(--text);
 }
-.seznam li { position: relative; }
-.seznam li > .polozka-form:first-child { flex: 1; min-width: 0; }
 
 .ctverecek {
     flex: none;
     width: 24px; height: 24px;
-    border: 2px solid #cfd8e0;
+    border: 2px solid var(--okraj);
     border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
     font-size: .9rem; font-weight: 700;
-    color: #fff;
+    color: var(--na-zelene);
 }
 .polozka-text { word-break: break-word; }
 
-/* Odškrtnutá položka: zelený rámeček, přeškrtnutý a ztlumený text. */
 .hotovo .ctverecek { background: var(--zelena); border-color: var(--zelena); }
 .hotovo .polozka-text { text-decoration: line-through; color: var(--text-slaby); }
 
@@ -380,87 +467,81 @@ main { min-height: 40vh; }
     flex: none;
     font-size: 1.3rem; line-height: 1;
     background: none; border: none;
-    color: #c3ccd4; cursor: pointer;
+    color: var(--text-slaby); opacity: .5;
+    cursor: pointer;
     padding: .5rem .4rem;
 }
-.smazat:hover { color: var(--cervena); }
+.smazat:hover { color: var(--cervena); opacity: 1; }
 
 .uklid-form { margin-top: 1rem; text-align: right; }
 .uklidit {
     font: inherit; font-size: .85rem;
-    background: none; border: 1px solid #dfe5ea;
+    background: none; border: 1px solid var(--okraj);
     border-radius: 8px; padding: .45rem .8rem;
     color: var(--text-slaby); cursor: pointer;
 }
 .uklidit:hover { border-color: var(--cervena); color: var(--cervena); }
 
-/* ==================== Domácí tlačítko (Přehled) ==================== */
+
+/* ==================== 5) Mobil ==================== */
 
 /*
-  Přehled není "jeden z tabů", je to záchytný bod - odkud se dá vždy začít
-  znovu. Proto vypadá jinak: má výplň, je oddělený mezerou a nese ikonu domu.
+  @media je "podmínka pro CSS": pravidla uvnitř platí jen na obrazovce
+  užší než 640 px, tedy na telefonu.
 
-  Nedělám to barvou navíc, ale TVAREM a odsazením. Kdyby měl vlastní barvu,
-  začaly by se na liště prát tři barvy naráz (on, aktivní tab, zelené akce).
+  Navigace se přesune dolů k palci - nákupní seznam se používá v obchodě
+  jednou rukou a nahoru přes celý displej se sahá blbě.
 */
-
-.taby a.domu {
-    background: #eef2f5;
-    border-radius: 8px;
-    color: var(--text);
-    /* Mezera vpravo ho oddělí od ostatních tabů, aby bylo vidět,
-       že nepatří do stejné řady. */
-    margin-right: .8rem;
-    /* Svislá čárka jako oddělovač - jemnější než plná mezera. */
-    position: relative;
-}
-.taby a.domu::after {
-    content: "";
-    position: absolute;
-    right: -.45rem;
-    top: 20%;
-    bottom: 20%;
-    width: 1px;
-    background: #dfe5ea;
-}
-
-.taby a.domu:hover { background: #e2e8ee; }
-
-/* Když je Přehled aktivní, výplň zezelená - vyniká nejvíc ze všech stavů. */
-.taby a.domu.aktivni {
-    background: var(--zelena);
-    color: #fff;
-    border-bottom-color: transparent;
-}
-.taby a.domu.aktivni:hover { background: #12833b; }
-
-/* Ikona domu o kousek větší než ikony ostatních tabů. */
-.taby a.domu .tab-ikona { font-size: 1.1rem; }
-
-
-/* --- Mobil: domácí tlačítko na liště dole --- */
 @media (max-width: 640px) {
 
-    /* Na úzké liště by pilulka s výplní přes celou výšku byla těžkopádná,
-       tak ji zmenšíme jen kolem ikony. */
+    .taby {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        margin: 0;
+        background: var(--karta);
+        border-top: 1px solid var(--okraj);
+        border-bottom: none;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        box-shadow: 0 -1px 6px rgba(0,0,0,.15);
+        z-index: 10;
+        gap: 0;
+    }
+
+    .taby a {
+        flex: 1;
+        flex-direction: column;
+        gap: .15rem;
+        padding: .55rem .2rem;
+        border-radius: 0;
+        border-bottom: none;
+        border-top: 2px solid transparent;
+        margin-bottom: 0;
+        font-size: .7rem;
+    }
+    .taby a.aktivni { border-top-color: var(--zelena); }
+
+    /* Na úzké liště by tlačítko s rámečkem přes celou výšku bylo
+       těžkopádné - výplň dostane jen kolečko kolem ikony. */
     .taby a.domu {
         background: none;
-        margin-right: 0;
+        border: none;
+        border-top: 2px solid transparent;
+        box-shadow: none;
+        margin: 0;
+        padding: .4rem .2rem .55rem;
         border-radius: 0;
+        color: var(--text-slaby);
+        align-self: stretch;
     }
-    .taby a.domu::after {
-        right: 0;
-        top: 25%;
-        bottom: 25%;
-    }
-    .taby a.domu:hover { background: none; }
+    .taby a.domu::after { display: none; }
+    .taby a.domu:hover { background: none; box-shadow: none; }
 
-    /* Ikona dostane vlastní kolečko - výrazná, ale lišta zůstane vzdušná. */
     .taby a.domu .tab-ikona {
-        background: #eef2f5;
+        background: var(--karta-2);
+        border: 1px solid var(--okraj);
         border-radius: 999px;
-        padding: .25rem .5rem;
-        font-size: 1.15rem;
+        padding: .2rem .5rem;
+        font-size: 1.1rem;
     }
     .taby a.domu.aktivni {
         background: none;
@@ -469,5 +550,10 @@ main { min-height: 40vh; }
     }
     .taby a.domu.aktivni .tab-ikona {
         background: var(--zelena);
+        border-color: var(--zelena);
     }
+
+    /* Aby fixní lišta nezakrývala konec stránky. */
+    body { padding-bottom: 5rem; }
+    header h1 { font-size: 1.25rem; }
 }

@@ -62,7 +62,9 @@ def priprav(mereni, index_hodnoty, barva, jednotka, delitel=1, desetin=0):
 
     mereni        - seznam řádků z databáze
     index_hodnoty - který sloupec v řádku kreslíme (1 = výkon, 3 = baterie)
-    barva         - hex barva čáry
+    barva         - barva čáry; předává se jako CSS proměnná
+                    (např. "var(--serie-vykon)"), aby se sama
+                    přepnula ve světlém i tmavém režimu
     jednotka      - text k popiskům osy y ("kW", "%")
     delitel       - čím hodnotu vydělit (1000 pro převod W na kW)
     desetin       - na kolik desetinných míst popisky zaokrouhlit

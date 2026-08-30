@@ -31,11 +31,11 @@
                 {% endfor %}
 
                 {# Jemná výplň pod čárou - naznačuje objem, nepřebíjí čáru #}
-                <path d="{{ g.vypln }}" fill="{{ g.barva }}" opacity="0.12"/>
+                <path d="{{ g.vypln }}" style="fill: {{ g.barva }}" opacity="0.12"/>
 
                 {# Samotná čára grafu #}
                 <polyline points="{{ g.cara }}" fill="none"
-                          stroke="{{ g.barva }}" stroke-width="2"
+                          style="stroke: {{ g.barva }}" stroke-width="2"
                           stroke-linejoin="round" stroke-linecap="round"/>
 
                 {# Neviditelné body pro najetí myší; <title> ukáže bublinu #}

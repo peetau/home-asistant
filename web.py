@@ -153,10 +153,10 @@ def solary():
     historie = _bezpecne(lambda: database.nacti_pro_graf(hodin=24))[0] or []
 
     graf_vykon = graf.priprav(
-        historie, index_hodnoty=1, barva="#eb6834",
+        historie, index_hodnoty=1, barva="var(--serie-vykon)",
         jednotka="kW", delitel=1000, desetin=1)
     graf_baterie = graf.priprav(
-        historie, index_hodnoty=3, barva="#2a78d6",
+        historie, index_hodnoty=3, barva="var(--serie-baterie)",
         jednotka="%", desetin=0)
 
     return render_template(
