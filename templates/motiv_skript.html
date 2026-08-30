@@ -1,0 +1,34 @@
+{#
+  Nastavení motivu JEŠTĚ PŘED vykreslením stránky.
+
+  Tenhle skript MUSÍ být přímo v <head> a musí být malý a rychlý.
+  Prohlížeč ho spustí dřív, než začne cokoliv kreslit - a proto uživatel
+  neuvidí záblesk světlé stránky, než se přepne na tmavou (chyba zvaná FOUC,
+  "flash of unstyled content").
+
+  Kdyby byl tenhle kód až v souboru na konci stránky, blikalo by to.
+  Proto je jako jediný přímo tady v HTML.
+
+  Vkládá se do stránek přes {% include "motiv_skript.html" %} - include je
+  Jinja "vlož sem obsah jiného souboru", aby se tenhle kód nemusel psát
+  dvakrát (základní šablona + přihlašovací stránka).
+#}
+<script>
+(function () {
+    try {
+        // localStorage = malé úložiště přímo v prohlížeči. Přežije zavření
+        // okna i restart počítače, ale patří JEN tomuhle prohlížeči -
+        // na mobilu si volbu uživatel udělá znovu. Na server se nedostane.
+        var ulozeny = localStorage.getItem("motiv");
+
+        // Zapisujeme jen "light"/"dark". Když tam nic není, atribut
+        // nenastavíme a rozhodne systémové nastavení (viz @media v CSS).
+        if (ulozeny === "light" || ulozeny === "dark") {
+            document.documentElement.setAttribute("data-theme", ulozeny);
+        }
+    } catch (e) {
+        // localStorage může být zakázané (anonymní okno, přísné nastavení
+        // soukromí). Pak prostě zůstane systémový motiv - stránka funguje dál.
+    }
+})();
+</script>

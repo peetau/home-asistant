@@ -29,8 +29,12 @@ devices/
   nanoleaf.py       čtení stavu Nanoleaf panelů
   solax.py          čtení stavu solární elektrárny
 web.py              webový server (Flask) — spouští stránku v prohlížeči
+static/
+  style.css         vzhled (barvy jako proměnné, světlý i tmavý motiv)
+  motiv.js          přepínač motivu (jediný JavaScript v projektu)
 templates/
   zaklad.html       společná kostra všech stránek (hlavička, navigace)
+  motiv_skript.html nastavení motivu před vykreslením (proti blikání)
   makra.html        znovupoužitelné kousky (graf, tabulka)
   prehled.html      tab Přehled
   solary.html       tab Soláry

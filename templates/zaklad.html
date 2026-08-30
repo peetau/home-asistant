@@ -7,6 +7,9 @@
     {# Titulek stránky. {% block %} je "díra", kterou si každá konkrétní     #}
     {# stránka vyplní po svém. Text mezi block a endblock je výchozí hodnota #}
     {# pro případ, že si ji stránka nevyplní.                                #}
+    {# Musí být co nejdřív - nastaví motiv dřív, než se začne kreslit. #}
+    {% include "motiv_skript.html" %}
+
     <title>{% block titulek %}Domácí asistent{% endblock %}</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -20,6 +23,10 @@
     <header>
         <h1>Domácí asistent</h1>
         <span class="cas">
+            {# hidden = schované, dokud JavaScript nepotvrdí, že běží.
+               Bez JS by tu jinak zůstalo tlačítko, které nic nedělá. #}
+            <button type="button" id="prepinac-motivu"
+                    class="prepinac-motivu" hidden>🌗</button>
             {{ uzivatel }} · <a href="{{ url_for('odhlaseni') }}">odhlásit</a>
         </span>
     </header>
@@ -64,5 +71,9 @@
     <footer>{% block paticka %}{% endblock %}</footer>
 
 </div>
+
+{# Skript až na konci: v tuhle chvíli už HTML existuje, takže si skript
+   najde tlačítko. Kdyby byl v hlavičce, tlačítko by ještě neexistovalo. #}
+<script src="{{ url_for('static', filename='motiv.js') }}"></script>
 </body>
 </html>

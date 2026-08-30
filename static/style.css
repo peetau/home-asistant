@@ -557,3 +557,27 @@ details.karta[open] summary { margin-bottom: 1rem; }
     body { padding-bottom: 5rem; }
     header h1 { font-size: 1.25rem; }
 }
+
+/* ==================== Přepínač motivu ==================== */
+
+.prepinac-motivu {
+    font-size: 1rem;
+    line-height: 1;
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    padding: .3rem .5rem;
+    cursor: pointer;
+    /* Bez pevné šířky by tlačítko poskakovalo, protože emoji mají
+       různou šířku. Takhle zůstane na místě při každém přepnutí. */
+    min-width: 2.1rem;
+    text-align: center;
+    vertical-align: middle;
+    margin-right: .4rem;
+}
+.prepinac-motivu:hover { background: var(--karta-2); border-color: var(--text-slaby); }
+.prepinac-motivu:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--zelena-svet);
+    border-color: var(--zelena);
+}
