@@ -1021,3 +1021,42 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .indikator.problem { background: var(--cervena);
                      box-shadow: 0 0 0 3px var(--cervena-pozadi); }
 .indikator.nezname { background: var(--text-slaby); opacity: .45; }
+
+/* --- Datum a svátek nad nadpisem --- */
+.datum-radka {
+    margin: 0 0 .9rem;
+    text-align: center;
+    font-size: .8rem;
+    color: var(--text-slaby);
+}
+
+/* --- Počasí pod indikátory --- */
+.pocasi {
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--okraj-jemny);
+}
+.pocasi-misto {
+    text-align: center;
+    font-size: .75rem;
+    color: var(--text-slaby);
+    margin-bottom: .6rem;
+}
+
+/* Tři stejně široké sloupce - drží se vedle sebe i na úzkém mobilu. */
+.pocasi-dny { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+
+.pocasi-den {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .2rem;
+}
+.pocasi-ikona { font-size: 1.5rem; line-height: 1.1; }
+
+.pocasi-teploty { font-size: .85rem; display: flex; gap: .35rem; }
+.pocasi-teploty strong { font-weight: 700; }
+/* Minimální teplota je vedlejší údaj, tak ať nepřebíjí maximum. */
+.pocasi-teploty span { color: var(--text-slaby); }
+
+.pocasi-nazev { font-size: .7rem; color: var(--text-slaby); }

@@ -33,3 +33,10 @@ SECRET_KEY = "sem-patri-nahodny-retezec"
 # jestli zalohovani bezi. Doma tahle slozka neexistuje a nic se nedeje -
 # indikator pak jen ukaze "neznamo".
 ZALOHY_SLOZKA = "~/zalohy"
+
+# --- Poloha pro predpoved pocasi na prihlasovaci strance ---
+# Souradnice patri sem (mimo Git) - je to udaj o tom, kde bydlis.
+# Do stranky se nikdy nevypisuji, ukazuje se jen nazev mista.
+POCASI_LAT = 50.00
+POCASI_LON = 14.00
+POCASI_MISTO = "Praha"

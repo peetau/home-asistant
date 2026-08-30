@@ -25,6 +25,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import config
 import database
 import graf
+import pocasi
+import svatky
 from devices.nanoleaf import (get_nanoleaf_status, get_nanoleaf_detail,
                              set_nanoleaf_on, set_nanoleaf_brightness,
                              set_nanoleaf_effect, get_nanoleaf_paleta)
@@ -283,6 +285,10 @@ def prihlaseni():
         "prihlaseni.html",
         chyba=chyba,
         nalada=denni_nalada(),
+        datum_svatek=_bezpecne(svatky.popis_dne)[0],
+        pocasi=_bezpecne(lambda: pocasi.predpoved(
+            config.POCASI_LAT, config.POCASI_LON))[0],
+        misto=getattr(config, "POCASI_MISTO", ""),
         stav_sber=stav_sberu(),
         stav_zaloha=stav_zalohy(),
     )

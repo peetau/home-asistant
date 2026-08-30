@@ -41,6 +41,11 @@
 <div class="obal obal-uzky">
 
     <div class="karta karta-prihlaseni">
+        {# Datum a svátek. Když se je nepodaří zjistit, řádek prostě není. #}
+        {% if datum_svatek %}
+            <p class="datum-radka">{{ datum_svatek }}</p>
+        {% endif %}
+
         <h1 class="prihlaseni-nadpis">🏠 Domácí asistent</h1>
 
         {# Chybová hláška se ukáže jen tehdy, když ji Python pošle. #}
@@ -94,6 +99,31 @@
                 </div>
             {% endfor %}
         </div>
+
+        {# ---------- Počasí ---------- #}
+        {#
+           Blok se ukáže jen tehdy, když se předpověď podařilo získat.
+           Když je Open-Meteo nedostupné, stránka funguje dál bez něj.
+        #}
+        {% if pocasi %}
+        <div class="pocasi">
+            {% if misto %}<div class="pocasi-misto">{{ misto }}</div>{% endif %}
+            <div class="pocasi-dny">
+                {% for d in pocasi %}
+                    <div class="pocasi-den">
+                        {# title ukáže slovní popis po najetí myší;
+                           samotná ikona by pro čtečky obrazovky nic neřekla #}
+                        <span class="pocasi-ikona" title="{{ d.popis }}"
+                              role="img" aria-label="{{ d.popis }}">{{ d.ikona }}</span>
+                        <span class="pocasi-teploty">
+                            <strong>{{ d.max }}°</strong><span>{{ d.min }}°</span>
+                        </span>
+                        <span class="pocasi-nazev">{{ d.den }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
 </div>
