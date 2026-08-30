@@ -20,3 +20,8 @@ flask
 # Na Windows nefunguje a není tam potřeba - doma se pořád spouští
 # python web.py. Instaluje se až na serveru.
 gunicorn; sys_platform != "win32"
+
+# segno = vypocet QR kodu (cisty Python, nic dalsiho nepotrebuje).
+# Pouziva se ve Sprave: QR s adresou aplikace, aby ji rodina nemusela
+# opisovat. Samotne SVG si kreslime v qr.py, at se barva ridi motivem.
+segno

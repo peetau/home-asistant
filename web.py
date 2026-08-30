@@ -27,6 +27,7 @@ import config
 import database
 import graf
 import pocasi
+import qr
 import svatky
 from devices.nanoleaf import (get_nanoleaf_status, get_nanoleaf_detail,
                              set_nanoleaf_on, set_nanoleaf_brightness,
@@ -683,6 +684,10 @@ def sprava():
         popisy_tabu=POPISY_TABU,
         muj_id=session.get("uzivatel_id"),
         stav=podrobny_stav(),
+        # Adresu bereme z požadavku, ne z configu - Flask ji zná a díky
+        # ProxyFixu je i za Caddy správná (https, skutečná doména).
+        adresa=request.url_root.rstrip("/"),
+        qr_kod=_bezpecne(lambda: qr.qr_pro_svg(request.url_root.rstrip("/")))[0],
         chyba=request.args.get("chyba"),
         zprava=request.args.get("zprava"),
     )

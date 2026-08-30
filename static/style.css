@@ -1377,3 +1377,28 @@ header .cas { display: flex; align-items: center; gap: .5rem; }
     color: var(--na-zelene);
 }
 .potvrzeni-ano:hover { background: var(--zelena-tmava); }
+
+/* --- QR s adresou ve Správě --- */
+.qr-obsah {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+}
+.qr {
+    width: 150px;
+    height: 150px;
+    flex: none;
+    border-radius: 8px;
+    border: 1px solid var(--okraj);
+    /* Ostré hrany - QR se nesmí rozmazat interpolací při zvětšení. */
+    image-rendering: pixelated;
+    shape-rendering: crispEdges;
+}
+.qr-popis { flex: 1; min-width: 12rem; }
+.qr-adresa {
+    margin: 0 0 .4rem;
+    font-weight: 600;
+    word-break: break-all;
+}
+.qr-popis .prazdno { margin: 0; font-size: .85rem; }

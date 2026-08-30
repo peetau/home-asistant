@@ -55,6 +55,35 @@
     </div>
     {% endif %}
 
+    {# ---------- QR s adresou ---------- #}
+    {#
+       Aby rodina nemusela adresu opisovat z papírku - stačí namířit
+       foťák. Kód se kreslí z matice, kterou spočítalo segno; barvu
+       řídí currentColor, takže funguje i v tmavém motivu.
+    #}
+    {% if qr_kod %}
+    <div class="karta qr-karta">
+        <h2>📱 Adresa pro rodinu</h2>
+        <div class="qr-obsah">
+            <svg class="qr" viewBox="0 0 {{ qr_kod.strana }} {{ qr_kod.strana }}"
+                 role="img" aria-label="QR kód s adresou {{ adresa }}">
+                {# Podklad musí být světlý i v tmavém motivu - čtečky
+                   počítají s tmavým kódem na světlém pozadí. #}
+                <rect width="100%" height="100%" fill="#fff"/>
+                {% for o in qr_kod.obdelniky %}
+                    <rect x="{{ o.x }}" y="{{ o.y }}"
+                          width="{{ o.sirka }}" height="1" fill="#000"/>
+                {% endfor %}
+            </svg>
+            <div class="qr-popis">
+                <p class="qr-adresa">{{ adresa }}</p>
+                <p class="prazdno">Namiř foťák a otevře se přihlášení.
+                   Účet musíš každému nejdřív založit níž.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {# ---------- Nový účet ---------- #}
     <div class="karta">
         <h2>➕ Nový účet</h2>
