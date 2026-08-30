@@ -55,6 +55,54 @@ def vyzaduje_prihlaseni(funkce):
     return obalena_funkce
 
 
+def vyzaduje_pravo(tab):
+    """
+    Nálepka pro route, které smí jen uživatel s právem na daný tab.
+
+        @app.route("/solary")
+        @vyzaduje_pravo("solary")
+        def solary(): ...
+
+    Oproti vyzaduje_prihlaseni je to o patro výš: dekorátor S PARAMETREM.
+    Funguje tak, že vyzaduje_pravo("solary") nejdřív VYROBÍ dekorátor
+    (funkci dekorator níž) a teprve ten se přilepí na route. Proto jsou
+    tu tři vnořené funkce místo dvou.
+
+    DŮLEŽITÉ: tahle kontrola je ta skutečná ochrana. Skrytí tabu v menu
+    je jen pohodlí - kdo zná adresu, může požadavek poslat i tak.
+    """
+    def dekorator(funkce):
+        @wraps(funkce)
+        def obalena_funkce(*args, **kwargs):
+            if "uzivatel" not in session:
+                return redirect(url_for("prihlaseni"))
+            if tab not in session.get("prava", []):
+                # Bez práva pošleme na Přehled - ten má každý přihlášený.
+                return redirect(url_for("dashboard"))
+            return funkce(*args, **kwargs)
+        return obalena_funkce
+    return dekorator
+
+
+@app.context_processor
+def spolecna_data():
+    """
+    Data, která dostane KAŽDÁ šablona automaticky.
+
+    Dřív každá route posílala uzivatel=session.get("uzivatel") zvlášť -
+    pětkrát to samé. Context processor to řeší na jednom místě: co vrátí
+    tenhle slovník, je vidět ve všech šablonách.
+
+    Práva čteme ze session, ne z databáze - session se plní při přihlášení,
+    takže se kvůli vykreslení navigace nemusí sahat do databáze při
+    každém požadavku.
+    """
+    return {
+        "uzivatel": session.get("uzivatel"),
+        "prava": set(session.get("prava", [])),
+    }
+
+
 # methods=["GET", "POST"] říká, že tahle adresa umí dvě věci:
 #   GET  = "ukaž mi formulář"        (když na stránku přijdeš)
 #   POST = "tady máš vyplněné údaje" (když odešleš formulář)
@@ -77,6 +125,10 @@ def prihlaseni():
             # požadavkem - tím si nás server "pamatuje".
             session["uzivatel"] = uzivatel["jmeno"]
             session["uzivatel_id"] = uzivatel["id"]
+            # Práva si uložíme rovnou při přihlášení, ať se kvůli vykreslení
+            # navigace nemusí sahat do databáze při každém požadavku.
+            # (set se do session neuloží, musí to být seznam.)
+            session["prava"] = sorted(database.prava_uzivatele(uzivatel["id"]))
             return redirect(url_for("dashboard"))
 
         # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
@@ -133,12 +185,11 @@ def dashboard():
         "prehled.html", aktivni="prehled",
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
-        uzivatel=session.get("uzivatel"),
     )
 
 
 @app.route("/solary")
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("solary")
 def solary():
     """Detail solární elektrárny: aktuální stav, grafy, historie."""
     solax, solax_chyba = _stav_solax()
@@ -164,24 +215,22 @@ def solary():
         solax=solax, solax_chyba=solax_chyba,
         graf_vykon=graf_vykon, graf_baterie=graf_baterie,
         historie=list(reversed(historie))[:20],   # tabulka: nejnovější nahoře
-        uzivatel=session.get("uzivatel"),
     )
 
 
 @app.route("/nanoleaf")
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nanoleaf")
 def nanoleaf():
     """Detail Nanoleaf. Ovládání přibude ve Fázi 5."""
     stav, chyba = _stav_nanoleaf()
     return render_template(
         "nanoleaf.html", aktivni="nanoleaf",
         nanoleaf=stav, nanoleaf_chyba=chyba,
-        uzivatel=session.get("uzivatel"),
     )
 
 
 @app.route("/nakup")
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nakup")
 def nakup():
     """Nákupní seznam - společný pro celou rodinu."""
     polozky = database.seznam_nakupu()
@@ -192,7 +241,6 @@ def nakup():
     return render_template(
         "nakup.html", aktivni="nakup",
         polozky=polozky, chybi=chybi,
-        uzivatel=session.get("uzivatel"),
     )
 
 
@@ -211,7 +259,7 @@ def nakup():
 # ---------------------------------------------------------------------------
 
 @app.route("/nakup/pridat", methods=["POST"])
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nakup")
 def nakup_pridat():
     database.pridej_polozku(
         request.form.get("text", ""),
@@ -225,21 +273,21 @@ def nakup_pridat():
 # že to je opravdu číslo - když někdo zkusí /nakup/abc/prepnout,
 # Flask vrátí 404 a naše funkce se vůbec nespustí.
 @app.route("/nakup/<int:id_polozky>/prepnout", methods=["POST"])
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nakup")
 def nakup_prepnout(id_polozky):
     database.prepni_koupeno(id_polozky, session.get("uzivatel"))
     return redirect(url_for("nakup"))
 
 
 @app.route("/nakup/<int:id_polozky>/smazat", methods=["POST"])
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nakup")
 def nakup_smazat(id_polozky):
     database.smaz_polozku(id_polozky)
     return redirect(url_for("nakup"))
 
 
 @app.route("/nakup/uklidit", methods=["POST"])
-@vyzaduje_prihlaseni
+@vyzaduje_pravo("nakup")
 def nakup_uklidit():
     """Smaže všechny odškrtnuté položky naráz."""
     database.smaz_koupene()
