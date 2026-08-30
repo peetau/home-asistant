@@ -20,6 +20,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # aby databáze vždy vznikla ve složce projektu - ať skript spustíš odkudkoliv.
 DB_SOUBOR = os.path.join(os.path.dirname(__file__), "asistent.db")
 
+# Taby, na které se udělují práva.
+#
+# Přehled tu SCHVÁLNĚ NENÍ: je vždy dostupný každému přihlášenému a jeho
+# obsah se poskládá z toho, na co uživatel právo má. Nemá tedy smysl ho
+# povolovat - kdo se přihlásí, na Přehled patří.
+#
+# Přidání dalšího zařízení = přidat sem jeho název. Nic v databázi se měnit
+# nemusí (viz komentář u tabulky 'opravneni').
+VSECHNY_TABY = ("solary", "nanoleaf", "nakup", "sprava")
+
+# Co dostane nově založený uživatel. Nejopatrnější rozumný start:
+# přihlásí se, vidí Přehled a může přidávat na nákupní seznam.
+VYCHOZI_PRAVA = ("nakup",)
+
 
 def _spojeni():
     """
@@ -28,7 +42,14 @@ def _spojeni():
     Když soubor asistent.db ještě neexistuje, SQLite ho při prvním
     spojení sám vytvoří. Není tedy co "zakládat" ručně.
     """
-    return sqlite3.connect(DB_SOUBOR)
+    spojeni = sqlite3.connect(DB_SOUBOR)
+
+    # SQLite má hlídání vazeb mezi tabulkami ve výchozím stavu VYPNUTÉ
+    # (kvůli zpětné kompatibilitě) a zapíná se pro každé spojení zvlášť.
+    # Bez tohohle řádku by ON DELETE CASCADE u oprávnění nefungovalo
+    # a po smazání uživatele by v databázi zůstala jeho osiřelá práva.
+    spojeni.execute("PRAGMA foreign_keys = ON")
+    return spojeni
 
 
 def init_db():
@@ -89,6 +110,48 @@ def init_db():
                 koupeno_kdy  TEXT
             )
         """)
+
+        # Oprávnění: kdo smí na který tab.
+        #
+        # Jeden řádek = jedno udělené právo. Proč zvláštní tabulka místo
+        # sloupců "muze_solary", "muze_nakup"? Protože přidání dalšího
+        # zařízení pak nevyžaduje ŽÁDNOU změnu struktury - jen se začnou
+        # zapisovat řádky s novým názvem tabu.
+        #
+        # PRIMARY KEY přes obě pole znamená, že stejná dvojice nemůže být
+        # dvakrát - o duplicity se postará databáze sama.
+        #
+        # ON DELETE CASCADE = "když zmizí uživatel, zmiz i jeho práva".
+        # Bez toho by v tabulce zůstaly řádky ukazující na neexistující účet.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS opravneni (
+                uzivatel_id INTEGER NOT NULL,
+                tab         TEXT    NOT NULL,
+                PRIMARY KEY (uzivatel_id, tab),
+                FOREIGN KEY (uzivatel_id) REFERENCES uzivatele(id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        # MIGRACE existující databáze.
+        #
+        # Tabulka uživatelů už obsahuje účty založené dřív, než oprávnění
+        # vůbec existovala. Kdybychom nic neudělali, neměly by po nasazení
+        # práva na nic - včetně Správy - a nikdo by se do aplikace nedostal.
+        #
+        # Proto: když jsou oprávnění prázdná, ale uživatelé ne, udělíme
+        # všem existujícím účtům všechna práva. Je to bezpečné i při
+        # opakovaném spuštění, protože podmínka platí jen jednou (pravidlo
+        # "aspoň jeden správce" pak zaručí, že tabulka nikdy neklesne na nulu).
+        prazdna = db.execute("SELECT COUNT(*) FROM opravneni").fetchone()[0] == 0
+        nejaci = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] > 0
+        if prazdna and nejaci:
+            for (id_u,) in db.execute("SELECT id FROM uzivatele").fetchall():
+                for tab in VSECHNY_TABY:
+                    db.execute(
+                        "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
+                        (id_u, tab),
+                    )
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
 
 
@@ -166,9 +229,12 @@ def smaz_koupene():
         return kurzor.rowcount
 
 
-def vytvor_uzivatele(jmeno, heslo):
+def vytvor_uzivatele(jmeno, heslo, prava=None):
     """
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
+
+    prava - seznam tabů, které má dostat. Když se nezadá, použijí se
+            VYCHOZI_PRAVA (jen nákupní seznam).
 
     Vrací True když se povedlo, False když jméno už existuje.
     """
@@ -181,10 +247,18 @@ def vytvor_uzivatele(jmeno, heslo):
 
     try:
         with _spojeni() as db:
-            db.execute(
+            kurzor = db.execute(
                 "INSERT INTO uzivatele (jmeno, heslo_hash) VALUES (?, ?)",
                 (jmeno, hash_hesla),
             )
+            # lastrowid = id právě vloženého řádku. Potřebujeme ho hned,
+            # abychom novému účtu rovnou udělili výchozí práva.
+            for tab in prava if prava is not None else VYCHOZI_PRAVA:
+                if tab in VSECHNY_TABY:
+                    db.execute(
+                        "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
+                        (kurzor.lastrowid, tab),
+                    )
         return True
     except sqlite3.IntegrityError:
         # Sem se dostaneme, když jméno porušilo pravidlo UNIQUE.
@@ -221,6 +295,136 @@ def seznam_uzivatelu():
     with _spojeni() as db:
         kurzor = db.execute("SELECT id, jmeno, vytvoren FROM uzivatele ORDER BY id")
         return kurzor.fetchall()
+
+
+# ==================== Oprávnění ====================
+
+def prava_uzivatele(id_uzivatele):
+    """Vrátí množinu tabů, na které má uživatel právo."""
+    with _spojeni() as db:
+        radky = db.execute(
+            "SELECT tab FROM opravneni WHERE uzivatel_id = ?", (id_uzivatele,)
+        ).fetchall()
+    # set() místo seznamu: ptáme se hlavně "je tam tenhle tab?",
+    # a na to je množina rychlejší i čitelnější (tab in prava).
+    return {radek[0] for radek in radky}
+
+
+def pocet_spravcu():
+    """Kolik uživatelů má právo na Správu. Používá se v pojistkách."""
+    with _spojeni() as db:
+        return db.execute(
+            "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
+        ).fetchone()[0]
+
+
+def _je_spravce(db, id_uzivatele):
+    """Má daný uživatel právo na Správu? (uvnitř už otevřeného spojení)"""
+    return db.execute(
+        "SELECT 1 FROM opravneni WHERE uzivatel_id = ? AND tab = 'sprava'",
+        (id_uzivatele,),
+    ).fetchone() is not None
+
+
+def nastav_prava(id_uzivatele, taby):
+    """
+    Nastaví uživateli přesně tahle práva (stará se zahodí).
+
+    Vrací (True, None) při úspěchu, jinak (False, "důvod").
+
+    POJISTKA: odmítne odebrat Správu poslednímu, kdo ji má - jinak by se
+    do správy uživatelů už nikdo nedostal a šlo by to spravit jen
+    přes příkazovou řádku.
+    """
+    # Pustíme dál jen názvy, které známe. Kdyby někdo do formuláře
+    # podstrčil vlastní hodnotu, tady skončí.
+    nove = {tab for tab in taby if tab in VSECHNY_TABY}
+
+    with _spojeni() as db:
+        if _je_spravce(db, id_uzivatele) and "sprava" not in nove:
+            pocet = db.execute(
+                "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
+            ).fetchone()[0]
+            if pocet <= 1:
+                return False, ("Tohle je poslední účet se Správou. "
+                               "Nejdřív ji dej někomu jinému.")
+
+        # Smazat a zapsat znovu je jednodušší a spolehlivější než počítat,
+        # co přibylo a co ubylo. Obojí je v jedné transakci ('with'),
+        # takže se buď povede všechno, nebo nic.
+        db.execute("DELETE FROM opravneni WHERE uzivatel_id = ?", (id_uzivatele,))
+        for tab in nove:
+            db.execute(
+                "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
+                (id_uzivatele, tab),
+            )
+    return True, None
+
+
+def zmen_heslo(id_uzivatele, nove_heslo):
+    """Nastaví uživateli nové heslo. Ukládá se zase jen jako hash."""
+    if len(nove_heslo) < 6:
+        return False, "Heslo musí mít aspoň 6 znaků."
+
+    with _spojeni() as db:
+        db.execute(
+            "UPDATE uzivatele SET heslo_hash = ? WHERE id = ?",
+            (generate_password_hash(nove_heslo), id_uzivatele),
+        )
+    return True, None
+
+
+def smaz_uzivatele(id_uzivatele):
+    """
+    Smaže uživatele i jeho práva (o práva se postará ON DELETE CASCADE).
+
+    POJISTKA: neumaže posledního správce.
+    """
+    with _spojeni() as db:
+        if _je_spravce(db, id_uzivatele):
+            pocet = db.execute(
+                "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
+            ).fetchone()[0]
+            if pocet <= 1:
+                return False, "Tohle je poslední účet se Správou, nelze smazat."
+
+        db.execute("DELETE FROM uzivatele WHERE id = ?", (id_uzivatele,))
+    return True, None
+
+
+def uzivatele_s_pravy():
+    """
+    Vrátí seznam uživatelů i s jejich právy - pro tab Správa.
+
+    Formát: [{"id": 1, "jmeno": "petr", "vytvoren": "...", "prava": {...}}, ...]
+
+    Používá JEDEN dotaz s LEFT JOIN místo toho, aby se pro každého uživatele
+    zvlášť ptal na jeho práva. Se třemi účty je to jedno, ale je to návyk:
+    dotaz v cyklu je klasická příčina pomalých aplikací.
+
+    LEFT JOIN = "vezmi všechny uživatele a přilep k nim jejich práva;
+    když nějaký žádná nemá, stejně ho vrať" (proto LEFT). Uživatel bez práv
+    přijde s prázdnou hodnotou v sloupci tab, kterou níž přeskočíme.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT u.id, u.jmeno, u.vytvoren, o.tab
+            FROM uzivatele u
+            LEFT JOIN opravneni o ON o.uzivatel_id = u.id
+            ORDER BY u.id
+        """).fetchall()
+
+    # Dotaz vrací jeden řádek na KAŽDÉ právo, takže se uživatel opakuje.
+    # Poskládáme to zpátky do jednoho záznamu na uživatele.
+    podle_id = {}
+    for id_u, jmeno, vytvoren, tab in radky:
+        if id_u not in podle_id:
+            podle_id[id_u] = {"id": id_u, "jmeno": jmeno,
+                              "vytvoren": vytvoren, "prava": set()}
+        if tab:
+            podle_id[id_u]["prava"].add(tab)
+
+    return list(podle_id.values())
 
 
 def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc):
