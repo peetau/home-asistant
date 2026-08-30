@@ -8,7 +8,8 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 
 ## Aktuální fáze
 
-**Fáze 4 — přihlašování / rodinné účty.** Fáze 1–3 hotové.
+**Fáze 7 — nasazení na server.** Fáze 1–4 jsou hotové a aplikace už umí
+běžet v produkčním režimu; zbývá ji rozběhnout na skutečném serveru.
 
 - [x] Fáze 1 — čtení Nanoleaf (lokální REST API) a SolaX (lokálně z Wi-Fi dongle)
 - [x] Fáze 2 — webový dashboard (Flask + šablona + CSS ve třech vrstvách)
@@ -18,8 +19,9 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 - [x] Fáze 4 — přihlašování (účty, hashovaná hesla, zamčený dashboard)
 - [x] Nákupní seznam — společný pro rodinu (přidávání, odškrtávání, úklid)
 - [x] Správa uživatelů — účty a práva na jednotlivé taby
-- [ ] **Fáze 5 — ovládání zařízení (zapínání Nanoleaf)  ← DALŠÍ KROK**
-- [ ] Fáze 7 — nasazení na cloudový server
+- [x] Příprava na produkci, blok 1 — zabezpečená cookie, ProxyFix, gunicorn
+- [ ] **Fáze 7 — nasazení na cloudový server  ← DALŠÍ KROK**
+- [ ] Fáze 5 — ovládání zařízení (zapínání Nanoleaf)
 
 Data se sbírají do `asistent.db`, dokud běží `sber.py`.
 
@@ -90,6 +92,45 @@ měření do `asistent.db`, web z ní čte. Obojí zastavíš `Ctrl+C`.
 
 Pokud `config.py` neexistuje (třeba po stažení z GitHubu), vyrob ho kopií šablony:
 
-```powershell
+```
 copy config.example.py config.py
 ```
+
+V `config.py` pak doplň vlastní `SECRET_KEY` — tím Flask podepisuje
+přihlašovací cookie. Vygeneruješ ho takhle:
+
+```
+.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Každý počítač i server má svůj vlastní klíč, nekopíruje se mezi nimi.
+
+## Doma vs. na serveru
+
+Ten samý kód poběží na dvou místech a chová se na každém trochu jinak.
+Rozhoduje o tom proměnná prostředí `ASISTENT_PRODUKCE` — nastavení, které
+kód dostane zvenku od systému, místo aby ho měl napsané v sobě:
+
+- **doma** není nastavená vůbec → dashboard jede přes `http://127.0.0.1:5000`
+  a přihlašovací cookie nemá příznak `Secure` (jinak by přes `http://` vůbec
+  nešlo se přihlásit)
+- **na serveru** (`ASISTENT_PRODUKCE=1`) → cookie se posílá jen po HTTPS
+  a aplikace věří hlavičkám od reverzní proxy (Caddy), takže vidí skutečnou
+  adresu návštěvníka a skládá odkazy s `https://`
+
+Cookie je v obou případech `HttpOnly` (nepřečte ji JavaScript na stránce)
+a `SameSite=Lax` (neodešle se, když na web odkáže cizí formulář).
+
+Na serveru aplikaci nespouští `python web.py`, ale **gunicorn** — vestavěný
+server Flasku je jen na vývoj. Například:
+
+```
+ASISTENT_PRODUKCE=1 gunicorn -w 2 -b 127.0.0.1:8000 web:app
+```
+
+Gunicorn je v `requirements.txt` označený `sys_platform != "win32"`, takže
+se na Windows neinstaluje a doma nepřekáží.
+
+První účet založený v prázdné databázi dostane automaticky **všechna práva**.
+Bez toho by na čerstvém serveru nikdo neměl přístup do Správy a nešlo by
+práva nikomu přidělit.
