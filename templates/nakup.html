@@ -4,15 +4,68 @@
 
 {% block obsah %}
 
+    {# ---------- Přidání položky ---------- #}
     <div class="karta">
-        <h2>🛒 Nákupní seznam</h2>
-        <p class="prazdno">
-            Tady bude společný seznam pro celou rodinu: každý přidá, co chybí,
-            a v obchodě se položky odškrtávají.
-        </p>
-        <p class="prazdno">
-            Databázi i účty už na to máme — přijde jako další krok.
-        </p>
+        <h2>🛒 Nákupní seznam
+            {% if chybi %}<span class="pocet">{{ chybi }}</span>{% endif %}
+        </h2>
+
+        <form method="post" action="{{ url_for('nakup_pridat') }}" class="pridat-form">
+            <input type="text" name="text" placeholder="Co je potřeba koupit?"
+                   required autofocus autocomplete="off" maxlength="200">
+            <button type="submit">Přidat</button>
+        </form>
+    </div>
+
+    {# ---------- Seznam ---------- #}
+    <div class="karta">
+        {% if polozky %}
+            <ul class="seznam">
+                {% for id_p, text, koupeno, pridal, koupil in polozky %}
+                    <li class="{{ 'hotovo' if koupeno }}">
+
+                        {# Odškrtnutí: celý text je tlačítko, ať se na mobilu
+                           dobře trefuje palcem. Formulář kolem něj je proto,
+                           že měnit stav se musí přes POST, ne přes odkaz. #}
+                        <form method="post"
+                              action="{{ url_for('nakup_prepnout', id_polozky=id_p) }}"
+                              class="polozka-form">
+                            <button type="submit" class="odskrtnout">
+                                <span class="ctverecek">{{ "✓" if koupeno }}</span>
+                                <span class="polozka-text">
+                                    {# Tohle vypíše text položky. Jinja ho
+                                       automaticky ošetří - viz komentář
+                                       v nakup.html níže / v README. #}
+                                    {{ text }}
+                                </span>
+                            </button>
+                        </form>
+
+                        <span class="polozka-kdo">
+                            {% if koupeno %}koupil {{ koupil }}{% else %}{{ pridal }}{% endif %}
+                        </span>
+
+                        <form method="post"
+                              action="{{ url_for('nakup_smazat', id_polozky=id_p) }}"
+                              class="polozka-form">
+                            <button type="submit" class="smazat" title="Smazat">×</button>
+                        </form>
+
+                    </li>
+                {% endfor %}
+            </ul>
+
+            {# Úklid odškrtnutých - jen když je co uklízet. #}
+            {% if polozky|length > chybi %}
+                <form method="post" action="{{ url_for('nakup_uklidit') }}"
+                      class="uklid-form">
+                    <button type="submit" class="uklidit">
+                        Smazat odškrtnuté ({{ polozky|length - chybi }})</button>
+                </form>
+            {% endif %}
+        {% else %}
+            <p class="prazdno">Seznam je prázdný. Přidej první položku výš.</p>
+        {% endif %}
     </div>
 
 {% endblock %}

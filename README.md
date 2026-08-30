@@ -16,7 +16,9 @@ Kompletní zadání a roadmapa: [`docs/zadani-projektu.md`](docs/zadani-projektu
 - [x] Fáze 3, krok 2 — `sber.py` plní databázi sám
 - [x] Fáze 3, krok 3 — grafy z historie na stránce
 - [x] Fáze 4 — přihlašování (účty, hashovaná hesla, zamčený dashboard)
-- [ ] **Fáze 5 — nákupní seznam / ovládání zařízení  ← DALŠÍ KROK**
+- [x] Nákupní seznam — společný pro rodinu (přidávání, odškrtávání, úklid)
+- [ ] **Fáze 5 — ovládání zařízení (zapínání Nanoleaf)  ← DALŠÍ KROK**
+- [ ] Fáze 7 — nasazení na cloudový server
 
 Data se sbírají do `asistent.db`, dokud běží `sber.py`.
 

@@ -295,3 +295,101 @@ main { min-height: 40vh; }
 
     header h1 { font-size: 1.25rem; }
 }
+
+/* ==================== Nákupní seznam ==================== */
+
+.pocet {
+    background: var(--zelena);
+    color: #fff;
+    font-size: .75rem;
+    padding: .1rem .45rem;
+    border-radius: 999px;
+    margin-left: .4rem;
+    vertical-align: middle;
+}
+
+.pridat-form { display: flex; gap: .5rem; }
+.pridat-form input {
+    flex: 1;
+    font: inherit;
+    padding: .7rem .8rem;
+    border: 1px solid #d6dde4;
+    border-radius: 8px;
+    background: #fbfcfd;
+    min-width: 0;   /* aby se input uvnitř flexu mohl zmenšit na mobilu */
+}
+.pridat-form input:focus {
+    outline: none;
+    border-color: var(--zelena);
+    box-shadow: 0 0 0 3px var(--zelena-svet);
+}
+.pridat-form button {
+    font: inherit; font-weight: 600;
+    padding: .7rem 1.2rem;
+    border: none; border-radius: 8px;
+    background: var(--zelena); color: #fff; cursor: pointer;
+}
+.pridat-form button:hover { background: #12833b; }
+
+.seznam { list-style: none; margin: 0; padding: 0; }
+.seznam li {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    border-bottom: 1px solid #f0f3f6;
+}
+.seznam li:last-child { border-bottom: none; }
+
+.polozka-form { margin: 0; display: flex; }
+
+/* Tlačítko na odškrtnutí zabírá celou šířku - velký cíl pro palec. */
+.odskrtnout {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: .8rem .2rem;
+    cursor: pointer;
+    color: var(--text);
+}
+.seznam li { position: relative; }
+.seznam li > .polozka-form:first-child { flex: 1; min-width: 0; }
+
+.ctverecek {
+    flex: none;
+    width: 24px; height: 24px;
+    border: 2px solid #cfd8e0;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; font-weight: 700;
+    color: #fff;
+}
+.polozka-text { word-break: break-word; }
+
+/* Odškrtnutá položka: zelený rámeček, přeškrtnutý a ztlumený text. */
+.hotovo .ctverecek { background: var(--zelena); border-color: var(--zelena); }
+.hotovo .polozka-text { text-decoration: line-through; color: var(--text-slaby); }
+
+.polozka-kdo { flex: none; color: var(--text-slaby); font-size: .75rem; }
+
+.smazat {
+    flex: none;
+    font-size: 1.3rem; line-height: 1;
+    background: none; border: none;
+    color: #c3ccd4; cursor: pointer;
+    padding: .5rem .4rem;
+}
+.smazat:hover { color: var(--cervena); }
+
+.uklid-form { margin-top: 1rem; text-align: right; }
+.uklidit {
+    font: inherit; font-size: .85rem;
+    background: none; border: 1px solid #dfe5ea;
+    border-radius: 8px; padding: .45rem .8rem;
+    color: var(--text-slaby); cursor: pointer;
+}
+.uklidit:hover { border-color: var(--cervena); color: var(--cervena); }

@@ -183,11 +183,67 @@ def nanoleaf():
 @app.route("/nakup")
 @vyzaduje_prihlaseni
 def nakup():
-    """Nákupní seznam. Obsah přijde jako další krok."""
+    """Nákupní seznam - společný pro celou rodinu."""
+    polozky = database.seznam_nakupu()
+
+    # Kolik ještě chybí - hodí se do nadpisu.
+    chybi = sum(1 for p in polozky if not p[2])
+
     return render_template(
         "nakup.html", aktivni="nakup",
+        polozky=polozky, chybi=chybi,
         uzivatel=session.get("uzivatel"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Akce nad seznamem.
+#
+# Všechny jsou POST, ne GET - a je to důležité pravidlo, ne formalita:
+# GET musí být "bezpečný", tedy nic neměnit. Kdyby odškrtnutí položky bylo
+# GET, stačilo by, aby prohlížeč (nebo jeho přednačítání, nebo antivirus)
+# ten odkaz otevřel na pozadí, a položka by se odškrtla sama od sebe.
+#
+# Každá akce končí redirectem zpátky na seznam. Tomu se říká vzorec
+# POST -> redirect -> GET a řeší otravný problém: kdyby route po POSTu
+# rovnou vykreslila stránku, tak by po stisku F5 prohlížeč nabídl
+# "odeslat formulář znovu" a položka by se přidala podruhé.
+# ---------------------------------------------------------------------------
+
+@app.route("/nakup/pridat", methods=["POST"])
+@vyzaduje_prihlaseni
+def nakup_pridat():
+    database.pridej_polozku(
+        request.form.get("text", ""),
+        session.get("uzivatel"),
+    )
+    return redirect(url_for("nakup"))
+
+
+# <int:id_polozky> je proměnná část adresy. Flask z /nakup/7/prepnout
+# vytáhne sedmičku a předá ji funkci jako parametr. To "int:" navíc hlídá,
+# že to je opravdu číslo - když někdo zkusí /nakup/abc/prepnout,
+# Flask vrátí 404 a naše funkce se vůbec nespustí.
+@app.route("/nakup/<int:id_polozky>/prepnout", methods=["POST"])
+@vyzaduje_prihlaseni
+def nakup_prepnout(id_polozky):
+    database.prepni_koupeno(id_polozky, session.get("uzivatel"))
+    return redirect(url_for("nakup"))
+
+
+@app.route("/nakup/<int:id_polozky>/smazat", methods=["POST"])
+@vyzaduje_prihlaseni
+def nakup_smazat(id_polozky):
+    database.smaz_polozku(id_polozky)
+    return redirect(url_for("nakup"))
+
+
+@app.route("/nakup/uklidit", methods=["POST"])
+@vyzaduje_prihlaseni
+def nakup_uklidit():
+    """Smaže všechny odškrtnuté položky naráz."""
+    database.smaz_koupene()
+    return redirect(url_for("nakup"))
 
 
 if __name__ == "__main__":

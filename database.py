@@ -70,7 +70,100 @@ def init_db():
                 vytvoren    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
             )
         """)
+        # Nákupní seznam - společný pro celou rodinu.
+        #
+        # Ukládáme i to, KDO položku přidal a kdo ji odškrtl. Není to jen
+        # zajímavost: v obchodě se hodí vědět, kdo co chtěl, kdyby bylo
+        # potřeba se doptat ("jaké mléko jsi myslel?").
+        #
+        # koupeno je 0/1 - SQLite nemá zvláštní typ pro ano/ne, používá
+        # se celé číslo. Python si to přeloží na False/True sám.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS nakup (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                text         TEXT    NOT NULL,
+                koupeno      INTEGER NOT NULL DEFAULT 0,
+                pridal       TEXT    NOT NULL,
+                pridano      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                koupil       TEXT,
+                koupeno_kdy  TEXT
+            )
+        """)
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
+
+
+# ==================== Nákupní seznam ====================
+
+def pridej_polozku(text, kdo):
+    """Přidá položku na nákupní seznam. Vrací False u prázdného textu."""
+    text = text.strip()
+    if not text:
+        return False
+
+    # Rozumný strop na délku. Bez něj by šlo do databáze poslat megabajty
+    # textu - ne kvůli zlému úmyslu, stačí omylem vložený text ze schránky.
+    text = text[:200]
+
+    with _spojeni() as db:
+        db.execute(
+            "INSERT INTO nakup (text, pridal) VALUES (?, ?)",
+            (text, kdo),
+        )
+    return True
+
+
+def seznam_nakupu():
+    """
+    Vrátí položky seznamu: nekoupené první, uvnitř skupin nejnovější nahoře.
+
+    ORDER BY koupeno ASC, id DESC znamená "nejdřív seřaď podle koupeno
+    (0 před 1), a při shodě podle id sestupně". Tak zůstane to, co ještě
+    chybí, nahoře - a to je v obchodě jediné, co člověk potřebuje vidět.
+    """
+    with _spojeni() as db:
+        kurzor = db.execute(
+            "SELECT id, text, koupeno, pridal, koupil "
+            "FROM nakup ORDER BY koupeno ASC, id DESC"
+        )
+        return kurzor.fetchall()
+
+
+def prepni_koupeno(id_polozky, kdo):
+    """Odškrtne položku, nebo odškrtnutí zruší (přepne stav)."""
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT koupeno FROM nakup WHERE id = ?", (id_polozky,)
+        ).fetchone()
+        if radek is None:
+            return False
+
+        if radek[0]:
+            # Bylo koupeno -> vracíme zpět mezi chybějící, stopu mažeme.
+            db.execute(
+                "UPDATE nakup SET koupeno = 0, koupil = NULL, koupeno_kdy = NULL "
+                "WHERE id = ?",
+                (id_polozky,),
+            )
+        else:
+            db.execute(
+                "UPDATE nakup SET koupeno = 1, koupil = ?, "
+                "koupeno_kdy = datetime('now', 'localtime') WHERE id = ?",
+                (kdo, id_polozky),
+            )
+    return True
+
+
+def smaz_polozku(id_polozky):
+    """Smaže jednu položku ze seznamu."""
+    with _spojeni() as db:
+        db.execute("DELETE FROM nakup WHERE id = ?", (id_polozky,))
+
+
+def smaz_koupene():
+    """Uklidí všechny odškrtnuté položky. Vrací, kolik jich zmizelo."""
+    with _spojeni() as db:
+        kurzor = db.execute("DELETE FROM nakup WHERE koupeno = 1")
+        return kurzor.rowcount
 
 
 def vytvor_uzivatele(jmeno, heslo):
