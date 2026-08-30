@@ -27,7 +27,21 @@
                Bez JS by tu jinak zůstalo tlačítko, které nic nedělá. #}
             <button type="button" id="prepinac-motivu"
                     class="prepinac-motivu" hidden>🌗</button>
-            {{ uzivatel }} · <a href="{{ url_for('odhlaseni') }}">odhlásit</a>
+            {# Jméno vede na profil - tam si každý spravuje své heslo.
+               Odhlášení zůstává vedle, musí být na jedno klepnutí. #}
+            <a href="{{ url_for('profil') }}"
+               class="odkaz-profil {{ 'aktivni' if aktivni == 'profil' }}"
+               title="Můj profil">
+                {# Kolečko s první písmenem jména - drobnost, ale tlačítko
+                   díky ní vypadá jako účet, ne jako odkaz. #}
+                <span class="profil-inicial">{{ uzivatel[0]|upper }}</span>
+                <span class="profil-jmeno">{{ uzivatel }}</span>
+            </a>
+            {# data-potvrdit říká skriptu dole, že se má nejdřív zeptat.
+               Bez JavaScriptu je to obyčejný odkaz a odhlásí rovnou. #}
+            <a href="{{ url_for('odhlaseni') }}" class="odkaz-odhlasit"
+               data-potvrdit="Opravdu se chceš odhlásit?"
+               title="Odhlásit se">Odhlásit</a>
         </span>
     </header>
 
@@ -89,8 +103,40 @@
 
 </div>
 
+{# ---------- Vyskakovací notifikace ---------- #}
+{#
+   Hlášky o výsledku akce. Dřív to byl odstavec v obsahu, který se
+   na světlém pozadí skoro ztrácel. Teď vyjede zespodu, má plnou barvu
+   a po pár vteřinách sama zmizí.
+
+   Bez JavaScriptu prostě zůstane viset - dá se zavřít křížkem.
+#}
+{% if chyba or zprava %}
+<div class="notifikace {{ 'notifikace-chyba' if chyba else 'notifikace-ok' }}"
+     id="notifikace" role="status">
+    <span class="notifikace-text">{{ chyba or zprava }}</span>
+    <button type="button" class="notifikace-zavrit"
+            aria-label="Zavřít">×</button>
+</div>
+{% endif %}
+
+{# ---------- Potvrzovací okno ---------- #}
+{#
+   Vlastní <dialog> místo systémového confirm() - jde nastylovat
+   a vypadá jako zbytek aplikace. Prohlížeč se o jeho chování
+   (zavření Escapem, ztmavení pozadí) postará sám.
+#}
+<dialog id="potvrzeni" class="potvrzeni">
+    <p class="potvrzeni-text"></p>
+    <div class="potvrzeni-tlacitka">
+        <button type="button" value="ne" class="potvrzeni-ne">Zrušit</button>
+        <button type="button" value="ano" class="potvrzeni-ano">Potvrdit</button>
+    </div>
+</dialog>
+
 {# Skript až na konci: v tuhle chvíli už HTML existuje, takže si skript
    najde tlačítko. Kdyby byl v hlavičce, tlačítko by ještě neexistovalo. #}
 <script src="{{ url_for('static', filename='motiv.js') }}"></script>
+<script src="{{ url_for('static', filename='ui.js') }}"></script>
 </body>
 </html>

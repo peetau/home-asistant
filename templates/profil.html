@@ -1,0 +1,74 @@
+{% extends "zaklad.html" %}
+
+{% block titulek %}Můj profil — Domácí asistent{% endblock %}
+
+{% block obsah %}
+
+    {# ---------- Kdo jsem ---------- #}
+    <div class="karta">
+        <h2>👤 Můj účet</h2>
+
+        {% if udaje %}
+            <div class="radek">
+                <span class="popisek">Jméno</span>
+                <span class="hodnota">{{ udaje.jmeno }}</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Účet založen</span>
+                <span class="hodnota">{{ udaje.vytvoren[:10] }}</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Poslední přihlášení</span>
+                <span class="hodnota">
+                    {{ udaje.posledni[:16] if udaje.posledni else "—" }}</span>
+            </div>
+        {% else %}
+            <p class="chyba">Údaje se nepodařilo načíst.</p>
+        {% endif %}
+
+        {# Vlastní práva jen ke čtení - měnit je může jen správce
+           a dělá to v tabu Správa. #}
+        <div class="moje-prava">
+            <span class="popisek">Přístup do částí</span>
+            <div class="prava-znacky">
+                <span class="znacka">🏠 Přehled</span>
+                {% for tab in ["solary", "nanoleaf", "nakup", "sprava"] %}
+                    {% if tab in prava %}
+                        <span class="znacka">{{ popisy_tabu[tab] }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ---------- Změna hesla ---------- #}
+    <div class="karta">
+        <h2>🔑 Změna hesla</h2>
+
+        {#
+           Staré heslo je tu povinné schválně: bez něj by k převzetí účtu
+           stačil odemčený mobil ležící na stole. Správce může heslo
+           přenastavit i bez starého, ale to je nouzová cesta pro případ,
+           že ho někdo zapomene.
+        #}
+        <form method="post" class="formular" autocomplete="off">
+            <label>
+                <span>Současné heslo</span>
+                <input type="password" name="stare" required
+                       autocomplete="current-password">
+            </label>
+            <label>
+                <span>Nové heslo (min. 6 znaků)</span>
+                <input type="password" name="nove" required minlength="6"
+                       autocomplete="new-password">
+            </label>
+            <label>
+                <span>Nové heslo znovu</span>
+                <input type="password" name="nove2" required minlength="6"
+                       autocomplete="new-password">
+            </label>
+            <button type="submit">Změnit heslo</button>
+        </form>
+    </div>
+
+{% endblock %}

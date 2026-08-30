@@ -14,6 +14,7 @@ přečti data a předej je šabloně.
 """
 
 import os
+import shutil
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -98,6 +99,52 @@ POPISY_TABU = {
 # Záloha běží denně, jeden vynechaný běh taky ne.
 LIMIT_MERENI_MINUT = 15
 LIMIT_ZALOHY_HODIN = 48
+
+
+def podrobny_stav():
+    """
+    Podrobnosti o běhu systému pro tab Správa.
+
+    Tohle je to, co jsme na přihlašovací obrazovce ZÁMĚRNĚ nezobrazili -
+    tam jsou jen barevné tečky. Tady je to v pořádku: je to po přihlášení
+    a jen pro správce.
+    """
+    def zjisti():
+        udaje = {}
+
+        minuty = database.stari_posledniho_mereni()
+        udaje["mereni_minut"] = None if minuty is None else round(minuty)
+
+        with database._spojeni() as db:
+            udaje["mereni_pocet"] = db.execute(
+                "SELECT COUNT(*) FROM mereni").fetchone()[0]
+            udaje["mereni_od"] = db.execute(
+                "SELECT MIN(cas) FROM mereni").fetchone()[0]
+
+        # Velikost databáze a volné místo na disku
+        udaje["db_mb"] = round(os.path.getsize(database.DB_SOUBOR) / 1048576, 1)
+        volno = shutil.disk_usage(os.path.dirname(database.DB_SOUBOR) or ".")
+        udaje["disk_volno_gb"] = round(volno.free / 1073741824, 1)
+        udaje["disk_celkem_gb"] = round(volno.total / 1073741824, 1)
+
+        # Stáří zálohy v hodinách
+        slozka = os.path.expanduser(getattr(config, "ZALOHY_SLOZKA", "~/zalohy"))
+        zalohy = []
+        if os.path.isdir(slozka):
+            zalohy = [os.path.join(slozka, f) for f in os.listdir(slozka)
+                      if f.endswith(".db.gz")]
+        if zalohy:
+            nejnovejsi = max(os.path.getmtime(z) for z in zalohy)
+            udaje["zaloha_hodin"] = round(
+                (datetime.now().timestamp() - nejnovejsi) / 3600, 1)
+            udaje["zaloha_pocet"] = len(zalohy)
+        else:
+            udaje["zaloha_hodin"] = None
+            udaje["zaloha_pocet"] = 0
+
+        return udaje
+
+    return _bezpecne(zjisti)[0]
 
 
 def denni_nalada():
@@ -280,6 +327,7 @@ def prihlaseni():
             # požadavkem - tím si nás server "pamatuje".
             session["uzivatel"] = uzivatel["jmeno"]
             session["uzivatel_id"] = uzivatel["id"]
+            _bezpecne(lambda: database.zaznamenej_prihlaseni(uzivatel["id"]))
             return redirect(url_for("dashboard"))
 
         # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
@@ -592,6 +640,38 @@ def nakup_uklidit():
 # i hezčí nástroj (flash zprávy), ale ten by sem přinesl nový koncept.
 # ===========================================================================
 
+@app.route("/profil", methods=["GET", "POST"])
+@vyzaduje_prihlaseni
+def profil():
+    """
+    Můj profil - vlastní údaje a změna hesla.
+
+    Chrání ho JEN přihlášení, ne právo na tab. Kdyby vyžadoval právo,
+    běžný uživatel by si heslo zase nezměnil a přesně to tu řešíme.
+    """
+    chyba = zprava = None
+
+    if request.method == "POST":
+        nove = request.form.get("nove", "")
+
+        # Shodu obou nových hesel zkontrolovat DŘÍV, než se cokoliv změní -
+        # jinak by se při překlepu heslo stejně přepsalo.
+        if nove != request.form.get("nove2", ""):
+            chyba = "Nová hesla se neshodují."
+        else:
+            ok, duvod = database.zmen_heslo_s_overenim(
+                session["uzivatel_id"], request.form.get("stare", ""), nove)
+            chyba, zprava = (None, "Heslo změněno.") if ok else (duvod, None)
+
+    return render_template(
+        "profil.html", aktivni="profil",
+        udaje=_bezpecne(lambda: database.udaje_uzivatele(
+            session["uzivatel_id"]))[0],
+        chyba=chyba, zprava=zprava,
+        popisy_tabu=POPISY_TABU,
+    )
+
+
 @app.route("/sprava")
 @vyzaduje_pravo("sprava")
 def sprava():
@@ -602,6 +682,7 @@ def sprava():
         vsechny_taby=database.VSECHNY_TABY,
         popisy_tabu=POPISY_TABU,
         muj_id=session.get("uzivatel_id"),
+        stav=podrobny_stav(),
         chyba=request.args.get("chyba"),
         zprava=request.args.get("zprava"),
     )

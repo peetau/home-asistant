@@ -619,44 +619,43 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .ucet-akce button:hover { background: var(--zelena-tmava); }
 .novy-ucet + .prazdno { margin: .8rem 0 0; font-size: .85rem; }
 
-.ucet-hlava {
+/* --- Účet jako rozbalovací řádek --- */
+.ucet-radek {
+    border-bottom: 1px solid var(--okraj-jemny);
+}
+.ucet-radek:last-of-type { border-bottom: none; }
+
+.ucet-radek summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: .8rem;
+    flex-wrap: wrap;
+    cursor: pointer;
+    padding: .8rem .2rem;
 }
-.ucet-hlava h2 {
-    margin: 0;
-    font-size: 1.05rem;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--text);
-}
-.ucet-hlava .ja {
-    font-size: .7rem;
+.ucet-radek[open] summary { border-bottom: 1px solid var(--okraj-jemny); }
+
+.ucet-jmeno { font-weight: 600; display: flex; align-items: center; gap: .4rem; }
+.ucet-posledni { font-size: .78rem; color: var(--text-slaby); }
+
+.ja, .znacka-spravce {
+    font-size: .68rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--text-slaby);
-    border: 1px solid var(--okraj);
+    letter-spacing: .04em;
     border-radius: 999px;
     padding: .1rem .5rem;
-    margin-left: .4rem;
-    vertical-align: middle;
 }
-.ucet-hlava form { margin: 0; }
+.ja { color: var(--text-slaby); border: 1px solid var(--okraj); }
+.znacka-spravce {
+    color: var(--zelena);
+    border: 1px solid var(--zelena);
+}
 
-.smazat-ucet {
-    font: inherit; font-size: .8rem;
-    background: none;
-    border: 1px solid var(--okraj);
-    border-radius: 8px;
-    padding: .35rem .7rem;
-    color: var(--text-slaby);
-    cursor: pointer;
-}
-.smazat-ucet:hover { border-color: var(--cervena); color: var(--cervena); }
+.ucet-obsah { padding: 1rem .2rem .4rem; }
+.ucet-obsah form { margin-bottom: .8rem; }
+.ucet-obsah form:last-child { margin-bottom: 0; }
 
 .prava-mrizka {
     display: grid;
@@ -1157,6 +1156,28 @@ details.karta[open] summary { margin-bottom: 1rem; }
     cursor: pointer; white-space: nowrap;
 }
 
+/* --- Smazání účtu ve Správě --- */
+/*
+  Nenápadné, dokud na něj nenajedeš - je to nevratná akce, takže nemá
+  lákat ke kliknutí. Teprve při najetí zčervená a dá najevo, co udělá.
+*/
+.smazat-ucet {
+    font: inherit;
+    font-size: .85rem;
+    background: none;
+    border: 1px solid var(--okraj);
+    border-radius: 8px;
+    padding: .45rem .9rem;
+    color: var(--text-slaby);
+    cursor: pointer;
+    transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+.smazat-ucet:hover {
+    border-color: var(--cervena);
+    color: var(--cervena);
+    background: var(--cervena-pozadi);
+}
+
 /* --- Sbalené koupené položky --- */
 .koupene-blok summary {
     cursor: pointer;
@@ -1166,3 +1187,193 @@ details.karta[open] summary { margin-bottom: 1rem; }
     letter-spacing: .05em;
 }
 .koupene-blok[open] summary { margin-bottom: .8rem; }
+
+/* --- Účet a odhlášení v hlavičce --- */
+header .cas { display: flex; align-items: center; gap: .5rem; }
+
+.odkaz-profil {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .25rem .7rem .25rem .25rem;
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    background: var(--karta);
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: .85rem;
+    box-shadow: var(--stin);
+    transition: background .2s ease, border-color .2s ease;
+}
+.odkaz-profil:hover {
+    background: var(--karta-2);
+    border-color: var(--text-slaby);
+}
+
+/* Kolečko s iniciálou. */
+.profil-inicial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--zelena);
+    color: var(--na-zelene);
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* Když jsi na profilu, celé tlačítko zezelená a kolečko se obrátí. */
+.odkaz-profil.aktivni {
+    background: var(--zelena);
+    border-color: var(--zelena);
+    color: var(--na-zelene);
+}
+.odkaz-profil.aktivni .profil-inicial {
+    background: var(--na-zelene);
+    color: var(--zelena);
+}
+
+.odkaz-odhlasit {
+    color: var(--text-slaby);
+    text-decoration: none;
+    font-size: .8rem;
+    padding: .25rem .5rem;
+    border-radius: 8px;
+}
+.odkaz-odhlasit:hover { color: var(--cervena); background: var(--cervena-pozadi); }
+
+/* Na mobilu zůstane jen kolečko - jméno stejně víš. */
+@media (max-width: 480px) {
+    .profil-jmeno { display: none; }
+    .odkaz-profil { padding: .25rem; }
+}
+
+/* --- Profil: vlastní práva jako značky --- */
+.moje-prava { margin-top: 1rem; }
+.moje-prava .popisek { color: var(--text-slaby); font-size: .85rem; }
+.prava-znacky { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.znacka {
+    font-size: .8rem;
+    padding: .25rem .6rem;
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    background: var(--karta-2);
+}
+
+/* Přepínač motivu na přihlašovací stránce - v rohu, mimo kartu. */
+.prepinac-roh {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 20;
+    box-shadow: var(--stin);
+}
+
+/* ==================== Notifikace ==================== */
+
+/*
+  Vyjede zespodu, má plnou barvu (na světlé kartě se dřív ztrácela)
+  a po pár vteřinách sama zmizí.
+*/
+.notifikace {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 30;
+
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    max-width: min(90vw, 26rem);
+
+    padding: .8rem 1rem;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    font-size: .9rem;
+    font-weight: 500;
+    color: #fff;
+
+    animation: notifikace-prijezd .3s ease;
+}
+
+@keyframes notifikace-prijezd {
+    from { opacity: 0; transform: translate(-50%, 1.5rem); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Odchod: stejná cesta zpátky. */
+.notifikace.odchazi {
+    opacity: 0;
+    transform: translate(-50%, 1.5rem);
+    transition: opacity .3s ease, transform .3s ease;
+}
+
+.notifikace-ok    { background: #15803d; }
+.notifikace-chyba { background: #b91c1c; }
+
+.notifikace-text { flex: 1; }
+
+.notifikace-zavrit {
+    flex: none;
+    background: none;
+    border: none;
+    color: #fff;
+    opacity: .7;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 .2rem;
+}
+.notifikace-zavrit:hover { opacity: 1; }
+
+/* Na mobilu přes celou šířku, ať se text vejde. */
+@media (max-width: 480px) {
+    .notifikace { left: .8rem; right: .8rem; transform: none; max-width: none; }
+    @keyframes notifikace-prijezd {
+        from { opacity: 0; transform: translateY(1.5rem); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    .notifikace.odchazi { transform: translateY(1.5rem); }
+}
+
+/* ==================== Potvrzovací okno ==================== */
+
+.potvrzeni {
+    border: 1px solid var(--okraj);
+    border-radius: var(--radius);
+    background: var(--karta);
+    color: var(--text);
+    padding: 1.5rem;
+    max-width: min(90vw, 22rem);
+    box-shadow: 0 10px 40px rgba(0,0,0,.3);
+}
+/* ::backdrop je plocha za oknem - prohlížeč ji vykreslí sám. */
+.potvrzeni::backdrop { background: rgba(0,0,0,.45); }
+
+.potvrzeni-text { margin: 0 0 1.3rem; font-size: 1rem; }
+
+.potvrzeni-tlacitka { display: flex; gap: .6rem; justify-content: flex-end; }
+.potvrzeni-tlacitka button {
+    font: inherit;
+    font-weight: 600;
+    padding: .55rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.potvrzeni-ne {
+    background: none;
+    border: 1px solid var(--okraj);
+    color: var(--text-slaby);
+}
+.potvrzeni-ne:hover { border-color: var(--text-slaby); color: var(--text); }
+.potvrzeni-ano {
+    background: var(--zelena);
+    border: none;
+    color: var(--na-zelene);
+}
+.potvrzeni-ano:hover { background: var(--zelena-tmava); }

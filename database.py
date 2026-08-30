@@ -168,6 +168,18 @@ def init_db():
                 # a to je v poradku - prace je hotova.
                 pass
 
+        # MIGRACE: kdy se uživatel naposledy přihlásil.
+        # Stejný postup jako u sloupce mnozstvi - přidat jen když chybí.
+        # U účtu, který se nikdy nepřihlásil, zůstane prázdné, a to je
+        # právě ta užitečná informace.
+        sloupce_u = [r[1] for r in db.execute("PRAGMA table_info(uzivatele)")]
+        if "posledni_prihlaseni" not in sloupce_u:
+            try:
+                db.execute(
+                    "ALTER TABLE uzivatele ADD COLUMN posledni_prihlaseni TEXT")
+            except sqlite3.OperationalError:
+                pass
+
         # MIGRACE existující databáze.
         #
         # Tabulka uživatelů už obsahuje účty založené dřív, než oprávnění
@@ -390,6 +402,59 @@ def over_uzivatele(jmeno, heslo):
     return None
 
 
+def zaznamenej_prihlaseni(id_uzivatele):
+    """Uloží čas posledního přihlášení."""
+    with _spojeni() as db:
+        db.execute(
+            "UPDATE uzivatele SET posledni_prihlaseni = "
+            "datetime('now', 'localtime') WHERE id = ?",
+            (id_uzivatele,),
+        )
+
+
+def zmen_heslo_s_overenim(id_uzivatele, stare, nove):
+    """
+    Změna vlastního hesla - vyžaduje to staré.
+
+    Vrací (True, None) nebo (False, "důvod").
+
+    PROČ STARÉ HESLO: kdyby stačilo zadat jen nové, komukoliv by k převzetí
+    účtu stačil odemčený mobil na stole. Správcova zmen_heslo() staré heslo
+    nechce a to je v pořádku - to je nouzová cesta pro zapomenutá hesla.
+    """
+    if len(nove) < 6:
+        return False, "Nové heslo musí mít aspoň 6 znaků."
+
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT heslo_hash FROM uzivatele WHERE id = ?", (id_uzivatele,)
+        ).fetchone()
+
+    if radek is None:
+        return False, "Účet neexistuje."
+    if not check_password_hash(radek[0], stare):
+        return False, "Staré heslo nesouhlasí."
+
+    with _spojeni() as db:
+        db.execute(
+            "UPDATE uzivatele SET heslo_hash = ? WHERE id = ?",
+            (generate_password_hash(nove), id_uzivatele),
+        )
+    return True, None
+
+
+def udaje_uzivatele(id_uzivatele):
+    """Jméno a datum založení účtu - pro stránku profilu."""
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT jmeno, vytvoren, posledni_prihlaseni "
+            "FROM uzivatele WHERE id = ?", (id_uzivatele,)
+        ).fetchone()
+    if radek is None:
+        return None
+    return {"jmeno": radek[0], "vytvoren": radek[1], "posledni": radek[2]}
+
+
 def seznam_uzivatelu():
     """Vrátí jména všech založených uživatelů (bez hesel, ta nikam nepatří)."""
     with _spojeni() as db:
@@ -551,7 +616,7 @@ def uzivatele_s_pravy():
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT u.id, u.jmeno, u.vytvoren, o.tab
+            SELECT u.id, u.jmeno, u.vytvoren, o.tab, u.posledni_prihlaseni
             FROM uzivatele u
             LEFT JOIN opravneni o ON o.uzivatel_id = u.id
             ORDER BY u.id
@@ -560,10 +625,11 @@ def uzivatele_s_pravy():
     # Dotaz vrací jeden řádek na KAŽDÉ právo, takže se uživatel opakuje.
     # Poskládáme to zpátky do jednoho záznamu na uživatele.
     podle_id = {}
-    for id_u, jmeno, vytvoren, tab in radky:
+    for id_u, jmeno, vytvoren, tab, posledni in radky:
         if id_u not in podle_id:
             podle_id[id_u] = {"id": id_u, "jmeno": jmeno,
-                              "vytvoren": vytvoren, "prava": set()}
+                              "vytvoren": vytvoren, "posledni": posledni,
+                              "prava": set()}
         if tab:
             podle_id[id_u]["prava"].add(tab)
 

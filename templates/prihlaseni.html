@@ -38,6 +38,11 @@
     <rect width="100%" height="100%" fill="url(#trojuhelniky)"/>
 </svg>
 
+{# Přepínač motivu i tady - v noci je přihlašovací obrazovka první,
+   co člověk uvidí. Skript ho odkryje, viz motiv.js. #}
+<button type="button" id="prepinac-motivu"
+        class="prepinac-motivu prepinac-roh" hidden>🌗</button>
+
 <div class="obal obal-uzky">
 
     <div class="karta karta-prihlaseni">
@@ -127,5 +132,7 @@
     </div>
 
 </div>
+
+<script src="{{ url_for('static', filename='motiv.js') }}"></script>
 </body>
 </html>
