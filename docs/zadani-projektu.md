@@ -53,7 +53,12 @@ Tohle nechat na úplný konec, je to nejnejistější a nejnáročnější čás
 8. Rozšíření, hezčí frontend
 9. (Volitelně) Rohlík capstone
 
-## Stav projektu a aktuální milestone
+## Stav projektu na začátku (historické)
+
+> **Tahle sekce je zamrazená.** Popisuje start projektu z 29. 8. 2026, kdy
+> ještě neexistoval žádný kód. Aktuální stav a to, co se dělá teď, je
+> v [`stav.md`](stav.md) — tady se nic neaktualizuje, ať zůstane vidět,
+> z čeho se vycházelo.
 
 **Status: úplný začátek, nic není postavené.** Tohle je první kód, který v tomto projektu
 vznikne — neočekávej existující repozitář, soubory ani žádnou předchozí práci. Založ
