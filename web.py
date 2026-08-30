@@ -14,7 +14,9 @@ přečti data a předej je šabloně.
 """
 
 import os
+from datetime import datetime
 from functools import wraps
+from pathlib import Path
 
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, g, jsonify)
@@ -82,6 +84,69 @@ POPISY_TABU = {
     "nakup": "🛒 Nákup",
     "sprava": "⚙️ Správa",
 }
+
+
+# Jak staré smí být, aby to ještě bylo "v pořádku".
+# Sběrač měří po 5 minutách, takže dvě zmeškaná kola ještě nejsou porucha.
+# Záloha běží denně, jeden vynechaný běh taky ne.
+LIMIT_MERENI_MINUT = 15
+LIMIT_ZALOHY_HODIN = 48
+
+
+def denni_nalada():
+    """
+    Podle hodiny vrátí náladu pro pozadí přihlašovací stránky.
+
+    Rozhoduje SERVER, ne JavaScript - pozadí je tak správné hned
+    při prvním vykreslení a neprobliká se. Stejný důvod jako u motivu.
+    """
+    hodina = datetime.now().hour
+    if hodina < 6:
+        return "noc"
+    if hodina < 10:
+        return "rano"
+    if hodina < 18:
+        return "den"
+    if hodina < 22:
+        return "vecer"
+    return "noc"
+
+
+def stav_sberu():
+    """
+    Běží sběr měření? Vrací jen "ok" / "problem" / "nezname".
+
+    Schválně nevrací žádné číslo ani čas: tenhle údaj se ukazuje
+    PŘED přihlášením, takže ho vidí kdokoliv na internetu. Barevná
+    tečka majiteli stačí, kolemjdoucímu neřekne nic použitelného.
+    """
+    minuty, chyba = _bezpecne(database.stari_posledniho_mereni)
+    if chyba is not None or minuty is None:
+        return "nezname"
+    return "ok" if minuty <= LIMIT_MERENI_MINUT else "problem"
+
+
+def stav_zalohy():
+    """
+    Je záloha databáze čerstvá? Zase jen "ok" / "problem" / "nezname".
+
+    Dívá se na stáří nejnovějšího souboru ve složce záloh. Doma složka
+    neexistuje, takže vyjde "nezname" - a to je správně, doma se
+    nezálohuje.
+    """
+    def zjisti():
+        slozka = Path(os.path.expanduser(
+            getattr(config, "ZALOHY_SLOZKA", "~/zalohy")))
+        zalohy = list(slozka.glob("*.db.gz"))
+        if not zalohy:
+            return None
+        nejnovejsi = max(z.stat().st_mtime for z in zalohy)
+        return (datetime.now().timestamp() - nejnovejsi) / 3600
+
+    hodiny, chyba = _bezpecne(zjisti)
+    if chyba is not None or hodiny is None:
+        return "nezname"
+    return "ok" if hodiny <= LIMIT_ZALOHY_HODIN else "problem"
 
 
 def aktualni_prava():
@@ -214,7 +279,13 @@ def prihlaseni():
         # rozlišovali, útočník by si mohl ověřit, která jména existují.
         chyba = "Nesprávné jméno nebo heslo."
 
-    return render_template("prihlaseni.html", chyba=chyba)
+    return render_template(
+        "prihlaseni.html",
+        chyba=chyba,
+        nalada=denni_nalada(),
+        stav_sber=stav_sberu(),
+        stav_zaloha=stav_zalohy(),
+    )
 
 
 @app.route("/odhlaseni")

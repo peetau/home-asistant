@@ -27,3 +27,9 @@ SOLAX_WIFI_SN = "sem-patri-SN"    # sériové číslo Wi-Fi modulu měniče
 # NEKOPIRUJE - kdyby jeden z pocitacu nekdo ziskal, mohl by si podvrhnout
 # prihlaseni i na tom druhem. Na serveru si vygeneruj novy.
 SECRET_KEY = "sem-patri-nahodny-retezec"
+
+# --- Slozka se zalohami databaze (jen na serveru) ---
+# Podle stari nejnovejsiho souboru se na prihlasovaci strance ukazuje,
+# jestli zalohovani bezi. Doma tahle slozka neexistuje a nic se nedeje -
+# indikator pak jen ukaze "neznamo".
+ZALOHY_SLOZKA = "~/zalohy"

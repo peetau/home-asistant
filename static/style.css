@@ -926,3 +926,98 @@ details.karta[open] summary { margin-bottom: 1rem; }
     .efekt-potvrdit, .efekt-reset { flex: 1; text-align: center; }
     .efekt-reset { justify-content: center; }
 }
+
+/* ==================== Přihlašovací stránka ==================== */
+
+/*
+  Pozadí se mění podle denní doby. Náladu spočítal server a poslal ji
+  jako třídu na <body>; tady k ní patří dvojice barev přechodu.
+
+  Každá nálada má vlastní odstíny pro světlý i tmavý režim - v tmavém
+  jsou tlumené, aby přihlašovací stránka v noci nesvítila do očí.
+*/
+.prihlaseni-stranka {
+    /* Výchozí (kdyby nálada chyběla) */
+    --pozadi-od: #dbe4ec;
+    --pozadi-do: #eef2f5;
+    background: linear-gradient(160deg, var(--pozadi-od), var(--pozadi-do));
+    background-attachment: fixed;
+    min-height: 100vh;
+}
+
+.prihlaseni-stranka.nalada-rano  { --pozadi-od: #ffd9a8; --pozadi-do: #e8f0f7; }
+.prihlaseni-stranka.nalada-den   { --pozadi-od: #bcd9f2; --pozadi-do: #eef4f8; }
+.prihlaseni-stranka.nalada-vecer { --pozadi-od: #f2b48c; --pozadi-do: #cfd7e6; }
+.prihlaseni-stranka.nalada-noc   { --pozadi-od: #9fb0cc; --pozadi-do: #dde3ec; }
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .prihlaseni-stranka.nalada-rano
+        { --pozadi-od: #3a2a1c; --pozadi-do: #15181c; }
+    :root:not([data-theme="light"]) .prihlaseni-stranka.nalada-den
+        { --pozadi-od: #1c2a3a; --pozadi-do: #15181c; }
+    :root:not([data-theme="light"]) .prihlaseni-stranka.nalada-vecer
+        { --pozadi-od: #33231c; --pozadi-do: #15181c; }
+    :root:not([data-theme="light"]) .prihlaseni-stranka.nalada-noc
+        { --pozadi-od: #1a1f2b; --pozadi-do: #131519; }
+}
+:root[data-theme="dark"] .prihlaseni-stranka.nalada-rano
+    { --pozadi-od: #3a2a1c; --pozadi-do: #15181c; }
+:root[data-theme="dark"] .prihlaseni-stranka.nalada-den
+    { --pozadi-od: #1c2a3a; --pozadi-do: #15181c; }
+:root[data-theme="dark"] .prihlaseni-stranka.nalada-vecer
+    { --pozadi-od: #33231c; --pozadi-do: #15181c; }
+:root[data-theme="dark"] .prihlaseni-stranka.nalada-noc
+    { --pozadi-od: #1a1f2b; --pozadi-do: #131519; }
+
+/* --- Trojúhelníkový vzor --- */
+/*
+  Leží napevno za obsahem (z-index pod nulou), takže s ním jde rolovat
+  stránkou a nic nepřekáží. Barvu bere z textu s malou průhledností,
+  takže se sladí se světlým i tmavým motivem bez druhé sady hodnot.
+*/
+.pozadi-vzor {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+    color: var(--text);
+}
+.pozadi-vzor path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1;
+    opacity: .07;
+}
+
+/* --- Stav systému pod formulářem --- */
+.stav-systemu {
+    margin-top: 1.6rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--okraj-jemny);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.stav-radka {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .85rem;
+}
+.stav-nazev { color: var(--text-slaby); }
+.stav-slovo { margin-left: auto; font-weight: 600; }
+
+.indikator {
+    flex: none;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-slaby);
+}
+.indikator.ok      { background: var(--zelena);
+                     box-shadow: 0 0 0 3px var(--zelena-svet); }
+.indikator.problem { background: var(--cervena);
+                     box-shadow: 0 0 0 3px var(--cervena-pozadi); }
+.indikator.nezname { background: var(--text-slaby); opacity: .45; }

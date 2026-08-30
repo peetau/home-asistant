@@ -8,7 +8,36 @@
     <title>Přihlášení — Domácí asistent</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+
+{# Náladu spočítal server podle hodiny. CSS k ní má dvojici barev
+   přechodu - proto je tady jako třída a ne v JavaScriptu: pozadí je
+   správné hned při prvním vykreslení a neprobliká se. #}
+<body class="prihlaseni-stranka nalada-{{ nalada }}">
+
+{# ---------- Pozadí ---------- #}
+{#
+   Trojúhelníková mřížka za obsahem. Je to OBECNÝ vzor, ne rozložení
+   tvých panelů - přihlašovací stránku vidí kdokoliv, tak ať neprozrazuje
+   nic o domácnosti.
+
+   pattern = kousek, který se sám dlaždicově opakuje přes celou plochu.
+   Stačí tedy popsat dva trojúhelníky a prohlížeč z nich složí zbytek.
+
+   aria-hidden říká čtečkám obrazovky "tohle přeskoč" - je to dekorace,
+   ne obsah.
+#}
+<svg class="pozadi-vzor" aria-hidden="true">
+    <defs>
+        <pattern id="trojuhelniky" width="60" height="52"
+                 patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 60 52 L 0 52 Z"/>
+            <path d="M 0 0 L 30 52 L -30 52 Z"/>
+            <path d="M 60 0 L 90 52 L 30 52 Z"/>
+        </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#trojuhelniky)"/>
+</svg>
+
 <div class="obal obal-uzky">
 
     <div class="karta karta-prihlaseni">
@@ -42,6 +71,29 @@
 
             <button type="submit">Přihlásit se</button>
         </form>
+
+        {# ---------- Stav systému ---------- #}
+        {#
+           Jen barevná tečka a slovo. Žádné časy, čísla ani chybové hlášky -
+           tuhle stránku vidí kdokoliv na internetu a majiteli tečka stačí.
+
+           Popisek je tu i proto, že barva nesmí být jediný nositel
+           informace: kdo barvy nerozliší, potřebuje text.
+        #}
+        <div class="stav-systemu">
+            {% for jmeno, stav in [("Sběr dat", stav_sber),
+                                   ("Záloha", stav_zaloha)] %}
+                <div class="stav-radka">
+                    <span class="indikator {{ stav }}"></span>
+                    <span class="stav-nazev">{{ jmeno }}</span>
+                    <span class="stav-slovo">
+                        {% if stav == "ok" %}v pořádku
+                        {% elif stav == "problem" %}problém
+                        {% else %}neznámo{% endif %}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 
 </div>

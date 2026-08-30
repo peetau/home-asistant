@@ -326,6 +326,26 @@ def prava_uzivatele(id_uzivatele):
     return {radek[0] for radek in radky}
 
 
+def stari_posledniho_mereni():
+    """
+    Kolik minut uplynulo od posledního uloženého měření.
+
+    Vrací None, když v databázi zatím nic není. Slouží k tomu, aby se
+    dalo na první pohled poznat, jestli sběrač běží.
+
+    Počítá to databáze sama funkcí julianday() - vrací počet dní jako
+    desetinné číslo, takže rozdíl krát 1440 dá minuty. Je to spolehlivější
+    než porovnávat texty s časem v Pythonu.
+    """
+    with _spojeni() as db:
+        radek = db.execute("""
+            SELECT (julianday('now', 'localtime') - julianday(MAX(cas))) * 1440
+            FROM mereni
+        """).fetchone()
+
+    return None if radek is None or radek[0] is None else radek[0]
+
+
 def uzivatel_a_prava(id_uzivatele):
     """
     Vrátí (jmeno, mnozina_prav) pro daného uživatele, nebo None když už
