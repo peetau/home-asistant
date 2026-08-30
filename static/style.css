@@ -862,7 +862,7 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .jas-bar:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--zelena-svet); }
 
 /* --- Efekty --- */
-.efekt-form { display: flex; gap: .6rem; }
+.efekt-form { display: flex; gap: .6rem; flex-wrap: wrap; }
 .efekt-vyber {
     flex: 1;
     font: inherit;
@@ -918,3 +918,11 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .ovladac:hover { opacity: 1; }
 .ovladac:focus-visible { outline: 2px solid var(--zelena); outline-offset: 2px; }
 .ovladac.sviti { fill: var(--zelena); opacity: .9; }
+
+/* Na úzké obrazovce dostane výběr efektu celý řádek a tlačítka spadnou
+   pod něj - jinak se do jednoho řádku nevejdou a přetékají. */
+@media (max-width: 480px) {
+    .efekt-vyber { flex: 1 1 100%; }
+    .efekt-potvrdit, .efekt-reset { flex: 1; text-align: center; }
+    .efekt-reset { justify-content: center; }
+}

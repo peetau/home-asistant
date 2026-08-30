@@ -143,11 +143,11 @@
                do panelů samostatně neodesílá. Vyplní ho JavaScript
                těsně před odesláním. #}
             <input type="hidden" name="jas" id="efekt-jas">
-            <button type="submit" class="efekt-potvrdit">Potvrdit</button>
+            <button type="submit" class="efekt-potvrdit" id="efekt-potvrdit">Potvrdit</button>
             {# Reset = prosté znovunačtení stránky. Výběr se tím vrátí
                na efekt, který na panelech opravdu běží. #}
             <a href="{{ url_for('nanoleaf') }}" class="efekt-reset"
-               title="Vrátit na aktuální efekt">Zpět</a>
+               id="efekt-zpet" title="Vrátit na aktuální efekt">Zpět</a>
         </form>
     </div>
 
@@ -222,6 +222,16 @@
             .catch(function () { animuj(null); });
     }
 
+    // Potvrdit a Zpět mají smysl jen v návrhu - jinak zbytečně zabírají
+    // místo (na mobilu se řádek nevešel). Bez JavaScriptu zůstanou vidět.
+    var tlPotvrdit = document.getElementById("efekt-potvrdit");
+    var tlZpet = document.getElementById("efekt-zpet");
+
+    function prekresliTlacitka() {
+        if (tlPotvrdit) tlPotvrdit.hidden = !vNavrhu();
+        if (tlZpet) tlZpet.hidden = !vNavrhu();
+    }
+
     function prekresliHlasku() {
         if (!hlaska) return;
         hlaska.hidden = !vNavrhu();
@@ -241,6 +251,7 @@
         }
         zobrazEfekt(vyber.value);
         prekresliHlasku();
+        prekresliTlacitka();
     });
 
     // ---------- Jas ----------
@@ -290,6 +301,7 @@
     }
 
     // Po načtení ukázat, co na panelech opravdu běží (když svítí).
+    prekresliTlacitka();
     if (sviti) zobrazEfekt(realnyEfekt);
 })();
 </script>
