@@ -16,7 +16,7 @@ přečti data a předej je šabloně.
 import os
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
@@ -81,6 +81,38 @@ POPISY_TABU = {
 }
 
 
+def aktualni_prava():
+    """
+    Práva přihlášeného uživatele, čtená z DATABÁZE - ne ze session.
+
+    Proč z databáze: session vzniká při přihlášení a pak se nemění. Když
+    správce někomu přidá právo, ten člověk by o tom nevěděl, dokud by se
+    neodhlásil a nepřihlásil - reload stránky nepomůže, protože prohlížeč
+    posílá pořád tu samou cookie.
+
+    Je to jeden malý dotaz navíc při každém požadavku. Výsledek si uložíme
+    do g, což je úložiště platné po dobu JEDNOHO požadavku - takže i když
+    se na práva zeptáme na pěti místech, do databáze se sáhne jednou.
+
+    Když už uživatel neexistuje (správce mu smazal účet), session se
+    vyprázdní a pošleme ho na přihlášení.
+    """
+    if "prava" in g:
+        return g.prava
+
+    if "uzivatel_id" not in session:
+        g.prava = set()
+        return g.prava
+
+    zaznam = database.uzivatel_a_prava(session["uzivatel_id"])
+    if zaznam is None:
+        session.clear()
+        g.prava = set()
+    else:
+        g.prava = zaznam[1]
+    return g.prava
+
+
 def vyzaduje_prihlaseni(funkce):
     """
     Nálepka pro route, které mají být jen pro přihlášené.
@@ -126,7 +158,7 @@ def vyzaduje_pravo(tab):
         def obalena_funkce(*args, **kwargs):
             if "uzivatel" not in session:
                 return redirect(url_for("prihlaseni"))
-            if tab not in session.get("prava", []):
+            if tab not in aktualni_prava():
                 # Bez práva pošleme na Přehled - ten má každý přihlášený.
                 return redirect(url_for("dashboard"))
             return funkce(*args, **kwargs)
@@ -143,13 +175,11 @@ def spolecna_data():
     pětkrát to samé. Context processor to řeší na jednom místě: co vrátí
     tenhle slovník, je vidět ve všech šablonách.
 
-    Práva čteme ze session, ne z databáze - session se plní při přihlášení,
-    takže se kvůli vykreslení navigace nemusí sahat do databáze při
-    každém požadavku.
+    Práva bereme z aktualni_prava(), tedy z databáze - viz vysvětlení tam.
     """
     return {
         "uzivatel": session.get("uzivatel"),
-        "prava": set(session.get("prava", [])),
+        "prava": aktualni_prava(),
     }
 
 
@@ -175,10 +205,6 @@ def prihlaseni():
             # požadavkem - tím si nás server "pamatuje".
             session["uzivatel"] = uzivatel["jmeno"]
             session["uzivatel_id"] = uzivatel["id"]
-            # Práva si uložíme rovnou při přihlášení, ať se kvůli vykreslení
-            # navigace nemusí sahat do databáze při každém požadavku.
-            # (set se do session neuloží, musí to být seznam.)
-            session["prava"] = sorted(database.prava_uzivatele(uzivatel["id"]))
             return redirect(url_for("dashboard"))
 
         # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
@@ -231,7 +257,7 @@ def dashboard():
     # Čteme jen zařízení, na která má uživatel právo. Nejde jen o úsporu:
     # každé čtení je volání po síti, takže bez téhle podmínky by se čekalo
     # i na data, která se stejně nezobrazí.
-    prava = session.get("prava", [])
+    prava = aktualni_prava()
 
     nanoleaf, nanoleaf_chyba = (
         _stav_nanoleaf() if "nanoleaf" in prava else (None, None))
@@ -377,18 +403,6 @@ def sprava():
     )
 
 
-def _obnov_svoje_prava(id_uzivatele):
-    """
-    Když správce změní práva SÁM SOBĚ, musí se to promítnout i do session.
-
-    Session se plní při přihlášení. Bez tohohle by si nová práva všiml
-    až po odhlášení a přihlášení - a hlavně by mu zůstala i ta, která
-    si právě odebral.
-    """
-    if id_uzivatele == session.get("uzivatel_id"):
-        session["prava"] = sorted(database.prava_uzivatele(id_uzivatele))
-
-
 @app.route("/sprava/pridat", methods=["POST"])
 @vyzaduje_pravo("sprava")
 def sprava_pridat():
@@ -417,8 +431,6 @@ def sprava_prava(id_uzivatele):
     ok, chyba = database.nastav_prava(id_uzivatele, taby)
     if not ok:
         return redirect(url_for("sprava", chyba=chyba))
-
-    _obnov_svoje_prava(id_uzivatele)
     return redirect(url_for("sprava", zprava="Práva uložena."))
 
 

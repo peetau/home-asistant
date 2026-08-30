@@ -326,6 +326,29 @@ def prava_uzivatele(id_uzivatele):
     return {radek[0] for radek in radky}
 
 
+def uzivatel_a_prava(id_uzivatele):
+    """
+    Vrátí (jmeno, mnozina_prav) pro daného uživatele, nebo None když už
+    neexistuje (třeba když mu správce mezitím účet smazal).
+
+    Čte se při KAŽDÉM požadavku, proto jedním dotazem místo dvou.
+    LEFT JOIN vrátí uživatele i tehdy, když nemá žádná práva - pak přijde
+    jeden řádek s prázdným tabem, který níž přeskočíme.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT u.jmeno, o.tab
+            FROM uzivatele u
+            LEFT JOIN opravneni o ON o.uzivatel_id = u.id
+            WHERE u.id = ?
+        """, (id_uzivatele,)).fetchall()
+
+    if not radky:
+        return None
+
+    return radky[0][0], {tab for _, tab in radky if tab}
+
+
 def pocet_spravcu():
     """Kolik uživatelů má právo na Správu. Používá se v pojistkách."""
     with _spojeni() as db:
