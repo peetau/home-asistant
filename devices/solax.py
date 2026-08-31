@@ -169,6 +169,7 @@ def get_solax_status(ip, pwd):
     DNEŠEK [kWh] — počitadla, o půlnoci se vynulují:
         denni_vyroba    28.6   vyrobily panely
         denni_spotreba  17.19  spotřeboval dům (dopočítané, viz výše)
+        sobestacnost    24     kolik % spotřeby pokryla vlastní energie [%]
         denni_odber     13.03  odebráno ze sítě
         denni_dodavka    0.04  dodáno do sítě
         denni_nabito     0.0   nabito do baterie
@@ -193,6 +194,18 @@ def get_solax_status(ip, pwd):
     denni_odber = data[IDX_DENNI_ODBER] / 100
     denni_dodavka = data[IDX_DENNI_DODAVKA] / 100
     denni_stridac = data[IDX_DENNI_STRIDAC] / 10
+    denni_spotreba = denni_odber + denni_stridac - denni_dodavka
+
+    # Soběstačnost: kolik procent dnešní spotřeby jsme pokryli sami -
+    # ze střechy nebo z baterie - místo abychom to koupili ze sítě.
+    #
+    # Zbytek po odečtení odběru je přesně to, co dodal náš systém, takže
+    # se nic dalšího počítat nemusí. Hned po půlnoci jsou ale všechna
+    # počitadla na nule a dělit nulou nejde; tehdy říkáme prostě 0 %.
+    if denni_spotreba > 0:
+        sobestacnost = round(100 * (denni_spotreba - denni_odber) / denni_spotreba)
+    else:
+        sobestacnost = 0
 
     return {
         # okamžité
@@ -209,7 +222,8 @@ def get_solax_status(ip, pwd):
         "baterie_zbyva": data[IDX_BATERIE_ZBYVA] / 10,
         # dnešek
         "denni_vyroba": data[IDX_DENNI_VYROBA] / 10,
-        "denni_spotreba": round(denni_odber + denni_stridac - denni_dodavka, 2),
+        "denni_spotreba": round(denni_spotreba, 2),
+        "sobestacnost": sobestacnost,
         "denni_odber": denni_odber,
         "denni_dodavka": denni_dodavka,
         "denni_nabito": data[IDX_DENNI_NABITO] / 10,

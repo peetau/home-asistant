@@ -43,6 +43,12 @@
        rozlišitelnost při barvosleposti i na kontrast vůči pozadí. */
     --serie-vykon:   #eb6834;
     --serie-baterie: #2a78d6;
+    --ikona:         #55606e;   /* obrys ikon v diagramu */
+    --tok-sit:       #7c5cd6;
+    --tok-dum:       #0d9488;
+    --tok-ac:        #8a94a3;
+    --tok-klid:      #d6dbe1;   /* čára, kterou zrovna nic neteče */
+    --slunce:        #f0a825;   /* proužek slunečního záření */
     --mrizka:        #e1e0d9;
     --osa:           #898781;
 
@@ -83,6 +89,12 @@
 
         --serie-vykon:   #d95926;
         --serie-baterie: #3987e5;
+        --ikona:         #98a2ad;
+        --tok-sit:       #9b7ce8;
+        --tok-dum:       #2dd4bf;
+        --tok-ac:        #7b8695;
+        --tok-klid:      #363d46;
+        --slunce:        #f5b942;
         --mrizka:        #2f353d;
         --osa:           #98a2ad;
 
@@ -112,6 +124,12 @@
 
     --serie-vykon:   #d95926;
     --serie-baterie: #3987e5;
+    --ikona:         #98a2ad;
+    --tok-sit:       #9b7ce8;
+    --tok-dum:       #2dd4bf;
+    --tok-ac:        #7b8695;
+    --tok-klid:      #363d46;
+    --slunce:        #f5b942;
     --mrizka:        #2f353d;
     --osa:           #98a2ad;
 
@@ -253,7 +271,13 @@ footer {
 
 /* Hlavní číslo (aktuální výkon) */
 .hero { display: flex; align-items: baseline; gap: .4rem; margin-bottom: 1.2rem; }
-.hero .cislo { font-size: 3rem; font-weight: 700; line-height: 1; color: var(--zelena); }
+.hero .cislo {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--zelena);
+    font-variant-numeric: tabular-nums;
+}
 .hero .jednotka { font-size: 1.1rem; color: var(--text-slaby); }
 
 /* Mřížka menších hodnot */
@@ -263,17 +287,21 @@ footer {
     gap: 1rem;
 }
 .dlazdice .polozka .popisek { color: var(--text-slaby); font-size: .85rem; }
-.dlazdice .polozka .hodnota { font-size: 1.4rem; font-weight: 600; }
+.dlazdice .polozka .hodnota {
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
 
-/* Baterie: proužek */
-.baterie-pruh {
+/* Proužek pro procenta (nabití baterie, soběstačnost) */
+.pruh {
     background: var(--okraj);
     border-radius: 999px;
     height: 12px;
     overflow: hidden;
     margin-top: .4rem;
 }
-.baterie-pruh .naplneni {
+.pruh .naplneni {
     background: var(--zelena);
     height: 100%;
     border-radius: 999px;
@@ -294,7 +322,7 @@ footer {
 }
 .radek:first-of-type { border-top: none; }
 .radek .popisek { color: var(--text-slaby); }
-.radek .hodnota { font-weight: 600; }
+.radek .hodnota { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .odkaz-detail { margin: 1rem 0 0; font-size: .9rem; }
 .odkaz-detail a { color: var(--zelena); text-decoration: none; font-weight: 600; }
@@ -337,6 +365,225 @@ footer {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 .graf circle { cursor: crosshair; }
+
+
+/* ==================== 4c) Diagram toku energie ==================== */
+
+/*
+  Diagram si kreslíme sami v SVG (geometrii počítá diagram.py). Barvy tu
+  nejsou natvrdo, ale přes proměnné - v tmavém režimu se tak přepnou samy.
+*/
+.diagram {
+    display: flex;
+    justify-content: center;
+    padding: .4rem 0 .2rem;
+}
+.diagram svg { width: 100%; max-width: 460px; height: auto; }
+
+/* Ikony kreslíme ČAROU, ne plnou plochou. Drží se tak barvy textu,
+   nepřebíjejí barevné čáry toků a fungují v obou motivech. */
+.diagram .ikona {
+    fill: none;
+    stroke: var(--ikona);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+/* Výplň barvou karty: čára toku vedená pod ikonou skrz ni neprosvítá. */
+.diagram .ikona-vypln { fill: var(--karta); }
+.diagram .ikona-blesk { fill: var(--ikona); stroke: none; }
+
+/* Nabití baterie jako sloupec uvnitř ikony - totéž co číslo vedle,
+   jen čitelné na první pohled. */
+.diagram .baterie-naplneni {
+    fill: var(--serie-baterie);
+    stroke: none;
+    opacity: .8;
+}
+
+/* ---- Čáry toků ---- */
+.diagram .spoj {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+/* Když neteče nic, čára zůstane - jen ztichne. Kdyby zmizela, obrázek
+   by při každém výkyvu poskočil. */
+.diagram .spoj.klid {
+    stroke: var(--tok-klid);
+    stroke-width: 2;
+}
+
+/*
+  Tekoucí energii naznačíme pohybem čárkované čáry. Je to jediná animace
+  v aplikaci a nese informaci (kterým směrem to teče), není to ozdoba.
+  Samotný směr je vidět i bez ní - podle šipky na konci.
+*/
+.diagram .spoj.tece {
+    stroke-dasharray: 8 7;
+    animation: tok 1s linear infinite;
+}
+@keyframes tok { to { stroke-dashoffset: -15; } }
+
+/* Kdo má v systému vypnuté animace (nevolnost z pohybu, úspora baterie),
+   dostane klidnou plnou čáru. Šipka mu informaci předá stejně dobře. */
+@media (prefers-reduced-motion: reduce) {
+    .diagram .spoj.tece { animation: none; stroke-dasharray: none; }
+}
+
+/* Barva podle toho, co čárou teče. Hrot šipky se obarvuje zvlášť -
+   je to výplň, ne čára. */
+.diagram .spoj-vyroba  { stroke: var(--serie-vykon); }
+.diagram .hrot-vyroba  { fill:   var(--serie-vykon); }
+.diagram .spoj-baterie { stroke: var(--serie-baterie); }
+.diagram .hrot-baterie { fill:   var(--serie-baterie); }
+.diagram .spoj-sit     { stroke: var(--tok-sit); }
+.diagram .hrot-sit     { fill:   var(--tok-sit); }
+.diagram .spoj-dum     { stroke: var(--tok-dum); }
+.diagram .hrot-dum     { fill:   var(--tok-dum); }
+.diagram .spoj-ac      { stroke: var(--tok-ac); }
+.diagram .hrot-ac      { fill:   var(--tok-ac); }
+
+/* ---- Čísla a názvy ---- */
+.diagram .hodnota-uzlu {
+    fill: var(--text);
+    font-size: 19px;
+    font-weight: 700;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+/* Druhý, méně důležitý údaj vedle hlavního čísla v dlaždici. */
+.hodnota-vedle {
+    font-size: .9rem;
+    font-weight: 400;
+    color: var(--text-slaby);
+    margin-left: .35rem;
+}
+
+
+/* ---- Nabídka slunce ---- */
+
+/*
+  Kolik sluneční energie zrovna dopadá na střechu. Není to z panelů, ale
+  z předpovědi počasí - proto to stojí NAD číslem výroby: nejdřív co je
+  v nabídce, teprve pod tím kolik jsme z toho vzali.
+
+  Proužek je nižší než ten u baterie schválně. Je to doplněk, ne hlavní
+  údaj, a stejně vysoký proužek by se s baterií pral o pozornost.
+*/
+.slunce { margin-bottom: 1.1rem; position: relative; }
+
+.slunce-hlava {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .8rem;
+    flex-wrap: wrap;
+    font-size: .9rem;
+    color: var(--text-slaby);
+}
+.slunce-zareni {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.pruh-slunce { margin-top: .35rem; height: 8px; }
+.pruh-slunce .naplneni { background: var(--slunce); }
+
+.slunce-hlaska {
+    margin: .45rem 0 0;
+    font-size: .9rem;
+    color: var(--text);
+}
+
+/* ---- Aktuální stav: diagram vedle čísel ---- */
+
+/*
+  Na monitoru zbývalo vedle diagramu půl karty prázdné místo, tak tam
+  putovala čísla. Na užší obrazovce se sloupce srovnají pod sebe a čísla
+  jdou PRVNÍ - velké číslo výroby má být vidět hned, bez rolování.
+*/
+.stav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 19rem);
+    gap: 1.4rem 2.2rem;
+    align-items: center;
+}
+@media (max-width: 760px) {
+    .stav { grid-template-columns: 1fr; gap: .6rem; }
+    .stav .stav-cisla { order: -1; }
+}
+
+.stav-cisla .hero { flex-wrap: wrap; margin-bottom: 1rem; }
+.stav-cisla .pruh { margin: .15rem 0 .55rem; }
+
+/* ---- Vysvětlivka u popisku ---- */
+
+/* Dlaždice je ukotvením pro bublinu. Kdyby se bublina ukotvila k samotnému
+   otazníku, u krajních dlaždic by vylezla mimo kartu a na mobilu i mimo
+   obrazovku. Takhle je vždycky přesně tak široká jako dlaždice. */
+.dlazdice .polozka, .radek { position: relative; }
+
+.napoveda {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: .3rem;
+    border: 1px solid var(--okraj);
+    border-radius: 50%;
+    color: var(--text-slaby);
+    font-size: 10px;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: help;
+}
+.napoveda:hover, .napoveda:focus-visible {
+    border-color: var(--text-slaby);
+    color: var(--text);
+}
+
+.napoveda-text {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    margin-top: .3rem;
+    padding: .5rem .65rem;
+    border-radius: 8px;
+    background: var(--text);
+    color: var(--karta);
+    font-size: .78rem;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: var(--stin-2);
+    /* Schované, ale ne display:none - ať může plynule naskočit. */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .15s ease, visibility .15s;
+}
+.napoveda:hover .napoveda-text,
+.napoveda:focus .napoveda-text {
+    opacity: 1;
+    visibility: visible;
+}
+
+.poznamka {
+    color: var(--text-slaby);
+    font-size: .85rem;
+    margin: 1rem 0 0;
+}
+
+.diagram .popisek-uzlu {
+    fill: var(--text-slaby);
+    font-size: 13.5px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 
 
 /* ==================== 4b) Tabulka dat ==================== */

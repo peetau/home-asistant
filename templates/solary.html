@@ -2,7 +2,8 @@
 
 {# import = "půjč mi makra z jiného souboru". Stejný princip jako
    import v Pythonu, jen pro kusy HTML. #}
-{% from "makra.html" import nakresli_graf, tabulka_mereni %}
+{% from "makra.html" import nakresli_diagram, nakresli_graf, napoveda,
+                            tabulka_mereni %}
 
 {% block titulek %}Soláry — Domácí asistent{% endblock %}
 
@@ -13,33 +14,66 @@
 {% block obsah %}
 
     {# ---------- Aktuální stav ---------- #}
+    {#
+       Jedna karta, dva sloupce: vlevo obrázek toku, vpravo čísla, která
+       z obrázku vyčíst nejdou. Na mobilu se to poskládá pod sebe a čísla
+       jdou první - velké číslo výroby má být vidět bez rolování.
+    #}
     <div class="karta">
         <h2>☀️ Aktuální stav</h2>
         {% if solax %}
-            <div class="hero">
-                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
-                <span class="jednotka">kW právě vyrábí</span>
-            </div>
+            <div class="stav">
+                {{ nakresli_diagram(diagram_toku) }}
 
-            <div class="dlazdice">
-                <div class="polozka">
-                    <div class="popisek">Dnešní výroba</div>
-                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
-                </div>
-                <div class="polozka">
-                    <div class="popisek">Výkon střídače</div>
-                    <div class="hodnota">{{ solax.vykon_stridace }} W</div>
-                </div>
-                <div class="polozka">
-                    <div class="popisek">Baterie</div>
-                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
-                    <div class="baterie-pruh">
+                <div class="stav-cisla">
+                    {# Co je zrovna v nabídce, než se podíváme, kolik z toho bereme. #}
+                    {% if slunce %}
+                    <div class="slunce">
+                        <div class="slunce-hlava">
+                            <span>{{ slunce.ikona }} {{ slunce.popis }} · {{ slunce.teplota }} °C</span>
+                            <span class="slunce-zareni">{{ slunce.zareni }} W/m²{{ napoveda(
+                                "Kolik sluneční energie právě dopadá na metr čtvereční. Bere se z předpovědi počasí, neměří to naše panely. Plný proužek by znamenal 1000 W/m² - hodnotu, při které se udává výkon panelů; u nás takhle silně slunce nesvítí ani v létě v poledne.") }}</span>
+                        </div>
+                        <div class="pruh pruh-slunce">
+                            <div class="naplneni" style="width: {{ slunce.podil }}%"></div>
+                        </div>
+                        <p class="slunce-hlaska">{{ slunce.hlaska }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="hero">
+                        <span class="cislo">{{ (solax.vykon_panelu / 1000)|cislo(2) }}</span>
+                        <span class="jednotka">kW právě vyrábí</span>
+                    </div>
+
+                    <div class="radek">
+                        <span class="popisek">Baterie</span>
+                        <span class="hodnota">{{ solax.baterie_soc }} %
+                            <span class="hodnota-vedle">{{ solax.baterie_zbyva|cislo }} kWh</span></span>
+                    </div>
+                    <div class="pruh">
                         <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
                     </div>
-                </div>
-                <div class="polozka">
-                    <div class="popisek">Frekvence sítě</div>
-                    <div class="hodnota">{{ solax.frekvence }} Hz</div>
+
+                    <div class="radek">
+                        <span class="popisek">Výkon střídače{{ napoveda(
+                            "Kolik střídač právě pouští do domu a do sítě. Je to výroba panelů mínus to, co si zrovna bere baterie.") }}</span>
+                        <span class="hodnota">{{ solax.vykon_stridace }} W</span>
+                    </div>
+                    <div class="radek">
+                        <span class="popisek">String 1{{ napoveda(
+                            "Panely jsou zapojené ve dvou samostatných větvích, každá do svého vstupu měniče. Když jedna dává výrazně míň než druhá, bývá zastíněná.") }}</span>
+                        <span class="hodnota">{{ solax.mppt1 }} W</span>
+                    </div>
+                    <div class="radek">
+                        <span class="popisek">String 2</span>
+                        <span class="hodnota">{{ solax.mppt2 }} W</span>
+                    </div>
+                    <div class="radek">
+                        <span class="popisek">Frekvence sítě{{ napoveda(
+                            "Kmitočet elektrické sítě. Drží se kolem 50 Hz; větší odchylka by znamenala potíže v síti. Pro domácnost z toho nic neplyne.") }}</span>
+                        <span class="hodnota">{{ solax.frekvence|cislo(2) }} Hz</span>
+                    </div>
                 </div>
             </div>
         {% else %}
@@ -47,20 +81,48 @@
         {% endif %}
     </div>
 
-    {# ---------- Rozdělení výroby mezi řetězce panelů ---------- #}
+    {# ---------- Dnešek v číslech ---------- #}
+    {# Diagram nad tím ukazuje okamžik, tahle karta celý den. Čísla jsou
+       přímo z počitadel v měniči, o půlnoci se sama vynulují. #}
     {% if solax %}
     <div class="karta">
-        <h2>Řetězce panelů</h2>
+        <h2>📅 Dnešek</h2>
         <div class="dlazdice">
             <div class="polozka">
-                <div class="popisek">String 1</div>
-                <div class="hodnota">{{ solax.mppt1 }} W</div>
+                <div class="popisek">Vyrobeno</div>
+                <div class="hodnota">{{ solax.denni_vyroba|cislo }} kWh</div>
             </div>
             <div class="polozka">
-                <div class="popisek">String 2</div>
-                <div class="hodnota">{{ solax.mppt2 }} W</div>
+                <div class="popisek">Spotřebováno{{ napoveda(
+                        "Tohle číslo měnič neposílá, dopočítáváme ho: koupeno ze sítě + co vydal střídač − prodáno do sítě.") }}</div>
+                <div class="hodnota">{{ solax.denni_spotreba|cislo }} kWh</div>
+            </div>
+            <div class="polozka">
+                <div class="popisek">Ze sítě</div>
+                <div class="hodnota">{{ solax.denni_odber|cislo }} kWh</div>
+            </div>
+            <div class="polozka">
+                <div class="popisek">Do sítě</div>
+                <div class="hodnota">{{ solax.denni_dodavka|cislo(2) }} kWh</div>
+            </div>
+            <div class="polozka">
+                <div class="popisek">Baterie nabito / vybito{{ napoveda(
+                        "Kolik energie dnes do baterie vteklo a kolik se z ní zase odebralo.") }}</div>
+                <div class="hodnota">{{ solax.denni_nabito|cislo }}
+                                   / {{ solax.denni_vybito|cislo }} kWh</div>
+            </div>
+            <div class="polozka">
+                <div class="popisek">Soběstačnost{{ napoveda(
+                        "Jaká část dnešní spotřeby šla z panelů a z baterie místo ze sítě. Sto procent by znamenalo, že jsme si celý den vystačili sami.") }}</div>
+                <div class="hodnota">{{ solax.sobestacnost }} %</div>
+                <div class="pruh">
+                    <div class="naplneni" style="width: {{ solax.sobestacnost }}%"></div>
+                </div>
             </div>
         </div>
+
+        <p class="poznamka">Od začátku panely vyrobily
+           {{ solax.celkova_vyroba|cislo(0) }} kWh.</p>
     </div>
     {% endif %}
 

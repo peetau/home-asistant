@@ -25,6 +25,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
 import database
+import diagram
 import graf
 import pocasi
 import qr
@@ -384,6 +385,25 @@ def _stav_solax():
         lambda: get_solax_status(config.SOLAX_DONGLE_IP, config.SOLAX_WIFI_SN))
 
 
+@app.template_filter("cislo")
+def _cislo(hodnota, desetin=1):
+    """
+    Napíše číslo tak, jak se píše česky: 22 321,4.
+
+    Python sám formátuje anglicky (22,321.4) - čárka po tisících,
+    tečka před desetinami. My to potřebujeme obráceně. Nejdřív tedy
+    necháme Python udělat anglický tvar a pak oba oddělovače prohodíme;
+    pořadí záměn je důležité, jinak by si přepsaly cestu.
+
+    Mezera po tisících je nezlomitelná - jinak by se číslo
+    na konci řádku mohlo rozpadnout na dva kusy.
+
+    Filtr se v šabloně používá takhle:  {{ hodnota|cislo }}
+                                        {{ hodnota|cislo(2) }}
+    """
+    return f"{hodnota:,.{desetin}f}".replace(",", "\u00a0").replace(".", ",")
+
+
 @app.route("/")
 @vyzaduje_prihlaseni
 def dashboard():
@@ -428,9 +448,19 @@ def solary():
         historie, index_hodnoty=3, barva="var(--serie-baterie)",
         jednotka="%", desetin=0)
 
+    # Diagram se dá připravit, jen když se solár povedlo přečíst.
+    # Bez dat není co kreslit a šablona v tom případě ukáže hlášku.
+    diagram_toku = diagram.priprav(solax) if solax else None
+
+    # Kolik slunce zrovna dopadá. Je to z předpovědi počasí, ne z panelů,
+    # takže se stránka vykreslí i bez toho - jen se pruh neukáže.
+    slunce = _bezpecne(lambda: pocasi.ted(
+        config.POCASI_LAT, config.POCASI_LON))[0]
+
     return render_template(
         "solary.html", aktivni="solary",
-        solax=solax, solax_chyba=solax_chyba,
+        solax=solax, solax_chyba=solax_chyba, diagram_toku=diagram_toku,
+        slunce=slunce,
         graf_vykon=graf_vykon, graf_baterie=graf_baterie,
         historie=list(reversed(historie))[:20],   # tabulka: nejnovější nahoře
     )
