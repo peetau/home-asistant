@@ -82,7 +82,7 @@ Na serveru aplikaci nespouští `python web.py`, ale **gunicorn** — vestavěn�
 server Flasku je jen na vývoj. Například:
 
 ```
-ASISTENT_PRODUKCE=1 gunicorn -w 2 -b 127.0.0.1:8000 web:app
+ASISTENT_PRODUKCE=1 gunicorn -w 2 -b 127.0.0.1:8002 web:app
 ```
 
 Gunicorn je v `requirements.txt` označený `sys_platform != "win32"`, takže
