@@ -565,6 +565,12 @@ footer {
     text-align: left;
     text-transform: none;
     letter-spacing: normal;
+    /* Vlastnost white-space se DĚDÍ, a nápověda může viset u údaje, který
+       se zalamovat nesmí (třeba "579 W/m²"). Bez tohohle řádku by bublina
+       nowrap zdědila, text by z ní vytekl doprava a natáhl celou stránku -
+       na mobilu by pak šlo scrollovat daleko mimo obrazovku. */
+    white-space: normal;
+    overflow-wrap: break-word;
     box-shadow: var(--stin-2);
     /* Schované, ale ne display:none - ať může plynule naskočit. */
     opacity: 0;
