@@ -412,7 +412,8 @@ def solary():
     solax, solax_chyba = _stav_solax()
 
     # Historie z databáze pro grafy. Sloupce řádku jsou v pořadí, v jakém
-    # je vrací nacti_pro_graf(): 0=cas, 1=vykon_panelu, 2=denni_vyroba, 3=soc.
+    # je vrací nacti_pro_graf(): 0=cas, 1=vykon_panelu, 2=denni_vyroba,
+    # 3=soc, 4=spotreba_domu, 5=tok_site, 6=vykon_baterie.
     #
     # Výkon a baterie mají ÚPLNĚ JINOU stupnici (watty vs. procenta), proto
     # dva samostatné grafy pod sebou, ne jeden se dvěma osami. Graf se dvěma

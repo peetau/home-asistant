@@ -31,8 +31,8 @@ def zmer_a_uloz():
     """
     Jedno kolo: přečte solár a uloží ho jako řádek do databáze.
 
-    Vrátí uložené hodnoty (pro výpis), nebo vyhodí výjimku, když
-    se čtení nepovede - o tu se postará volající ve smyčce.
+    Vrátí dvojici (čas, naměřené hodnoty) pro výpis, nebo vyhodí výjimku,
+    když se čtení nepovede - o tu se postará volající ve smyčce.
     """
     sx = get_solax_status(config.SOLAX_DONGLE_IP, config.SOLAX_WIFI_SN)
     cas = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -41,8 +41,11 @@ def zmer_a_uloz():
         vykon_panelu=sx["vykon_panelu"],
         denni_vyroba=sx["denni_vyroba"],
         baterie_soc=sx["baterie_soc"],
+        spotreba_domu=sx["spotreba_domu"],
+        tok_site=sx["tok_site"],
+        vykon_baterie=sx["vykon_baterie"],
     )
-    return cas, sx["vykon_panelu"], sx["denni_vyroba"], sx["baterie_soc"]
+    return cas, sx
 
 
 def main():
@@ -60,8 +63,15 @@ def main():
     # Nekonečná smyčka - tohle je ten "server, který běží pořád".
     while True:
         try:
-            cas, vykon, vyroba, bat = zmer_a_uloz()
-            print(f"[{cas}] uloženo: {vykon} W, {vyroba} kWh, baterie {bat} %", flush=True)
+            cas, sx = zmer_a_uloz()
+            # {:+} znamená "vypiš i znaménko plus". U sítě a baterie je
+            # to podstatné - z holého čísla by nebylo poznat, jestli se
+            # do sítě dodává, nebo se z ní bere.
+            print(f"[{cas}] panely {sx['vykon_panelu']} W, "
+                  f"dům {sx['spotreba_domu']} W, "
+                  f"síť {sx['tok_site']:+} W, "
+                  f"baterie {sx['vykon_baterie']:+} W ({sx['baterie_soc']} %)",
+                  flush=True)
         except Exception as chyba:
             # Zařízení možná chvíli neodpovědělo. Nevadí - napíšeme to
             # a jedeme dál. Jeden výpadek nesmí shodit celý sběr.

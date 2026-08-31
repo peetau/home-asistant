@@ -70,7 +70,10 @@ def init_db():
                 cas           TEXT    NOT NULL,
                 vykon_panelu  INTEGER,
                 denni_vyroba  REAL,
-                baterie_soc   INTEGER
+                baterie_soc   INTEGER,
+                spotreba_domu INTEGER,
+                tok_site      INTEGER,
+                vykon_baterie INTEGER
             )
         """)
 
@@ -177,6 +180,30 @@ def init_db():
             try:
                 db.execute(
                     "ALTER TABLE uzivatele ADD COLUMN posledni_prihlaseni TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+        # MIGRACE: tři nové veličiny ze soláru.
+        #
+        # Dřív jsme z dongle uměli přečíst jen výkon panelů a baterii.
+        # Teď z něj dostaneme i spotřebu domu, tok sítě a výkon baterie -
+        # a bez historie by se z nich nedaly nakreslit grafy.
+        #
+        # Tok sítě i výkon baterie můžou být ZÁPORNÉ; právě znaménko určuje
+        # SMĚR: záporná síť = odebíráme, záporná baterie = vybíjí se.
+        #
+        # U řádků naměřených dřív zůstane prázdno (NULL), a to je správně:
+        # tehdy jsme ta data neměli a dopisovat si je zpětně nebudeme.
+        # Grafy s tím počítají a prázdné řádky přeskočí.
+        #
+        # Stačí zjistit, jestli chybí první z nich - přidávají se všechny tři
+        # naráz, takže buď jsou v tabulce všechny, nebo žádná.
+        sloupce_m = [r[1] for r in db.execute("PRAGMA table_info(mereni)")]
+        if "spotreba_domu" not in sloupce_m:
+            try:
+                db.execute("ALTER TABLE mereni ADD COLUMN spotreba_domu INTEGER")
+                db.execute("ALTER TABLE mereni ADD COLUMN tok_site INTEGER")
+                db.execute("ALTER TABLE mereni ADD COLUMN vykon_baterie INTEGER")
             except sqlite3.OperationalError:
                 pass
 
@@ -636,9 +663,15 @@ def uzivatele_s_pravy():
     return list(podle_id.values())
 
 
-def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc):
+def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc,
+                spotreba_domu, tok_site, vykon_baterie):
     """
     Přidá do tabulky 'mereni' jeden nový řádek (jedno měření).
+
+    tok_site a vykon_baterie chodí SE ZNAMÉNKEM - záporná síť znamená,
+    že ze sítě bereme, záporná baterie že se vybíjí. Ukládáme je tak,
+    jak přijdou; převádět je na "kladné číslo plus směr" by znamenalo
+    dva sloupce místo jednoho a nic bychom tím nezískali.
     """
     with _spojeni() as db:
         # POZOR na ty otazníky. NIKDY nelepíme hodnoty přímo do SQL textu
@@ -649,9 +682,12 @@ def uloz_mereni(cas, vykon_panelu, denni_vyroba, baterie_soc):
         # u přihlašování, kde data píše uživatel), lepení do textu by šlo
         # zneužít. Otazníky tomu zabrání. Zvykni si na ně od začátku.
         db.execute(
-            "INSERT INTO mereni (cas, vykon_panelu, denni_vyroba, baterie_soc) "
-            "VALUES (?, ?, ?, ?)",
-            (cas, vykon_panelu, denni_vyroba, baterie_soc),
+            "INSERT INTO mereni "
+            "(cas, vykon_panelu, denni_vyroba, baterie_soc, "
+            " spotreba_domu, tok_site, vykon_baterie) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (cas, vykon_panelu, denni_vyroba, baterie_soc,
+             spotreba_domu, tok_site, vykon_baterie),
         )
 
 
@@ -662,6 +698,11 @@ def nacti_pro_graf(hodin=24):
     Pro graf potřebujeme opačné pořadí než pro výpis: čas musí růst
     zleva doprava, takže ORDER BY id ASC (vzestupně).
 
+    Sloupce v řádku jsou v pořadí:
+        0 cas, 1 vykon_panelu, 2 denni_vyroba, 3 baterie_soc,
+        4 spotreba_domu, 5 tok_site, 6 vykon_baterie
+    U měření z doby před rozšířením sběru jsou poslední tři prázdné (None).
+
     Filtrování času necháváme na databázi (WHERE) - je to její práce
     a je v tom rychlejší, než kdybychom načetli všechno a třídili v Pythonu.
     """
@@ -669,7 +710,8 @@ def nacti_pro_graf(hodin=24):
         # datetime('now', 'localtime', '-24 hours') je funkce SQLite:
         # spočítá časovou hranici přímo v databázi.
         kurzor = db.execute(
-            "SELECT cas, vykon_panelu, denni_vyroba, baterie_soc "
+            "SELECT cas, vykon_panelu, denni_vyroba, baterie_soc, "
+            "       spotreba_domu, tok_site, vykon_baterie "
             "FROM mereni "
             "WHERE cas >= datetime('now', 'localtime', ?) "
             "ORDER BY id ASC",
@@ -689,7 +731,8 @@ def nacti_mereni(limit=10):
         # ORDER BY id DESC = seřaď podle id sestupně (nejnovější nahoře).
         # LIMIT ? = vrať jen tolik řádků.
         kurzor = db.execute(
-            "SELECT id, cas, vykon_panelu, denni_vyroba, baterie_soc "
+            "SELECT id, cas, vykon_panelu, denni_vyroba, baterie_soc, "
+            "       spotreba_domu, tok_site, vykon_baterie "
             "FROM mereni ORDER BY id DESC LIMIT ?",
             (limit,),
         )
