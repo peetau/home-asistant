@@ -442,11 +442,20 @@ def solary():
     historie = _bezpecne(lambda: database.nacti_pro_graf(hodin=24))[0] or []
 
     graf_vykon = graf.priprav(
-        historie, index_hodnoty=1, barva="var(--serie-vykon)",
+        historie, index_hodnoty=1, klic="vykon", barva="var(--serie-vykon)",
         jednotka="kW", delitel=1000, desetin=1)
     graf_baterie = graf.priprav(
-        historie, index_hodnoty=3, barva="var(--serie-baterie)",
+        historie, index_hodnoty=3, klic="baterie", barva="var(--serie-baterie)",
         jednotka="%", desetin=0)
+    graf_dum = graf.priprav(
+        historie, index_hodnoty=4, klic="dum", barva="var(--tok-dum)",
+        jednotka="kW", delitel=1000, desetin=1)
+
+    # Tok sítě jde oběma směry, takže dvě barvy: nad nulou zeleně to,
+    # co dodáváme ven, pod nulou fialově to, co si bereme.
+    graf_sit = graf.priprav(
+        historie, index_hodnoty=5, klic="sit", barva="var(--zelena)",
+        barva_zaporna="var(--tok-sit)", jednotka="kW", delitel=1000, desetin=1)
 
     # Diagram se dá připravit, jen když se solár povedlo přečíst.
     # Bez dat není co kreslit a šablona v tom případě ukáže hlášku.
@@ -462,6 +471,7 @@ def solary():
         solax=solax, solax_chyba=solax_chyba, diagram_toku=diagram_toku,
         slunce=slunce,
         graf_vykon=graf_vykon, graf_baterie=graf_baterie,
+        graf_dum=graf_dum, graf_sit=graf_sit,
         historie=list(reversed(historie))[:20],   # tabulka: nejnovější nahoře
     )
 

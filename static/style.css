@@ -359,6 +359,10 @@ footer {
 
 /* Mřížka a popisky os musí být POTICHU - jsou to pomocné čáry, ne obsah. */
 .mrizka { stroke: var(--mrizka); stroke-width: 1; }
+
+/* Nula v obousměrném grafu není pomocná čára, ale hranice mezi dvěma
+   opačnými stavy - proto výraznější než mřížka. */
+.osa-nula { stroke: var(--osa); stroke-width: 1.5; }
 .osa-popisek {
     fill: var(--osa);
     font-size: 11px;

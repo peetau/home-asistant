@@ -14,9 +14,12 @@
         <h2>{{ nadpis }}</h2>
         {% if g %}
             <div class="graf-hlava">
-                <span class="graf-aktualni" style="color: {{ g.barva }}">
+                {# U obousměrného grafu se poslední hodnota obarví podle toho,
+                   na které straně nuly leží - to je u toku sítě ta informace. #}
+                <span class="graf-aktualni" style="color: {{ g.barva_posledni }}">
                     {{ g.posledni }} {{ g.jednotka }}</span>
-                <span class="graf-popis">{{ popis }} · maximum {{ g.maximum }} {{ g.jednotka }}</span>
+                <span class="graf-popis">{{ popis }}{% if not g.barva_zaporna %} ·
+                    maximum {{ g.maximum }} {{ g.jednotka }}{% endif %}</span>
             </div>
 
             <svg class="graf" viewBox="0 0 {{ g.sirka }} {{ g.vyska }}"
@@ -30,13 +33,53 @@
                           class="osa-popisek" text-anchor="end">{{ p.text }}</text>
                 {% endfor %}
 
-                {# Jemná výplň pod čárou - naznačuje objem, nepřebíjí čáru #}
-                <path d="{{ g.vypln }}" style="fill: {{ g.barva }}" opacity="0.12"/>
+                {% if g.barva_zaporna %}
+                    {#
+                       Obousměrný graf: nad nulou jedna barva, pod nulou druhá.
 
-                {# Samotná čára grafu #}
-                <polyline points="{{ g.cara }}" fill="none"
-                          style="stroke: {{ g.barva }}" stroke-width="2"
-                          stroke-linejoin="round" stroke-linecap="round"/>
+                       Kreslí se DVAKRÁT úplně totéž, jen pokaždé s jiným
+                       ořezem - jednou se ukáže jen část nad čarou nuly,
+                       podruhé jen část pod ní. Je to jednodušší, než čáru
+                       počítat po kouscích a hledat, kde přesně nulu protíná.
+
+                       Ořezy musí mít jedinečné jméno, jinak by si je dva
+                       grafy na jedné stránce přebily - odtud to g.klic.
+                    #}
+                    <defs>
+                        <clipPath id="nad-{{ g.klic }}">
+                            <rect x="{{ g.vlevo }}" y="{{ g.strop }}"
+                                  width="{{ g.vpravo - g.vlevo }}"
+                                  height="{{ g.nula - g.strop }}"/>
+                        </clipPath>
+                        <clipPath id="pod-{{ g.klic }}">
+                            <rect x="{{ g.vlevo }}" y="{{ g.nula }}"
+                                  width="{{ g.vpravo - g.vlevo }}"
+                                  height="{{ g.dno - g.nula }}"/>
+                        </clipPath>
+                    </defs>
+
+                    {% for smer, barva in [("nad", g.barva), ("pod", g.barva_zaporna)] %}
+                        <path d="{{ g.vypln }}" style="fill: {{ barva }}"
+                              opacity="0.14" clip-path="url(#{{ smer }}-{{ g.klic }})"/>
+                        <polyline points="{{ g.cara }}" fill="none"
+                                  style="stroke: {{ barva }}" stroke-width="2"
+                                  stroke-linejoin="round" stroke-linecap="round"
+                                  clip-path="url(#{{ smer }}-{{ g.klic }})"/>
+                    {% endfor %}
+
+                    {# Nula je tady hlavní čára, ne pomocná - odděluje
+                       "dodáváme" od "bereme". Proto výraznější než mřížka. #}
+                    <line x1="{{ g.vlevo }}" y1="{{ g.nula }}"
+                          x2="{{ g.vpravo }}" y2="{{ g.nula }}" class="osa-nula"/>
+                {% else %}
+                    {# Jemná výplň pod čárou - naznačuje objem, nepřebíjí čáru #}
+                    <path d="{{ g.vypln }}" style="fill: {{ g.barva }}" opacity="0.12"/>
+
+                    {# Samotná čára grafu #}
+                    <polyline points="{{ g.cara }}" fill="none"
+                              style="stroke: {{ g.barva }}" stroke-width="2"
+                              stroke-linejoin="round" stroke-linecap="round"/>
+                {% endif %}
 
                 {# Neviditelné body pro najetí myší; <title> ukáže bublinu #}
                 {% for t in g.tecky %}

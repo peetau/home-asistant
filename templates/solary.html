@@ -128,6 +128,9 @@
 
     {# ---------- Grafy z historie ---------- #}
     {{ nakresli_graf(graf_vykon, "📈 Výkon panelů za 24 h", "aktuálně") }}
+    {{ nakresli_graf(graf_dum, "🏠 Spotřeba domu za 24 h", "aktuálně") }}
+    {{ nakresli_graf(graf_sit, "🔌 Tok do sítě a ze sítě za 24 h",
+                     "nad nulou dodáváme, pod nulou bereme") }}
     {{ nakresli_graf(graf_baterie, "🔋 Nabití baterie za 24 h", "aktuálně") }}
 
     {{ tabulka_mereni(historie) }}
