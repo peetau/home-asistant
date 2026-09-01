@@ -8,7 +8,8 @@ database.py         práce s databází (SQLite) — měření, účty, práva, 
 sber.py             sběrač měření: běží pořád a plní databázi
 main.py             vstupní bod konzolové verze (rychlý výpis stavu)
 graf.py             převod naměřených dat na souřadnice pro SVG graf
-pocasi.py           předpověď na přihlašovací stránku (Open-Meteo)
+diagram.py          rozvržení a směry šipek pro diagram toku energie
+pocasi.py           počasí z Open-Meteo: předpověď i současné slunce
 svatky.py           datum, jmeniny a státní svátky (tabulka přímo v souboru)
 sprava_uctu.py      zakládání a mazání rodinných účtů z příkazové řádky
 ziskej_token.py     jednorázový pomocník na vygenerování Nanoleaf tokenu
@@ -24,7 +25,8 @@ static/
 templates/
   zaklad.html       společná kostra všech stránek (hlavička, navigace)
   motiv_skript.html nastavení motivu před vykreslením (proti bliknutí)
-  makra.html        znovupoužitelné kousky: nakresli_graf, tabulka_mereni
+  makra.html        znovupoužitelné kousky: nakresli_graf,
+                    nakresli_diagram, napoveda, tabulka_mereni
   prehled.html      tab Přehled
   solary.html       tab Soláry
   nanoleaf.html     tab Nanoleaf (jediná stránka s vlastním JavaScriptem)
@@ -67,3 +69,18 @@ provozní souvislosti v [`provoz.md`](provoz.md).
 **Dva procesy, ne jeden.** `web.py` obsluhuje stránky, `sber.py` nezávisle
 na něm zapisuje měření do databáze. Potkávají se jen přes `asistent.db`,
 takže když jeden spadne, druhý běží dál.
+
+**`devices/solax.py` je naše mapa, ne dokumentace.** Dongle posílá pole tří
+set čísel bez jakéhokoliv popisu; co které znamená, jsme museli odvodit.
+Vršek souboru je proto tabulka indexů a je na ní postavené všechno ostatní.
+Dvě věci se z ní vyplatí pamatovat: záporná čísla chodí jako 16bitová
+odspodu (hodnota nad 32767 znamená `hodnota − 65536`) a právě znaménko
+určuje SMĚR toku, a denní spotřebu domu dongle neposílá vůbec — dopočítává
+se jako `odběr + výstup střídače − dodávka`, stejně jako to dělá SolaX
+aplikace.
+
+**Když budeš dohledávat další index, nehádej ho.** Metoda je popsaná
+v komentáři `solax.py`: porovnat živá data se snímkem obrazovky ze SolaX
+aplikace a ověřit součtem. Pozor, aplikace čte z cloudu a opožďuje se
+o několik minut, takže čísla nesmí sedět na jednotku — musí odpovídat
+tomu, co bylo před chvílí.
