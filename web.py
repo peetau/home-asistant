@@ -627,8 +627,10 @@ def nakup():
 @vyzaduje_pravo("nakup")
 def nakup_pridat():
     database.pridej_polozku(
+        database.vychozi_seznam(session["uzivatel_id"]),
         request.form.get("text", ""),
         session.get("uzivatel"),
+        session["uzivatel_id"],
         request.form.get("mnozstvi", ""),
     )
     return redirect(url_for("nakup"))
@@ -641,7 +643,8 @@ def nakup_pridat():
 @app.route("/nakup/<int:id_polozky>/prepnout", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_prepnout(id_polozky):
-    database.prepni_koupeno(id_polozky, session.get("uzivatel"))
+    database.prepni_koupeno(id_polozky, session.get("uzivatel"),
+                            session["uzivatel_id"])
     return redirect(url_for("nakup"))
 
 

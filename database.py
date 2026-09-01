@@ -9,6 +9,7 @@ Ukládáme sem měření ze solární elektrárny, ať máme HISTORII v čase
 """
 
 import os
+import secrets
 import sqlite3
 
 # Funkce na bezpečnou práci s hesly. Werkzeug přišel automaticky s Flaskem,
@@ -33,6 +34,26 @@ VSECHNY_TABY = ("solary", "nanoleaf", "nakup", "sprava")
 # Co dostane nově založený uživatel. Nejopatrnější rozumný start:
 # přihlásí se, vidí Přehled a může přidávat na nákupní seznam.
 VYCHOZI_PRAVA = ("nakup",)
+
+
+# Z čeho se skládá kód pozvánky. Chybí O/0 a I/1 schválně - kód se bude
+# přepisovat z telefonu na telefon rukou a tyhle znaky se pletou.
+ABECEDA_KODU = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def _novy_kod():
+    """
+    Vyrobí kód pozvánky do seznamu, například 'K7M-4QP'.
+
+    Používáme modul secrets, NE random. random je určený na simulace a jeho
+    čísla se dají při znalosti několika předchozích dopočítat - u pozvánky
+    by to znamenalo, že si někdo odvodí kódy cizích seznamů. secrets je
+    přesně pro případy, kdy na uhodnutelnosti záleží.
+
+    Pomlčka uprostřed je jen kvůli čitelnosti, do porovnávání nezasahuje.
+    """
+    znaky = "".join(secrets.choice(ABECEDA_KODU) for _ in range(6))
+    return znaky[:3] + "-" + znaky[3:]
 
 
 def _spojeni():
@@ -105,11 +126,14 @@ def init_db():
         db.execute("""
             CREATE TABLE IF NOT EXISTS nakup (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                seznam_id    INTEGER REFERENCES seznamy(id) ON DELETE CASCADE,
                 text         TEXT    NOT NULL,
                 koupeno      INTEGER NOT NULL DEFAULT 0,
                 pridal       TEXT    NOT NULL,
+                pridal_id    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
                 pridano      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
                 koupil       TEXT,
+                koupil_id    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
                 koupeno_kdy  TEXT
             )
         """)
@@ -144,12 +168,49 @@ def init_db():
         #
         # klic je název malými písmeny - díky němu se "Mléko" a "mléko"
         # počítají jako jedna položka.
+        # Nákupní seznamy.
+        #
+        # Jeden seznam = jedna parta lidí, co spolu nakupuje. Vlastník je
+        # SLOUPEC, ne řádek v tabulce členů s nějakou rolí. Díky tomu hlídá
+        # databáze sama, že seznam má právě jednoho vlastníka (NOT NULL
+        # a cizí klíč) - s rolí by to byla jen dohoda v kódu a rozpadlo by
+        # se to tiše.
+        #
+        # 'kod' je pozvánka. Vlastník ji pošle komu chce, ten si ji zadá
+        # a stane se členem. Nikdo přitom nemusí vidět seznam uživatelů.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS seznamy (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                nazev       TEXT    NOT NULL,
+                vlastnik_id INTEGER NOT NULL REFERENCES uzivatele(id),
+                kod         TEXT    UNIQUE,
+                vytvoren    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+
+        # Kdo je do seznamu přizvaný. VLASTNÍK TU NENÍ - ten je sloupcem
+        # v tabulce výš. Kdyby byl v obou, mohly by si obě místa začít
+        # protiřečit a nebylo by jasné, které platí.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS clenove_seznamu (
+                seznam_id   INTEGER NOT NULL
+                            REFERENCES seznamy(id) ON DELETE CASCADE,
+                uzivatel_id INTEGER NOT NULL
+                            REFERENCES uzivatele(id) ON DELETE CASCADE,
+                pridan      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                PRIMARY KEY (seznam_id, uzivatel_id)
+            )
+        """)
+
         db.execute("""
             CREATE TABLE IF NOT EXISTS historie_nakupu (
-                klic      TEXT PRIMARY KEY,
+                seznam_id INTEGER NOT NULL
+                          REFERENCES seznamy(id) ON DELETE CASCADE,
+                klic      TEXT    NOT NULL,
                 text      TEXT    NOT NULL,
                 pocet     INTEGER NOT NULL DEFAULT 1,
-                naposledy TEXT    NOT NULL
+                naposledy TEXT    NOT NULL,
+                PRIMARY KEY (seznam_id, klic)
             )
         """)
 
@@ -226,18 +287,170 @@ def init_db():
                         "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
                         (id_u, tab),
                     )
+
+        # MIGRACE: položky patří do seznamu a vědí, kdo je přidal.
+        #
+        # Sloupce se jménem (pridal, koupil) ZŮSTÁVAJÍ vedle nových s ID.
+        # Není to nedopatření: ID slouží k rozhodování, kdo smí položku
+        # upravit, kdežto jméno je záznam do historie. Když se účet smaže,
+        # ID se vynuluje (ON DELETE SET NULL), ale u položky pořád zůstane
+        # napsané, kdo ji tenkrát přidal.
+        sloupce_n = [r[1] for r in db.execute("PRAGMA table_info(nakup)")]
+        if "seznam_id" not in sloupce_n:
+            try:
+                db.execute("ALTER TABLE nakup ADD COLUMN seznam_id INTEGER "
+                           "REFERENCES seznamy(id) ON DELETE CASCADE")
+                db.execute("ALTER TABLE nakup ADD COLUMN pridal_id INTEGER "
+                           "REFERENCES uzivatele(id) ON DELETE SET NULL")
+                db.execute("ALTER TABLE nakup ADD COLUMN koupil_id INTEGER "
+                           "REFERENCES uzivatele(id) ON DELETE SET NULL")
+            except sqlite3.OperationalError:
+                pass
+
+        # MIGRACE: první seznam pro to, co v aplikaci už je.
+        #
+        # Nákupní seznam dosud patřil "všem, kdo mají právo na Nákup".
+        # Teď musí patřit konkrétnímu seznamu, jinak by po nasazení nebylo
+        # jasné, čí ty položky vlastně jsou. Založíme "Domácnost",
+        # vlastníkem uděláme prvního správce a členy všechny ostatní,
+        # kdo dnes na Nákup právo mají.
+        #
+        # Běží to jen jednou - podmínkou je, že tabulka seznamů je prázdná.
+        # Musí to být až tady, za migrací oprávnění výš: bez ní by na
+        # čerstvě povýšené databázi ještě žádná práva neexistovala a seznam
+        # by zůstal bez členů.
+        zadny_seznam = db.execute("SELECT COUNT(*) FROM seznamy").fetchone()[0] == 0
+        if zadny_seznam:
+            # Vlastníkem první správce, a když žádný není, první účet vůbec.
+            # Řazení: nejdřív ti s právem na Správu (o.tab není prázdné),
+            # uvnitř skupiny podle pořadí založení.
+            vlastnik = db.execute("""
+                SELECT u.id FROM uzivatele u
+                LEFT JOIN opravneni o ON o.uzivatel_id = u.id AND o.tab = 'sprava'
+                ORDER BY (o.tab IS NULL), u.id
+                LIMIT 1
+            """).fetchone()
+
+            if vlastnik:
+                id_vlastnika = vlastnik[0]
+                db.execute(
+                    "INSERT INTO seznamy (nazev, vlastnik_id, kod) VALUES (?, ?, ?)",
+                    ("Domácnost", id_vlastnika, _novy_kod()),
+                )
+                id_seznamu = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+                db.execute("""
+                    INSERT OR IGNORE INTO clenove_seznamu (seznam_id, uzivatel_id)
+                    SELECT ?, uzivatel_id FROM opravneni
+                    WHERE tab = 'nakup' AND uzivatel_id <> ?
+                """, (id_seznamu, id_vlastnika))
+
+                db.execute("UPDATE nakup SET seznam_id = ? WHERE seznam_id IS NULL",
+                           (id_seznamu,))
+
+                # Jména u položek přeložíme na účty. Jméno, které už žádnému
+                # účtu neodpovídá (smazaný účet), zůstane bez ID - a to je
+                # v pořádku, text jména u položky pořád zůstává.
+                db.execute("""
+                    UPDATE nakup SET pridal_id =
+                        (SELECT id FROM uzivatele WHERE jmeno = nakup.pridal)
+                    WHERE pridal_id IS NULL
+                """)
+                db.execute("""
+                    UPDATE nakup SET koupil_id =
+                        (SELECT id FROM uzivatele WHERE jmeno = nakup.koupil)
+                    WHERE koupil_id IS NULL AND koupil IS NOT NULL
+                """)
+
+        # MIGRACE: historie se vede zvlášť pro každý seznam.
+        #
+        # Tady nestačí přidat sloupec. Klíčem tabulky byl NÁZEV POLOŽKY
+        # samotný, takže by dva seznamy nemohly mít v historii stejnou věc -
+        # jakmile by si jeden zapsal mléko, druhý už ho zapsat nemohl.
+        # Klíčem musí být dvojice (seznam, název), a klíč se v SQLite
+        # dodatečně změnit nedá. Tabulka se proto postaví znovu a data se
+        # přelijí do ní.
+        sloupce_h = [r[1] for r in db.execute("PRAGMA table_info(historie_nakupu)")]
+        if "seznam_id" not in sloupce_h:
+            cil = db.execute("SELECT id FROM seznamy ORDER BY id LIMIT 1").fetchone()
+            kolik = db.execute("SELECT COUNT(*) FROM historie_nakupu").fetchone()[0]
+
+            # Když ještě žádný seznam není, ale historie už něco obsahuje,
+            # radši nesaháme na nic - jinak bychom neměli kam ta data přelít.
+            if cil or kolik == 0:
+                try:
+                    db.execute("""
+                        CREATE TABLE historie_nova (
+                            seznam_id INTEGER NOT NULL
+                                      REFERENCES seznamy(id) ON DELETE CASCADE,
+                            klic      TEXT    NOT NULL,
+                            text      TEXT    NOT NULL,
+                            pocet     INTEGER NOT NULL DEFAULT 1,
+                            naposledy TEXT    NOT NULL,
+                            PRIMARY KEY (seznam_id, klic)
+                        )
+                    """)
+                    if cil:
+                        db.execute("""
+                            INSERT INTO historie_nova
+                                   (seznam_id, klic, text, pocet, naposledy)
+                            SELECT ?, klic, text, pocet, naposledy
+                            FROM historie_nakupu
+                        """, (cil[0],))
+                    db.execute("DROP TABLE historie_nakupu")
+                    db.execute("ALTER TABLE historie_nova RENAME TO historie_nakupu")
+                except sqlite3.OperationalError:
+                    pass
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
 
 
 # ==================== Nákupní seznam ====================
 
-def pridej_polozku(text, kdo, mnozstvi=None):
+def seznamy_uzivatele(id_uzivatele):
+    """
+    Vrátí seznamy, na které uživatel má právo - vlastní i ty, kam ho přizvali.
+
+    Vrací řádky (id, nazev, je_vlastnik), vlastní první. Tohle je JEDINÉ
+    místo, kde je napsané, co znamená "můj seznam" - všechno ostatní se na
+    něj odkazuje, aby to pravidlo nebylo rozeseté po aplikaci a nedalo se
+    někde omylem obejít.
+    """
+    with _spojeni() as db:
+        return db.execute("""
+            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
+            FROM seznamy s
+            WHERE s.vlastnik_id = ?
+               OR s.id IN (SELECT seznam_id FROM clenove_seznamu
+                           WHERE uzivatel_id = ?)
+            ORDER BY je_vlastnik DESC, s.nazev
+        """, (id_uzivatele, id_uzivatele, id_uzivatele)).fetchall()
+
+
+def vychozi_seznam(id_uzivatele):
+    """
+    Který seznam ukázat, když si uživatel žádný nevybral.
+
+    Vrací None, když uživatel nemá ani jeden - to zatím nastat nemůže,
+    ale až přibude zakládání seznamů, bude to úplně běžný stav.
+    """
+    seznamy = seznamy_uzivatele(id_uzivatele)
+    return seznamy[0][0] if seznamy else None
+
+
+def pridej_polozku(seznam_id, text, kdo, kdo_id, mnozstvi=None):
     """
     Přidá položku na nákupní seznam a započítá ji do historie.
 
     mnozstvi je volný text ("2 l", "3x", "půl kila") a je nepovinné -
     potraviny se nedají nacpat do jednoho formátu.
+
+    Ukládá se jméno i ID uživatele. Jméno je záznam do historie (zůstane
+    čitelné, i když účet jednou zmizí), ID slouží k rozhodování, kdo smí
+    položku později upravit nebo smazat.
     """
+    if seznam_id is None:
+        return False
+
     text = text.strip()
     if not text:
         return False
@@ -249,21 +462,25 @@ def pridej_polozku(text, kdo, mnozstvi=None):
 
     with _spojeni() as db:
         db.execute(
-            "INSERT INTO nakup (text, mnozstvi, pridal) VALUES (?, ?, ?)",
-            (text, mnozstvi, kdo),
+            "INSERT INTO nakup (seznam_id, text, mnozstvi, pridal, pridal_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (seznam_id, text, mnozstvi, kdo, kdo_id),
         )
 
         # Zápis do historie. ON CONFLICT znamená "když už takový klíč
         # existuje, místo vložení udělej tohle" - tady zvýšíme počítadlo
         # a zapamatujeme si poslední zápis názvu.
+        #
+        # Klíč je dvojice (seznam, název), ne jen název: každá parta má
+        # svoji historii a nemá vidět do cizí.
         db.execute("""
-            INSERT INTO historie_nakupu (klic, text, pocet, naposledy)
-            VALUES (?, ?, 1, datetime('now', 'localtime'))
-            ON CONFLICT(klic) DO UPDATE SET
+            INSERT INTO historie_nakupu (seznam_id, klic, text, pocet, naposledy)
+            VALUES (?, ?, ?, 1, datetime('now', 'localtime'))
+            ON CONFLICT(seznam_id, klic) DO UPDATE SET
                 pocet = pocet + 1,
                 text = excluded.text,
                 naposledy = excluded.naposledy
-        """, (text.lower(), text))
+        """, (seznam_id, text.lower(), text))
     return True
 
 
@@ -314,7 +531,7 @@ def seznam_nakupu():
         return kurzor.fetchall()
 
 
-def prepni_koupeno(id_polozky, kdo):
+def prepni_koupeno(id_polozky, kdo, kdo_id):
     """Odškrtne položku, nebo odškrtnutí zruší (přepne stav)."""
     with _spojeni() as db:
         radek = db.execute(
@@ -326,15 +543,15 @@ def prepni_koupeno(id_polozky, kdo):
         if radek[0]:
             # Bylo koupeno -> vracíme zpět mezi chybějící, stopu mažeme.
             db.execute(
-                "UPDATE nakup SET koupeno = 0, koupil = NULL, koupeno_kdy = NULL "
-                "WHERE id = ?",
+                "UPDATE nakup SET koupeno = 0, koupil = NULL, koupil_id = NULL, "
+                "koupeno_kdy = NULL WHERE id = ?",
                 (id_polozky,),
             )
         else:
             db.execute(
-                "UPDATE nakup SET koupeno = 1, koupil = ?, "
+                "UPDATE nakup SET koupeno = 1, koupil = ?, koupil_id = ?, "
                 "koupeno_kdy = datetime('now', 'localtime') WHERE id = ?",
-                (kdo, id_polozky),
+                (kdo, kdo_id, id_polozky),
             )
     return True
 
@@ -553,6 +770,15 @@ def pocet_spravcu():
         ).fetchone()[0]
 
 
+def _pocet_seznamu(kolik):
+    """Napíše počet seznamů česky: 'jeden seznam', '3 seznamy', '7 seznamů'."""
+    if kolik == 1:
+        return "jeden nákupní seznam"
+    if kolik < 5:
+        return "%d nákupní seznamy" % kolik
+    return "%d nákupních seznamů" % kolik
+
+
 def _je_spravce(db, id_uzivatele):
     """Má daný uživatel právo na Správu? (uvnitř už otevřeného spojení)"""
     return db.execute(
@@ -622,6 +848,18 @@ def smaz_uzivatele(id_uzivatele):
             ).fetchone()[0]
             if pocet <= 1:
                 return False, "Tohle je poslední účet se Správou, nelze smazat."
+
+        # POJISTKA: účet, který vlastní nějaký nákupní seznam, smazat nejde.
+        #
+        # Seznam by zůstal bez vlastníka a lidem, kteří na něm jsou, by
+        # zmizely položky. Radši to odmítneme a řekneme proč, než abychom
+        # potichu smazali cizí data.
+        vlastni = db.execute(
+            "SELECT COUNT(*) FROM seznamy WHERE vlastnik_id = ?", (id_uzivatele,)
+        ).fetchone()[0]
+        if vlastni:
+            return False, ("Tenhle účet vlastní %s. Nejdřív ho smaž nebo "
+                           "předej někomu jinému." % _pocet_seznamu(vlastni))
 
         db.execute("DELETE FROM uzivatele WHERE id = ?", (id_uzivatele,))
     return True, None
