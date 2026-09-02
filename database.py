@@ -174,7 +174,8 @@ def init_db():
                 pridano      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
                 koupil       TEXT,
                 koupil_id    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
-                koupeno_kdy  TEXT
+                koupeno_kdy  TEXT,
+                cena         REAL
             )
         """)
 
@@ -357,6 +358,16 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
+        # MIGRACE: kolik položka stála.
+        #
+        # Vyplňuje ji ten, kdo nákup zaplatil, a je nepovinná - kdo si
+        # účtenku hlídat nechce, prostě nic nezadá.
+        if "cena" not in sloupce_n:
+            try:
+                db.execute("ALTER TABLE nakup ADD COLUMN cena REAL")
+            except sqlite3.OperationalError:
+                pass
+
         # MIGRACE: první seznam pro to, co v aplikaci už je.
         #
         # Nákupní seznam dosud patřil "všem, kdo mají právo na Nákup".
@@ -493,6 +504,48 @@ def init_db():
 
 
 # ==================== Nákupní seznam ====================
+
+def _prevod_ceny(text):
+    """
+    Převede zapsanou cenu na číslo. Vrací (povedlo_se, číslo_nebo_None).
+
+    Prázdný vstup znamená "cenu smazat", proto (True, None) - není to chyba.
+    Čárku měníme na tečku, protože česky se píše 35,50, kdežto Python umí
+    přečíst jen 35.50. Mezery (i ta nezlomitelná z "1 250") jdou pryč.
+    """
+    text = (text or "").strip().replace("\u00a0", "").replace(" ", "")
+    text = text.replace("Kč", "").replace("kc", "").replace(",", ".")
+    if not text:
+        return True, None
+    try:
+        cena = float(text)
+    except ValueError:
+        return False, None
+    if cena < 0 or cena > 1000000:
+        return False, None
+    return True, round(cena, 2)
+
+
+def nastav_cenu(id_polozky, id_uzivatele, cena_text):
+    """
+    Uloží cenu u koupené položky. Smí to JEN ten, kdo ji koupil.
+
+    Nikdo jiný cenu nezná - proto tu nestačí ani vlastník seznamu. Kdyby ji
+    vyplňoval někdo od oka, bylo by číslo horší než žádné.
+    """
+    ok, cena = _prevod_ceny(cena_text)
+    if not ok:
+        return False, "Ceně nerozumím. Zkus třeba 35 nebo 35,50."
+
+    with _spojeni() as db:
+        kurzor = db.execute(
+            "UPDATE nakup SET cena = ? WHERE id = ? AND koupil_id = ?",
+            (cena, id_polozky, id_uzivatele),
+        )
+    if kurzor.rowcount == 0:
+        return False, "Cenu vyplňuje ten, kdo položku koupil."
+    return True, None
+
 
 def seznamy_uzivatele(id_uzivatele):
     """
@@ -901,23 +954,32 @@ def seznam_nakupu(seznam_id, id_uzivatele):
     (0 před 1), a při shodě podle id sestupně". Tak zůstane to, co ještě
     chybí, nahoře - a to je v obchodě jediné, co člověk potřebuje vidět.
 
-    Poslední sloupec je 'smi_upravit'. Šablona podle něj u cizích položek
-    schová tužku a křížek: nabízet tlačítko, které skončí hláškou
-    "tohle nesmíš", je horší než ho neukázat vůbec.
+    'smi_upravit' říká, jestli smí tenhle člověk položku přepsat nebo
+    smazat. Šablona podle něj u cizích schová tužku a křížek: nabízet
+    tlačítko, které skončí hláškou "tohle nesmíš", je horší než ho
+    neukázat vůbec.
+
+    Vrací slovníky, ne n-tice - položka jich nese devět a číst v šabloně
+    p[7] by byla hádanka.
     """
     if seznam_id is None:
         return []
 
     with _spojeni() as db:
-        kurzor = db.execute("""
-            SELECT n.id, n.text, n.koupeno, n.pridal, n.koupil, n.mnozstvi,
+        radky = db.execute("""
+            SELECT n.id, n.text, n.koupeno, n.mnozstvi,
+                   n.pridal, n.pridal_id, n.koupil, n.koupil_id, n.cena,
                    (s.vlastnik_id = ? OR n.pridal_id = ?) AS smi_upravit
             FROM nakup n
             JOIN seznamy s ON s.id = n.seznam_id
             WHERE n.seznam_id = ?
             ORDER BY n.koupeno ASC, n.id DESC
-        """, (id_uzivatele, id_uzivatele, seznam_id))
-        return kurzor.fetchall()
+        """, (id_uzivatele, id_uzivatele, seznam_id)).fetchall()
+
+    return [{"id": r[0], "text": r[1], "koupeno": bool(r[2]), "mnozstvi": r[3],
+             "pridal": r[4], "pridal_id": r[5],
+             "koupil": r[6], "koupil_id": r[7], "cena": r[8],
+             "smi_upravit": bool(r[9])} for r in radky]
 
 
 def prepni_koupeno(id_polozky, kdo, kdo_id):
@@ -931,9 +993,11 @@ def prepni_koupeno(id_polozky, kdo, kdo_id):
 
         if radek[0]:
             # Bylo koupeno -> vracíme zpět mezi chybějící, stopu mažeme.
+            # Cena zmizí s odškrtnutím: patřila k tomu nákupu, a ten
+            # se právě vzal zpátky.
             db.execute(
                 "UPDATE nakup SET koupeno = 0, koupil = NULL, koupil_id = NULL, "
-                "koupeno_kdy = NULL WHERE id = ?",
+                "koupeno_kdy = NULL, cena = NULL WHERE id = ?",
                 (id_polozky,),
             )
         else:

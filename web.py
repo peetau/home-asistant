@@ -303,6 +303,7 @@ def spolecna_data():
     """
     return {
         "uzivatel": session.get("uzivatel"),
+        "uzivatel_id": session.get("uzivatel_id"),
         "prava": aktualni_prava(),
     }
 
@@ -402,6 +403,21 @@ def _cislo(hodnota, desetin=1):
                                         {{ hodnota|cislo(2) }}
     """
     return f"{hodnota:,.{desetin}f}".replace(",", "\u00a0").replace(".", ",")
+
+
+@app.template_filter("cena")
+def _cena(hodnota):
+    """
+    Napíše cenu i s korunami: 35.0 -> '35 Kč', 35.5 -> '35,50 Kč'.
+
+    Celé koruny se píšou bez desetin - "35,00 Kč" u rohlíků vypadá jako
+    účetnictví. Halíře se ukážou, jen když nějaké jsou.
+    """
+    if hodnota is None:
+        return ""
+    if float(hodnota) == int(hodnota):
+        return _cislo(int(hodnota), 0) + " Kč"
+    return _cislo(hodnota, 2) + " Kč"
 
 
 @app.route("/")
@@ -657,9 +673,8 @@ def nakup_seznam(id_seznamu):
     polozky = database.seznam_nakupu(id_seznamu, session["uzivatel_id"])
 
     # Rozdělíme rovnou tady, ať to šablona nemusí filtrovat dvakrát.
-    # Index 2 je sloupec 'koupeno', index 6 'smi_upravit'.
-    chybejici = [p for p in polozky if not p[2]]
-    koupene = [p for p in polozky if p[2]]
+    chybejici = [p for p in polozky if not p["koupeno"]]
+    koupene = [p for p in polozky if p["koupeno"]]
 
     return render_template(
         "nakup.html", aktivni="nakup",
@@ -668,7 +683,7 @@ def nakup_seznam(id_seznamu):
         chybejici=chybejici, koupene=koupene,
         # Kolik odškrtnutých položek tenhle člověk doopravdy uklidí -
         # ať tlačítko neslibuje víc, než udělá.
-        k_uklidu=sum(1 for p in koupene if p[6]),
+        k_uklidu=sum(1 for p in koupene if p["smi_upravit"]),
         caste=_bezpecne(lambda: database.caste_polozky(id_seznamu))[0] or [],
         clenove=database.clenove(id_seznamu),
         chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
@@ -824,6 +839,18 @@ def nakup_upravit(id_polozky):
         request.form.get("mnozstvi", ""),
     )
     return _zpet(polozka["seznam_id"])
+
+
+@app.route("/nakup/polozka/<int:id_polozky>/cena", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_cena(id_polozky):
+    """Kolik položka stála. Vyplňuje ji ten, kdo ji koupil."""
+    polozka = _polozka_nebo_404(id_polozky)
+    ok, hlaska = database.nastav_cenu(
+        id_polozky, session["uzivatel_id"], request.form.get("cena", ""))
+    if ok:
+        return _zpet(polozka["seznam_id"])
+    return _zpet(polozka["seznam_id"], chyba=hlaska)
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/smazat", methods=["POST"])

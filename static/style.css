@@ -882,7 +882,11 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .seznam li:last-child { border-bottom: none; }
 
 .polozka-form { margin: 0; display: flex; }
-.seznam li > .polozka-form:first-child { flex: 1; min-width: 0; }
+/* Text položky se nesmí nechat smáčknout na nulu. Bez spodní hranice ho
+   dlouhá věta "kdo koupil komu za kolik" na mobilu vytlačila do svislého
+   sloupce písmen. Takhle se místo toho zalomí celý řádek (flex-wrap výš)
+   a věta se přesune pod položku - ale jen když je opravdu dlouhá. */
+.seznam li > .polozka-form:first-child { flex: 1 1 auto; min-width: 9rem; }
 
 /* Tlačítko na odškrtnutí zabírá celou šířku - velký cíl pro palec. */
 .odskrtnout {
@@ -913,7 +917,49 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .hotovo .ctverecek { background: var(--zelena); border-color: var(--zelena); }
 .hotovo .polozka-text { text-decoration: line-through; color: var(--text-slaby); }
 
-.polozka-kdo { flex: none; color: var(--text-slaby); font-size: .75rem; }
+.polozka-kdo {
+    flex: 0 1 auto;
+    min-width: 0;
+    color: var(--text-slaby);
+    font-size: .75rem;
+    text-align: right;
+}
+
+/* Řádek se smí zalomit: u koupené položky je vpravo celá věta
+   "kdo koupil komu za kolik" a na mobilu se vedle názvu nevejde. */
+.seznam li { flex-wrap: wrap; }
+
+/* Políčko na cenu. Sedí uvnitř věty, tak ať je malé a nepřebíjí ji. */
+.cena-form {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    margin: 0;
+    vertical-align: baseline;
+}
+.cena-form input {
+    font: inherit;
+    width: 3.4rem;
+    text-align: right;
+    padding: .15rem .3rem;
+    border: 1px solid var(--okraj);
+    border-radius: 6px;
+    background: var(--karta-2);
+    color: var(--text);
+}
+.cena-form input:focus {
+    outline: none;
+    border-color: var(--zelena);
+}
+.cena-form .mena { color: var(--text-slaby); }
+.cena-form button {
+    font: inherit;
+    background: none;
+    border: none;
+    color: var(--zelena);
+    cursor: pointer;
+    padding: .1rem .25rem;
+}
 
 .smazat {
     flex: none;

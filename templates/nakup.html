@@ -3,51 +3,82 @@
 {% block titulek %}{{ seznam.nazev if seznam else "Nákup" }} — Domácí asistent{% endblock %}
 
 {# Makro na jednu položku seznamu. Používá se pro chybějící i koupené,
-   ať se ten kus HTML nepíše dvakrát. #}
-{% macro polozka(id_p, text, koupeno, pridal, koupil, mnozstvi, smi_upravit) %}
-    <li class="{{ 'hotovo' if koupeno }}">
+   ať se ten kus HTML nepíše dvakrát.
+
+   Bere celou položku jako jeden slovník, ne devět hodnot za sebou -
+   volání s devíti argumenty by nikdo nepřečetl. #}
+{% macro polozka(p) %}
+    <li class="{{ 'hotovo' if p.koupeno }}">
 
         {# Odškrtnutí: celý text je tlačítko, ať se na mobilu dobře
            trefuje palcem. Formulář kolem něj je proto, že měnit stav
            se musí přes POST, ne přes odkaz. #}
         <form method="post"
-              action="{{ url_for('nakup_prepnout', id_polozky=id_p) }}"
+              action="{{ url_for('nakup_prepnout', id_polozky=p.id) }}"
               class="polozka-form">
             <button type="submit" class="odskrtnout">
-                <span class="ctverecek">{{ "✓" if koupeno }}</span>
-                <span class="polozka-text">{{ text }}</span>
-                {% if mnozstvi %}
-                    <span class="mnozstvi">{{ mnozstvi }}</span>
+                <span class="ctverecek">{{ "✓" if p.koupeno }}</span>
+                <span class="polozka-text">{{ p.text }}</span>
+                {% if p.mnozstvi %}
+                    <span class="mnozstvi">{{ p.mnozstvi }}</span>
                 {% endif %}
             </button>
         </form>
 
         <span class="polozka-kdo">
-            {% if koupeno %}koupil {{ koupil }}{% else %}{{ pridal }}{% endif %}
+            {% if p.koupeno %}
+                {# Kdo koupil komu. Když si to koupil ten, kdo to na seznam
+                   napsal, řekneme "pro sebe" - "Petr koupil pro Petr" zní
+                   jako porucha. #}
+                {{ p.koupil }} koupil pro
+                {%- if p.koupil_id and p.koupil_id == p.pridal_id %} sebe
+                {%- else %} {{ p.pridal }}{% endif %} za
+
+                {% if p.koupil_id == uzivatel_id %}
+                    {# Cenu vyplňuje ten, kdo platil - nikdo jiný ji nezná.
+                       Políčko je tu i prázdné a čeká; vyplnit se nemusí. #}
+                    <form method="post"
+                          action="{{ url_for('nakup_cena', id_polozky=p.id) }}"
+                          class="cena-form">
+                        <input type="text" name="cena" inputmode="decimal"
+                               value="{{ p.cena|cena|replace(' Kč', '') }}"
+                               placeholder="?" autocomplete="off" maxlength="10"
+                               aria-label="Kolik to stálo">
+                        <span class="mena">Kč</span>
+                        <button type="submit" title="Uložit cenu">✓</button>
+                    </form>
+                {% elif p.cena is not none %}
+                    <strong>{{ p.cena|cena }}</strong>
+                {% else %}
+                    —
+                {% endif %}
+            {% else %}
+                {{ p.pridal }}
+            {% endif %}
         </span>
 
         {# Tužka a křížek jen u položek, které tenhle člověk smí měnit.
            Nabízet tlačítko, které skončí hláškou "tohle nesmíš", je horší
            než ho neukázat vůbec. #}
-        {% if smi_upravit %}
+        {% if p.smi_upravit %}
 
         {# Úprava. <details> se otevře klepnutím na tužku a nepotřebuje
            k tomu JavaScript - stejný přístup jako jinde v aplikaci. #}
         <details class="uprava">
             <summary title="Upravit">✎</summary>
             <form method="post"
-                  action="{{ url_for('nakup_upravit', id_polozky=id_p) }}"
+                  action="{{ url_for('nakup_upravit', id_polozky=p.id) }}"
                   class="uprava-form">
-                <input type="text" name="text" value="{{ text }}"
+                <input type="text" name="text" value="{{ p.text }}"
                        required maxlength="200">
-                <input type="text" name="mnozstvi" value="{{ mnozstvi or '' }}"
+                <input type="text" name="mnozstvi" value="{{ p.mnozstvi or '' }}"
                        placeholder="množství" maxlength="40" class="pole-mnozstvi">
                 <button type="submit">Uložit</button>
             </form>
         </details>
 
         <form method="post"
-              action="{{ url_for('nakup_smazat', id_polozky=id_p) }}"
+              action="{{ url_for('nakup_smazat', id_polozky=p.id) }}"
               class="polozka-form">
             <button type="submit" class="smazat" title="Smazat">×</button>
         </form>
@@ -137,7 +168,7 @@
         <h2>📝 Položky</h2>
         {% if chybejici %}
             <ul class="seznam">
-                {% for p in chybejici %}{{ polozka(*p) }}{% endfor %}
+                {% for p in chybejici %}{{ polozka(p) }}{% endfor %}
             </ul>
         {% else %}
             <p class="prazdno">
@@ -157,7 +188,7 @@
         <summary>Koupeno ({{ koupene|length }})</summary>
 
         <ul class="seznam">
-            {% for p in koupene %}{{ polozka(*p) }}{% endfor %}
+            {% for p in koupene %}{{ polozka(p) }}{% endfor %}
         </ul>
 
         {% if k_uklidu %}
