@@ -10,6 +10,52 @@
 
 {% block obsah %}
 
+    {# ---------- Osobní hlavička ---------- #}
+    {#
+       Jediná část Přehledu, kterou uvidí KAŽDÝ bez ohledu na práva.
+       Datum, svátek a počasí dosud visely jen na přihlašovací obrazovce -
+       nepřihlášený kolemjdoucí je viděl, přihlášený člověk ne.
+
+       Od téhle chvíle jsou karty se zařízeními pod ní doplněk, ne celý
+       obsah stránky. Kdo má jen Nákup, má teď Přehled, který mu něco říká.
+    #}
+    <div class="karta karta-uvod">
+        <div class="uvod-text">
+            <p class="uvod-pozdrav">{{ pozdrav }}</p>
+            {% if datum_svatek %}
+                <p class="uvod-datum">{{ datum_svatek }}</p>
+            {% endif %}
+        </div>
+
+        {# Počasí se ukáže, jen když se ho podařilo získat. Když je
+           Open-Meteo nedostupné, hlavička zůstane i tak celá - datum
+           a pozdrav jsou z hodin serveru a ty selhat nemůžou. #}
+        {% if venku %}
+        <div class="uvod-pocasi">
+            {# Samotná ikona by čtečce obrazovky neřekla nic, proto
+               aria-label se slovním popisem. #}
+            <span class="uvod-ikona" role="img"
+                  aria-label="{{ venku.popis }}">{{ venku.ikona }}</span>
+            <span class="uvod-teplota">{{ venku.teplota }}°</span>
+            <span class="uvod-podrobnosti">
+                <span class="uvod-popis">{{ venku.popis }}</span>
+                {# Vedlejší řádek se poskládá z toho, co je k dispozici -
+                   stejnou oddělovací tečkou jako datum se svátkem. #}
+                {% set vedlejsi = [] %}
+                {% if dnes %}
+                    {% set _ = vedlejsi.append(dnes.max ~ "° / " ~ dnes.min ~ "°") %}
+                {% endif %}
+                {% if misto %}
+                    {% set _ = vedlejsi.append(misto) %}
+                {% endif %}
+                {% if vedlejsi %}
+                    <span class="uvod-vedlejsi">{{ vedlejsi|join(" · ") }}</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
     {# ---------- Soláry: to nejdůležitější ---------- #}
     {# Přehled vidí každý přihlášený, ale poskládá se jen z toho,
        na co má právo. Kdo nemá Soláry, tuhle kartu prostě neuvidí. #}

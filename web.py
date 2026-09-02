@@ -168,6 +168,32 @@ def denni_nalada():
     return "noc"
 
 
+def pozdrav():
+    """
+    Pozdrav podle denní doby: "Dobré ráno", "Dobrý den", ...
+
+    Schválně BEZ oslovení jménem. Čeština by chtěla pátý pád ("Petře",
+    "Jano") a ten se z uloženého jména odvodit nedá - závisí na rodu,
+    který o uživateli nevíme. Je to stejný důvod, proč se u nákupu píše
+    "koupil(a)". Jméno má člověk vedle sebe v hlavičce, tak ať radši
+    chybí tady, než aby bylo zkomolené.
+
+    Hranice jsou jiné než u denni_nalada(): ta vybírá barvu pozadí, kdežto
+    tohle je věta pro člověka. Ve tři ráno je "noc" správné pozadí, ale
+    "Dobrou noc" je i správný pozdrav - proto se rozchází jen ráno.
+    """
+    hodina = datetime.now().hour
+    if hodina < 5:
+        return "Dobrou noc"
+    if hodina < 10:
+        return "Dobré ráno"
+    if hodina < 18:
+        return "Dobrý den"
+    if hodina < 22:
+        return "Dobrý večer"
+    return "Dobrou noc"
+
+
 def stav_sberu():
     """
     Běží sběr měření? Vrací jen "ok" / "problem" / "nezname".
@@ -439,8 +465,25 @@ def dashboard():
     seznamy = (database.seznamy_uzivatele(session["uzivatel_id"])
                if "nakup" in prava else [])
 
+    # Datum, svátek a počasí. Dosud to viselo jen na PŘIHLAŠOVACÍ stránce,
+    # takže to viděl kolemjdoucí, ale přihlášený člověk ne. Na Přehledu je
+    # to navíc jediná část, která se ukáže každému bez ohledu na práva -
+    # kdo má jen Nákup, dřív koukal na jednu kartu a nic víc.
+    #
+    # Obojí má v pocasi.py mezipaměť (10 a 30 minut), takže desetivteřinové
+    # obnovování stránky nedělá nové dotazy na Open-Meteo.
+    venku = _bezpecne(lambda: pocasi.ted(
+        config.POCASI_LAT, config.POCASI_LON))[0]
+    predpoved = _bezpecne(lambda: pocasi.predpoved(
+        config.POCASI_LAT, config.POCASI_LON))[0]
+    dnes = predpoved[0] if predpoved else None
+
     return render_template(
         "prehled.html", aktivni="prehled",
+        pozdrav=pozdrav(),
+        datum_svatek=_bezpecne(svatky.popis_dne)[0],
+        venku=venku, dnes=dnes,
+        misto=getattr(config, "POCASI_MISTO", ""),
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
         seznamy=seznamy,

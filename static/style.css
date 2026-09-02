@@ -343,6 +343,67 @@ footer {
 }
 
 
+/* ============ Přehled: osobní hlavička ============ */
+
+/*
+  Pozdrav vlevo, počasí vpravo. Zalomení řeší flex-wrap, ne @media:
+  hlavička se má zlomit podle toho, kolik místa jí zbylo, ne podle
+  šířky displeje. Na širokém mobilu naležato tak zůstane vedle sebe.
+*/
+.karta-uvod {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .9rem 1.5rem;
+}
+
+/*
+  Pozdrav je <p>, ne <h2>. Nadpisy karet jsou v týhle aplikaci malé
+  verzálky ("SOLÁRNÍ ELEKTRÁRNA") - to je popisek sekce, kdežto tohle
+  je věta pro člověka. Kdyby to byl h2, musel by se ten styl přebíjet.
+*/
+.uvod-pozdrav {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.uvod-datum {
+    margin: .25rem 0 0;
+    font-size: .85rem;
+    color: var(--text-slaby);
+}
+
+/* ---- Počasí v hlavičce ---- */
+.uvod-pocasi {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+.uvod-ikona { font-size: 2rem; line-height: 1; }
+
+/* tabular-nums = číslice mají stejnou šířku, takže teplota při změně
+   z 9° na 10° neposkočí do stran. Stejný důvod jako u grafů. */
+.uvod-teplota {
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.uvod-podrobnosti {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+}
+.uvod-popis { font-size: .9rem; }
+.uvod-vedlejsi {
+    font-size: .78rem;
+    color: var(--text-slaby);
+    font-variant-numeric: tabular-nums;
+}
+
+
 /* ==================== 4a) Grafy ==================== */
 
 .graf-hlava {
