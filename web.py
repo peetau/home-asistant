@@ -20,7 +20,7 @@ from functools import wraps
 from pathlib import Path
 
 from flask import (Flask, render_template, request, redirect, url_for,
-                   session, g, jsonify)
+                   session, g, jsonify, abort)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import config
@@ -591,22 +591,59 @@ def nanoleaf_paleta():
     return jsonify(paleta)
 
 
+def _muj_seznam():
+    """
+    Se kterým seznamem uživatel právě pracuje.
+
+    Zatím vždycky ten první, který má - seznamy se ještě nedají přepínat.
+    Až přibude proužek nahoře, vezme se místo toho číslo z adresy a tahle
+    funkce zůstane jen jako výchozí volba.
+    """
+    return database.vychozi_seznam(session["uzivatel_id"])
+
+
+def _polozka_nebo_404(id_polozky):
+    """
+    Najde položku a ověří, že na ni přihlášený uživatel má právo.
+
+    Když nemá, vrací 404 - NE 403. Kdo na cizí seznam nemá právo, nemá se
+    ani dozvědět, že taková položka existuje; hláška "sem nesmíš" by sama
+    o sobě prozradila, že tam něco je.
+    """
+    polozka = database.polozka_pro_uzivatele(id_polozky, session["uzivatel_id"])
+    if polozka is None:
+        abort(404)
+    return polozka
+
+
 @app.route("/nakup")
 @vyzaduje_pravo("nakup")
 def nakup():
-    """Nákupní seznam - společný pro celou rodinu."""
-    polozky = database.seznam_nakupu()
+    """Nákupní seznam."""
+    seznam_id = _muj_seznam()
+    polozky = database.seznam_nakupu(seznam_id, session["uzivatel_id"])
 
     # Rozdělíme rovnou tady, ať to šablona nemusí filtrovat dvakrát.
-    # Index 2 je sloupec 'koupeno'.
+    # Index 2 je sloupec 'koupeno', index 6 'smi_upravit'.
     chybejici = [p for p in polozky if not p[2]]
     koupene = [p for p in polozky if p[2]]
 
     return render_template(
         "nakup.html", aktivni="nakup",
+        ma_seznam=seznam_id is not None,
         chybejici=chybejici, koupene=koupene,
-        caste=_bezpecne(database.caste_polozky)[0] or [],
+        # Kolik odškrtnutých položek tenhle člověk doopravdy uklidí -
+        # ať tlačítko neslibuje víc, než udělá.
+        k_uklidu=sum(1 for p in koupene if p[6]),
+        caste=_bezpecne(lambda: database.caste_polozky(seznam_id))[0] or [],
+        chyba=request.args.get("chyba"),
     )
+
+
+# Hláška, když někdo sáhne na cizí položku. Tlačítka se u cizích schovávají,
+# takže se sem člověk běžně nedostane - je to pojistka pro případ, že by
+# formulář odešel z jiné stránky nebo ze staré, mezitím změněné.
+NENI_TVOJE = "Upravovat a mazat můžeš jen položky, které jsi přidal."
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +664,7 @@ def nakup():
 @vyzaduje_pravo("nakup")
 def nakup_pridat():
     database.pridej_polozku(
-        database.vychozi_seznam(session["uzivatel_id"]),
+        _muj_seznam(),
         request.form.get("text", ""),
         session.get("uzivatel"),
         session["uzivatel_id"],
@@ -643,6 +680,8 @@ def nakup_pridat():
 @app.route("/nakup/<int:id_polozky>/prepnout", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_prepnout(id_polozky):
+    # Odškrtnout smí každý, kdo položku vidí - stačí tedy branka.
+    _polozka_nebo_404(id_polozky)
     database.prepni_koupeno(id_polozky, session.get("uzivatel"),
                             session["uzivatel_id"])
     return redirect(url_for("nakup"))
@@ -651,6 +690,10 @@ def nakup_prepnout(id_polozky):
 @app.route("/nakup/<int:id_polozky>/upravit", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_upravit(id_polozky):
+    polozka = _polozka_nebo_404(id_polozky)
+    if not polozka["smi_upravit"]:
+        return redirect(url_for("nakup", chyba=NENI_TVOJE))
+
     database.uprav_polozku(
         id_polozky,
         request.form.get("text", ""),
@@ -662,6 +705,10 @@ def nakup_upravit(id_polozky):
 @app.route("/nakup/<int:id_polozky>/smazat", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_smazat(id_polozky):
+    polozka = _polozka_nebo_404(id_polozky)
+    if not polozka["smi_upravit"]:
+        return redirect(url_for("nakup", chyba=NENI_TVOJE))
+
     database.smaz_polozku(id_polozky)
     return redirect(url_for("nakup"))
 
@@ -669,8 +716,8 @@ def nakup_smazat(id_polozky):
 @app.route("/nakup/uklidit", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_uklidit():
-    """Smaže všechny odškrtnuté položky naráz."""
-    database.smaz_koupene()
+    """Uklidí odškrtnuté položky - to, co uživatel smí smazat."""
+    database.smaz_koupene(_muj_seznam(), session["uzivatel_id"])
     return redirect(url_for("nakup"))
 
 

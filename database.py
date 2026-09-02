@@ -509,6 +509,61 @@ def vychozi_seznam(id_uzivatele):
     return seznamy[0][0] if seznamy else None
 
 
+def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
+    """
+    Vrátí (id, nazev, je_vlastnik), jen když na seznam uživatel právo má.
+    Jinak None.
+
+    Podmínka je schválně v SQL dotazu, ne v Pythonu za ním. Kdyby se řádek
+    načetl a teprve pak posuzoval, dřív nebo později by někde vzniklo místo,
+    kde se na to posouzení zapomene - a data už by přitom byla venku.
+    """
+    with _spojeni() as db:
+        return db.execute("""
+            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
+            FROM seznamy s
+            WHERE s.id = ?
+              AND (s.vlastnik_id = ?
+                   OR s.id IN (SELECT seznam_id FROM clenove_seznamu
+                               WHERE uzivatel_id = ?))
+        """, (id_uzivatele, id_seznamu, id_uzivatele, id_uzivatele)).fetchone()
+
+
+def polozka_pro_uzivatele(id_polozky, id_uzivatele):
+    """
+    Vrátí položku, JEN když je na seznamu, na který uživatel má právo.
+    Jinak None.
+
+    Tohle je jediná branka k položkám - každá akce nad položkou musí projít
+    tudy. Vrací slovník:
+
+        {"id": 7, "seznam_id": 1, "smi_upravit": True}
+
+    'smi_upravit' říká, jestli ji smí přepsat nebo smazat. Pravidlo zní
+    "vlastník seznamu cokoliv, člen jen to, co sám přidal" a je spočítané
+    rovnou v dotazu - aby si ho nemohla žádná route domýšlet po svém.
+
+    Odškrtávat smí každý, kdo položku vidí. V obchodě je u regálu ten, kdo
+    tam zrovna je, a nemá cenu ho nutit řešit, kdo to psal na seznam.
+    """
+    with _spojeni() as db:
+        radek = db.execute("""
+            SELECT n.id, n.seznam_id,
+                   (s.vlastnik_id = ? OR n.pridal_id = ?) AS smi_upravit
+            FROM nakup n
+            JOIN seznamy s ON s.id = n.seznam_id
+            WHERE n.id = ?
+              AND (s.vlastnik_id = ?
+                   OR s.id IN (SELECT seznam_id FROM clenove_seznamu
+                               WHERE uzivatel_id = ?))
+        """, (id_uzivatele, id_uzivatele, id_polozky,
+              id_uzivatele, id_uzivatele)).fetchone()
+
+    if radek is None:
+        return None
+    return {"id": radek[0], "seznam_id": radek[1], "smi_upravit": bool(radek[2])}
+
+
 def pridej_polozku(seznam_id, text, kdo, kdo_id, mnozstvi=None):
     """
     Přidá položku na nákupní seznam a započítá ji do historie.
@@ -570,36 +625,56 @@ def uprav_polozku(id_polozky, text, mnozstvi=None):
     return True
 
 
-def caste_polozky(limit=8):
+def caste_polozky(seznam_id, limit=8):
     """
     Nejčastěji kupované položky pro rychlé přidání.
 
     Vynechává to, co už na seznamu je - nemá smysl nabízet položku,
     která tam visí. Řeší to poddotaz v NOT IN.
+
+    Všechno je omezené na JEDEN seznam, historie i to porovnání. Bez toho
+    by tlačítka ukazovala, co nakupují cizí lidé, a položka na cizím
+    seznamu by ti tu tvoji z nabídky vyškrtla.
     """
+    if seznam_id is None:
+        return []
+
     with _spojeni() as db:
         radky = db.execute("""
             SELECT text FROM historie_nakupu
-            WHERE klic NOT IN (SELECT LOWER(text) FROM nakup)
+            WHERE seznam_id = ?
+              AND klic NOT IN (SELECT LOWER(text) FROM nakup
+                               WHERE seznam_id = ?)
             ORDER BY pocet DESC, naposledy DESC
             LIMIT ?
-        """, (limit,)).fetchall()
+        """, (seznam_id, seznam_id, limit)).fetchall()
     return [r[0] for r in radky]
 
 
-def seznam_nakupu():
+def seznam_nakupu(seznam_id, id_uzivatele):
     """
-    Vrátí položky seznamu: nekoupené první, uvnitř skupin nejnovější nahoře.
+    Vrátí položky jednoho seznamu: nekoupené první, nejnovější nahoře.
 
     ORDER BY koupeno ASC, id DESC znamená "nejdřív seřaď podle koupeno
     (0 před 1), a při shodě podle id sestupně". Tak zůstane to, co ještě
     chybí, nahoře - a to je v obchodě jediné, co člověk potřebuje vidět.
+
+    Poslední sloupec je 'smi_upravit'. Šablona podle něj u cizích položek
+    schová tužku a křížek: nabízet tlačítko, které skončí hláškou
+    "tohle nesmíš", je horší než ho neukázat vůbec.
     """
+    if seznam_id is None:
+        return []
+
     with _spojeni() as db:
-        kurzor = db.execute(
-            "SELECT id, text, koupeno, pridal, koupil, mnozstvi "
-            "FROM nakup ORDER BY koupeno ASC, id DESC"
-        )
+        kurzor = db.execute("""
+            SELECT n.id, n.text, n.koupeno, n.pridal, n.koupil, n.mnozstvi,
+                   (s.vlastnik_id = ? OR n.pridal_id = ?) AS smi_upravit
+            FROM nakup n
+            JOIN seznamy s ON s.id = n.seznam_id
+            WHERE n.seznam_id = ?
+            ORDER BY n.koupeno ASC, n.id DESC
+        """, (id_uzivatele, id_uzivatele, seznam_id))
         return kurzor.fetchall()
 
 
@@ -634,10 +709,29 @@ def smaz_polozku(id_polozky):
         db.execute("DELETE FROM nakup WHERE id = ?", (id_polozky,))
 
 
-def smaz_koupene():
-    """Uklidí všechny odškrtnuté položky. Vrací, kolik jich zmizelo."""
+def smaz_koupene(seznam_id, id_uzivatele):
+    """
+    Uklidí odškrtnuté položky jednoho seznamu. Vrací, kolik jich zmizelo.
+
+    Smaže přesně to, co ten člověk smět má - vlastníkovi seznamu všechno
+    odškrtnuté, členovi jen jeho vlastní. Vyplývá to ze stejného pravidla
+    jako u jednotlivé položky, takže tu není žádná výjimka navíc.
+
+    Dřív tahle funkce mazala odškrtnuté položky v CELÉ tabulce. Dokud byl
+    seznam jeden, nevadilo to; s druhým by jedno klepnutí smazalo cizím
+    lidem jejich nákup.
+    """
+    if seznam_id is None:
+        return 0
+
     with _spojeni() as db:
-        kurzor = db.execute("DELETE FROM nakup WHERE koupeno = 1")
+        kurzor = db.execute("""
+            DELETE FROM nakup
+            WHERE seznam_id = ? AND koupeno = 1
+              AND (pridal_id = ?
+                   OR EXISTS (SELECT 1 FROM seznamy
+                              WHERE id = ? AND vlastnik_id = ?))
+        """, (seznam_id, id_uzivatele, seznam_id, id_uzivatele))
         return kurzor.rowcount
 
 

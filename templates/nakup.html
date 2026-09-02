@@ -4,7 +4,7 @@
 
 {# Makro na jednu položku seznamu. Používá se pro chybějící i koupené,
    ať se ten kus HTML nepíše dvakrát. #}
-{% macro polozka(id_p, text, koupeno, pridal, koupil, mnozstvi) %}
+{% macro polozka(id_p, text, koupeno, pridal, koupil, mnozstvi, smi_upravit) %}
     <li class="{{ 'hotovo' if koupeno }}">
 
         {# Odškrtnutí: celý text je tlačítko, ať se na mobilu dobře
@@ -26,6 +26,11 @@
             {% if koupeno %}koupil {{ koupil }}{% else %}{{ pridal }}{% endif %}
         </span>
 
+        {# Tužka a křížek jen u položek, které tenhle člověk smí měnit.
+           Nabízet tlačítko, které skončí hláškou "tohle nesmíš", je horší
+           než ho neukázat vůbec. #}
+        {% if smi_upravit %}
+
         {# Úprava. <details> se otevře klepnutím na tužku a nepotřebuje
            k tomu JavaScript - stejný přístup jako jinde v aplikaci. #}
         <details class="uprava">
@@ -46,6 +51,8 @@
               class="polozka-form">
             <button type="submit" class="smazat" title="Smazat">×</button>
         </form>
+
+        {% endif %}
 
     </li>
 {% endmacro %}
@@ -90,7 +97,11 @@
 
     {# ---------- Co ještě chybí ---------- #}
     <div class="karta">
-        {% if chybejici %}
+        {% if not ma_seznam %}
+            <p class="prazdno">Zatím nemáš žádný nákupní seznam.
+               Brzo si budeš moct nějaký založit nebo se připojit
+               k cizímu přes pozvánku.</p>
+        {% elif chybejici %}
             <ul class="seznam">
                 {% for p in chybejici %}{{ polozka(*p) }}{% endfor %}
             </ul>
@@ -118,7 +129,7 @@
         <form method="post" action="{{ url_for('nakup_uklidit') }}"
               class="uklid-form">
             <button type="submit" class="uklidit">
-                Smazat odškrtnuté ({{ koupene|length }})</button>
+                Smazat odškrtnuté ({{ k_uklidu }})</button>
         </form>
     </details>
     {% endif %}
