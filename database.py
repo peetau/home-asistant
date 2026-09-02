@@ -1015,6 +1015,73 @@ def smaz_polozku(id_polozky):
         db.execute("DELETE FROM nakup WHERE id = ?", (id_polozky,))
 
 
+def vyuctovani(seznam_id):
+    """
+    Spočítá, kdo za odškrtnuté položky zaplatil a kdo komu dluží.
+
+    Vrací:
+        {"celkem": 224.5,
+         "zaplatili": [{"jmeno": "Petrjr", "castka": 224.5}],
+         "dluhy": [{"dluznik": "Petr", "verite": "Petrjr", "castka": 71.0}],
+         "bez_ceny": 1}
+
+    KDO KOMU DLUŽÍ vychází z toho, co u položky stojí: kdo ji koupil a komu.
+    Když si ji koupil sám sobě, nikdo nikomu nic nedluží.
+
+    Vzájemné dluhy se ODEČÍTAJÍ. Když Petr dluží Janě stovku a Jana Petrovi
+    třicet, výsledek je "Petr dluží Janě sedmdesát" - vracet si dvě částky
+    tam a zpátky nemá smysl.
+
+    Počítá se podle JMEN, ne podle ID: jméno je u položky vždycky, i když
+    účet mezitím zmizel, a v aplikaci je jedinečné.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT cena, koupil, pridal FROM nakup
+            WHERE seznam_id = ? AND koupeno = 1
+        """, (seznam_id,)).fetchall()
+
+    celkem = 0.0
+    bez_ceny = 0
+    zaplatil = {}
+    dluh = {}
+
+    for cena, koupil, pridal in radky:
+        if cena is None:
+            bez_ceny += 1
+            continue
+        celkem += cena
+        zaplatil[koupil] = zaplatil.get(koupil, 0.0) + cena
+        if koupil != pridal:
+            dluh[(pridal, koupil)] = dluh.get((pridal, koupil), 0.0) + cena
+
+    # Odečtení vzájemných dluhů. Dvojici procházíme jen jednou - proto ta
+    # podmínka na pořadí jmen, jinak bychom si odečet udělali dvakrát
+    # a vyrušil by se.
+    vysledek = {}
+    for (dluznik, verite), castka in dluh.items():
+        if (verite, dluznik) in dluh and (verite, dluznik) < (dluznik, verite):
+            continue
+        protismer = dluh.get((verite, dluznik), 0.0)
+        rozdil = round(castka - protismer, 2)
+        if rozdil > 0:
+            vysledek[(dluznik, verite)] = rozdil
+        elif rozdil < 0:
+            vysledek[(verite, dluznik)] = -rozdil
+
+    return {
+        "celkem": round(celkem, 2),
+        "zaplatili": sorted(
+            ({"jmeno": j, "castka": round(c, 2)} for j, c in zaplatil.items()),
+            key=lambda z: -z["castka"]),
+        "dluhy": sorted(
+            ({"dluznik": d, "verite": v, "castka": c}
+             for (d, v), c in vysledek.items()),
+            key=lambda z: -z["castka"]),
+        "bez_ceny": bez_ceny,
+    }
+
+
 def smaz_koupene(seznam_id, id_uzivatele):
     """
     Uklidí odškrtnuté položky jednoho seznamu. Vrací, kolik jich zmizelo.

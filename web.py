@@ -686,6 +686,7 @@ def nakup_seznam(id_seznamu):
         k_uklidu=sum(1 for p in koupene if p["smi_upravit"]),
         caste=_bezpecne(lambda: database.caste_polozky(id_seznamu))[0] or [],
         clenove=database.clenove(id_seznamu),
+        vyuctovani=database.vyuctovani(id_seznamu) if koupene else None,
         chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
     )
 

@@ -584,6 +584,10 @@ footer {
   obrací pořadí: <summary> je v HTML první, ale vykreslí se dole, takže
   se panel otevře NAD tlačítko a nevyleze z obrazovky.
 */
+/* Aby plovoucí tlačítko nesedělo na konci stránky - dá se pod něj
+   dorolovat. Na mobilu je to samé kvůli přišpendlené navigaci níž. */
+body { padding-bottom: 5rem; }
+
 .seznam-plovouci {
     position: fixed;
     right: 1rem;
@@ -649,6 +653,34 @@ footer {
 @media (max-width: 640px) {
     .seznam-plovouci { bottom: 5.2rem; }
 }
+
+
+/* ---- Vyúčtování pod koupenými položkami ---- */
+.vyuctovani {
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--okraj);
+}
+.vyuctovani h3 {
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text-slaby);
+    margin: 0 0 .4rem;
+}
+.vyuctovani .radek { padding: .3rem 0; }
+.vyuctovani .radek.podnadpis { border-top: none; padding-bottom: 0; }
+.vyuctovani .radek.podnadpis .popisek { font-size: .8rem; }
+.vyuctovani .radek.celkem .hodnota { color: var(--zelena); }
+
+/* Dluhy jsou to hlavní, co z vyúčtování člověk hledá - oddělíme je
+   a zvýrazníme částku. */
+.vyuctovani .dluhy {
+    margin-top: .7rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--okraj-jemny);
+}
+.vyuctovani .dluhy .hodnota { color: var(--cervena); }
+.vyuctovani p { margin: .7rem 0 0; }
 
 
 /* Seznam lidí na nákupním seznamu. */

@@ -29,8 +29,12 @@
             {% if p.koupeno %}
                 {# Kdo koupil komu. Když si to koupil ten, kdo to na seznam
                    napsal, řekneme "pro sebe" - "Petr koupil pro Petr" zní
-                   jako porucha. #}
-                {{ p.koupil }} koupil pro
+                   jako porucha.
+
+                   "koupil(a)", protože aplikace nezná rod uživatele a
+                   "Hana koupil" by praštilo do očí. Buď tohle, nebo se
+                   uživatelů ptát na rod - a to za jedno slovo nestojí. #}
+                {{ p.koupil }} koupil(a) pro
                 {%- if p.koupil_id and p.koupil_id == p.pridal_id %} sebe
                 {%- else %} {{ p.pridal }}{% endif %} za
 
@@ -190,6 +194,55 @@
         <ul class="seznam">
             {% for p in koupene %}{{ polozka(p) }}{% endfor %}
         </ul>
+
+        {# ---------- Vyúčtování ---------- #}
+        {#
+           Kdo za nákup zaplatil a kdo mu to má vrátit. Vychází z toho, co
+           u položky stojí: kdo ji koupil a komu. Položky bez ceny se do
+           součtu nepočítají - proto ta poznámka, ať číslo nikoho nemate.
+        #}
+        {% if vyuctovani and vyuctovani.celkem %}
+        <div class="vyuctovani">
+            <h3>Vyúčtování</h3>
+
+            {# Bez slovesa: "Hana zaplatil" nejde a rod neznáme. Nadpis
+               "Kdo zaplatil" ho řekne jednou za všechny řádky. #}
+            <div class="radek podnadpis">
+                <span class="popisek">Kdo zaplatil</span>
+            </div>
+            {% for z in vyuctovani.zaplatili %}
+            <div class="radek">
+                <span class="popisek">{{ z.jmeno }}</span>
+                <span class="hodnota">{{ z.castka|cena }}</span>
+            </div>
+            {% endfor %}
+
+            {% if vyuctovani.zaplatili|length > 1 %}
+            <div class="radek celkem">
+                <span class="popisek">Celkem</span>
+                <span class="hodnota">{{ vyuctovani.celkem|cena }}</span>
+            </div>
+            {% endif %}
+
+            {% if vyuctovani.dluhy %}
+            <div class="dluhy">
+                {% for d in vyuctovani.dluhy %}
+                <div class="radek">
+                    <span class="popisek">{{ d.dluznik }} dluží {{ d.verite }}</span>
+                    <span class="hodnota">{{ d.castka|cena }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if vyuctovani.bez_ceny %}
+            <p class="popisek-radku">
+                {% if vyuctovani.bez_ceny == 1 %}U jedné položky cena chybí
+                {% else %}U {{ vyuctovani.bez_ceny }} položek cena chybí{% endif %},
+                do součtu se nepočítá.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         {% if k_uklidu %}
         <form method="post"
