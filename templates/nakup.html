@@ -116,9 +116,9 @@
     <div class="karta">
         <h2>🛒 {{ seznam.nazev }}
             {# Kód pozvánky rovnou v nadpisu, ať se nemusí lovit v kartě
-               dole. Vidí ho JEN vlastník - člen by s ním mohl zvát další
-               lidi na cizí seznam. #}
-            {% if seznam.je_vlastnik %}
+               dole. Kdo ho vidět nesmí, ten ho nedostane ani do šablony -
+               seznam.kod je pak prázdný (viz seznam_pro_uzivatele). #}
+            {% if seznam.kod %}
                 <code class="kod kod-nadpis"
                       title="Kód pozvánky na tenhle seznam">{{ seznam.kod }}</code>
             {% endif %}
@@ -307,7 +307,44 @@
             {% endif %}
         </div>
 
-        {# Přejmenovat, pozvat a smazat smí jen vlastník. #}
+        {# Pozvánka. Kód se pošle komu chceš; kdo ho zadá, stane se členem.
+           Blok se ukáže tomu, kdo kód vidět smí - vlastníkovi vždycky,
+           členovi jen když mu vlastník zvaní povolil. #}
+        {% if seznam.kod %}
+        <div class="sprava-blok">
+            <h3>Pozvánka</h3>
+            <div class="pozvanka">
+                <code class="kod">{{ seznam.kod }}</code>
+                {# Přegenerovat smí jen vlastník - ostatním by tím zneplatnil
+                   pozvánky, které už rozeslali. #}
+                {% if seznam.je_vlastnik %}
+                <form method="post"
+                      action="{{ url_for('nakup_novy_kod', id_seznamu=seznam.id) }}"
+                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
+                    <button type="submit" class="caste-tlacitko">Nový kód</button>
+                </form>
+                {% endif %}
+            </div>
+
+            {% if seznam.je_vlastnik %}
+            <div class="radek zvani">
+                <span class="popisek">Členové můžou zvát další lidi</span>
+                <span class="hodnota">
+                    <form method="post"
+                          action="{{ url_for('nakup_zvani', id_seznamu=seznam.id) }}">
+                        <input type="hidden" name="povolit"
+                               value="{{ 0 if seznam.clenove_zvou else 1 }}">
+                        <button type="submit" class="caste-tlacitko">
+                            {% if seznam.clenove_zvou %}Ano — zakázat
+                            {% else %}Ne — povolit{% endif %}</button>
+                    </form>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# Přejmenovat a smazat smí jen vlastník. #}
         {% if seznam.je_vlastnik %}
         <div class="sprava-blok">
             <h3>Tenhle seznam</h3>
@@ -320,17 +357,6 @@
                 <button type="submit">Přejmenovat</button>
             </form>
 
-            {# Pozvánka. Kód se pošle komu chceš; kdo ho zadá, stane se
-               členem. Přegenerovat se hodí, když se dostane jinam. #}
-            <div class="pozvanka">
-                <span class="popisek-radku">Pozvánka:</span>
-                <code class="kod">{{ seznam.kod }}</code>
-                <form method="post"
-                      action="{{ url_for('nakup_novy_kod', id_seznamu=seznam.id) }}"
-                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
-                    <button type="submit" class="caste-tlacitko">Nový kód</button>
-                </form>
-            </div>
 
             {# Mazat jde jen úplně prázdný seznam - viz smaz_seznam()
                v database.py. Tlačítko je tu vždycky, ať je vidět, že to jde;

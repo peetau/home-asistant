@@ -780,6 +780,17 @@ def nakup_novy_kod(id_seznamu):
     return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
 
 
+@app.route("/nakup/<int:id_seznamu>/zvani", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_zvani(id_seznamu):
+    """Smí členové zvát další lidi? Rozhoduje vlastník."""
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.nastav_zvani(
+        id_seznamu, session["uzivatel_id"],
+        request.form.get("povolit") == "1")
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
 @app.route("/nakup/<int:id_seznamu>/odebrat/<int:id_clena>", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_odebrat_clena(id_seznamu, id_clena):

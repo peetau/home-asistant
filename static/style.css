@@ -707,6 +707,8 @@ body { padding-bottom: 5rem; }
     margin-top: .9rem;
 }
 .pozvanka form { margin: 0; }
+.zvani { align-items: center; }
+.zvani form { margin: 0; }
 /* Zmenšená varianta do nadpisu karty. */
 .kod-nadpis {
     font-size: .8rem;

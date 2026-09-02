@@ -235,6 +235,7 @@ def init_db():
                 nazev       TEXT    NOT NULL,
                 vlastnik_id INTEGER NOT NULL REFERENCES uzivatele(id),
                 kod         TEXT    UNIQUE,
+                clenove_zvou INTEGER NOT NULL DEFAULT 0,
                 vytvoren    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
             )
         """)
@@ -355,6 +356,19 @@ def init_db():
                            "REFERENCES uzivatele(id) ON DELETE SET NULL")
                 db.execute("ALTER TABLE nakup ADD COLUMN koupil_id INTEGER "
                            "REFERENCES uzivatele(id) ON DELETE SET NULL")
+            except sqlite3.OperationalError:
+                pass
+
+        # MIGRACE: smí členové zvát další lidi?
+        #
+        # Výchozí je NE, a to i u seznamů, které už existují. Zvát dál je
+        # rozšíření důvěry - to má vlastník zapnout vědomě, ne ho k tomu
+        # přivést aktualizace.
+        sloupce_s = [r[1] for r in db.execute("PRAGMA table_info(seznamy)")]
+        if "clenove_zvou" not in sloupce_s:
+            try:
+                db.execute("ALTER TABLE seznamy ADD COLUMN clenove_zvou "
+                           "INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass
 
@@ -691,7 +705,8 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
     """
     with _spojeni() as db:
         radek = db.execute("""
-            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik, s.kod
+            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik, s.kod,
+                   s.clenove_zvou
             FROM seznamy s
             WHERE s.id = ?
               AND (s.vlastnik_id = ?
@@ -701,8 +716,18 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
 
     if radek is None:
         return None
-    return {"id": radek[0], "nazev": radek[1], "je_vlastnik": bool(radek[2]),
-            "kod": radek[3]}
+
+    je_vlastnik = bool(radek[2])
+    clenove_zvou = bool(radek[4])
+
+    # Kód dostane jen ten, kdo ho vidět smí - vlastník vždycky, člen jen
+    # když to vlastník povolil. Nevracíme ho a šablona pak nemá co
+    # prozradit: kdyby se na podmínku zapomnělo, není tam co ukázat.
+    vidi_kod = je_vlastnik or clenove_zvou
+
+    return {"id": radek[0], "nazev": radek[1], "je_vlastnik": je_vlastnik,
+            "kod": radek[3] if vidi_kod else None,
+            "clenove_zvou": clenove_zvou}
 
 
 def polozka_pro_uzivatele(id_polozky, id_uzivatele):
@@ -821,6 +846,29 @@ def novy_kod_seznamu(id_seznamu, id_vlastnika):
             except sqlite3.IntegrityError:
                 continue
     return False, "Nepodařilo se vyrobit nový kód, zkus to znovu."
+
+
+def nastav_zvani(id_seznamu, id_vlastnika, povolit):
+    """
+    Určí, jestli smí členové zvát další lidi. Rozhoduje jen vlastník.
+
+    Zvát dál v našem případě znamená VIDĚT KÓD - kdo ho má, může ho poslat
+    komukoliv. Přepínač tedy nedělá nic jiného, než že členům kód ukáže
+    nebo skryje.
+
+    Přegenerovat kód smí pořád jen vlastník: tím by se ostatním zneplatnily
+    pozvánky, které už rozeslali.
+    """
+    with _spojeni() as db:
+        kurzor = db.execute(
+            "UPDATE seznamy SET clenove_zvou = ? WHERE id = ? AND vlastnik_id = ?",
+            (1 if povolit else 0, id_seznamu, id_vlastnika),
+        )
+    if kurzor.rowcount == 0:
+        return False, "Tohle nastavuje jen vlastník seznamu."
+    if povolit:
+        return True, "Členové teď můžou zvát další lidi."
+    return True, "Zvaní dalších lidí je zase jen na tobě."
 
 
 def odeber_clena(id_seznamu, id_vlastnika, id_clena):
