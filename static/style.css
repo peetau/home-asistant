@@ -707,6 +707,16 @@ body { padding-bottom: 5rem; }
     margin-top: .9rem;
 }
 .pozvanka form { margin: 0; }
+/* Zmenšená varianta do nadpisu karty. */
+.kod-nadpis {
+    font-size: .8rem;
+    letter-spacing: .05em;
+    padding: .1rem .4rem;
+    margin-left: .4rem;
+    vertical-align: middle;
+    text-transform: none;
+}
+
 .kod {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     font-size: 1.05rem;

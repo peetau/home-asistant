@@ -724,7 +724,7 @@ def polozka_pro_uzivatele(id_polozky, id_uzivatele):
     """
     with _spojeni() as db:
         radek = db.execute("""
-            SELECT n.id, n.seznam_id,
+            SELECT n.id, n.seznam_id, n.koupeno,
                    (s.vlastnik_id = ? OR n.pridal_id = ?) AS smi_upravit
             FROM nakup n
             JOIN seznamy s ON s.id = n.seznam_id
@@ -737,7 +737,8 @@ def polozka_pro_uzivatele(id_polozky, id_uzivatele):
 
     if radek is None:
         return None
-    return {"id": radek[0], "seznam_id": radek[1], "smi_upravit": bool(radek[2])}
+    return {"id": radek[0], "seznam_id": radek[1], "koupeno": bool(radek[2]),
+            "smi_upravit": bool(radek[3])}
 
 
 def pripoj_kodem(kod, id_uzivatele):

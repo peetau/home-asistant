@@ -115,6 +115,13 @@
     {# ---------- Přepínač seznamů a přidání položky ---------- #}
     <div class="karta">
         <h2>🛒 {{ seznam.nazev }}
+            {# Kód pozvánky rovnou v nadpisu, ať se nemusí lovit v kartě
+               dole. Vidí ho JEN vlastník - člen by s ním mohl zvát další
+               lidi na cizí seznam. #}
+            {% if seznam.je_vlastnik %}
+                <code class="kod kod-nadpis"
+                      title="Kód pozvánky na tenhle seznam">{{ seznam.kod }}</code>
+            {% endif %}
             {% if chybejici %}<span class="pocet">{{ chybejici|length }}</span>{% endif %}
         </h2>
 
@@ -188,7 +195,7 @@
        a dají se rozbalit - třeba když je potřeba něco vrátit zpět.
     #}
     {% if koupene %}
-    <details class="karta koupene-blok">
+    <details class="karta koupene-blok" {{ "open" if otevrit_koupene }}>
         <summary>Koupeno ({{ koupene|length }})</summary>
 
         <ul class="seznam">

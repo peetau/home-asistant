@@ -640,8 +640,17 @@ def _polozka_nebo_404(id_polozky):
     return polozka
 
 
-def _zpet(id_seznamu, **hlaska):
-    """Návrat na seznam, případně s hláškou v adrese."""
+def _zpet(id_seznamu, koupeno=False, **hlaska):
+    """
+    Návrat na seznam, případně s hláškou v adrese.
+
+    koupeno=True nechá rozbalený blok Koupeno. Bez toho by se po každé
+    úpravě sbalil a člověk, který vyplňuje ceny, by ho otevíral znovu
+    u každé položky. Stav se veze v adrese - <details> si ho sám
+    nezapamatuje a JavaScript kvůli tomu psát nebudeme.
+    """
+    if koupeno:
+        hlaska["koupeno"] = 1
     return redirect(url_for("nakup_seznam", id_seznamu=id_seznamu, **hlaska))
 
 
@@ -687,6 +696,7 @@ def nakup_seznam(id_seznamu):
         caste=_bezpecne(lambda: database.caste_polozky(id_seznamu))[0] or [],
         clenove=database.clenove(id_seznamu),
         vyuctovani=database.vyuctovani(id_seznamu) if koupene else None,
+        otevrit_koupene=request.args.get("koupeno") == "1",
         chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
     )
 
@@ -824,7 +834,9 @@ def nakup_prepnout(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     database.prepni_koupeno(id_polozky, session.get("uzivatel"),
                             session["uzivatel_id"])
-    return _zpet(polozka["seznam_id"])
+    # Když se položka vracela zpátky mezi chybějící, člověk stál v bloku
+    # Koupeno - ať mu pod rukama nezmizí.
+    return _zpet(polozka["seznam_id"], koupeno=polozka["koupeno"])
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/upravit", methods=["POST"])
@@ -832,14 +844,15 @@ def nakup_prepnout(id_polozky):
 def nakup_upravit(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:
-        return _zpet(polozka["seznam_id"], chyba=NENI_TVOJE)
+        return _zpet(polozka["seznam_id"], koupeno=polozka["koupeno"],
+                     chyba=NENI_TVOJE)
 
     database.uprav_polozku(
         id_polozky,
         request.form.get("text", ""),
         request.form.get("mnozstvi", ""),
     )
-    return _zpet(polozka["seznam_id"])
+    return _zpet(polozka["seznam_id"], koupeno=polozka["koupeno"])
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/cena", methods=["POST"])
@@ -850,8 +863,8 @@ def nakup_cena(id_polozky):
     ok, hlaska = database.nastav_cenu(
         id_polozky, session["uzivatel_id"], request.form.get("cena", ""))
     if ok:
-        return _zpet(polozka["seznam_id"])
-    return _zpet(polozka["seznam_id"], chyba=hlaska)
+        return _zpet(polozka["seznam_id"], koupeno=True)
+    return _zpet(polozka["seznam_id"], koupeno=True, chyba=hlaska)
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/smazat", methods=["POST"])
@@ -859,10 +872,11 @@ def nakup_cena(id_polozky):
 def nakup_smazat(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:
-        return _zpet(polozka["seznam_id"], chyba=NENI_TVOJE)
+        return _zpet(polozka["seznam_id"], koupeno=polozka["koupeno"],
+                     chyba=NENI_TVOJE)
 
     database.smaz_polozku(id_polozky)
-    return _zpet(polozka["seznam_id"])
+    return _zpet(polozka["seznam_id"], koupeno=polozka["koupeno"])
 
 
 # ===========================================================================
