@@ -558,12 +558,24 @@ footer {
     font-weight: 600;
 }
 
-/* Šipka, kterou prohlížeč sám kreslí u <summary>, by tlačítko rozhodila. */
-.seznam-novy summary::-webkit-details-marker { display: none; }
-.seznam-novy summary::marker { content: ""; }
-.seznam-novy[open] > .uprava-form { margin-top: .5rem; }
+/* ---- Karta se správou seznamů ---- */
 
-.nastaveni-seznamu .uprava-form { margin-top: .8rem; }
+/* Dva bloky pod sebou (založit / tenhle seznam) oddělené vlasovou linkou.
+   Bez ní by splynuly v jednu hromadu formulářů. */
+.seznamy-sprava .sprava-blok + .sprava-blok {
+    margin-top: 1.3rem;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--okraj-jemny);
+}
+.seznamy-sprava h3 {
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text-slaby);
+    margin: .9rem 0 .5rem;
+}
+/* Ve "Koupeno" je úklid vpravo dole jako uzavření bloku. Tady je to
+   ale jedno ze dvou tlačítek pod sebou, tak ať jsou zarovnaná stejně. */
+.seznamy-sprava .uklid-form { margin-top: .7rem; text-align: left; }
 
 /* ---- Vysvětlivka u popisku ---- */
 

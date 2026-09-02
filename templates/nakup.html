@@ -83,25 +83,21 @@
             {% if chybejici %}<span class="pocet">{{ chybejici|length }}</span>{% endif %}
         </h2>
 
-        {# Proužek se seznamy. Ukazuje se, i když je seznam jediný - jinak
-           by se tlačítko "Nový" nemělo kde vzít. #}
+        {# Proužek slouží JEN k přepínání. Zakládání a přejmenování je
+           v kartě "Seznamy" dole - dvě podobná políčka hned pod sebou
+           (název seznamu a co koupit) se pletla.
+
+           S jediným seznamem se proužek neukazuje vůbec: přepínat není
+           mezi čím a jedno osamocené tlačítko by jen mátlo. #}
+        {% if moje_seznamy|length > 1 %}
         <div class="seznamy">
             {% for s in moje_seznamy %}
                 <a href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}"
                    class="seznam-chip {{ 'aktivni' if s.id == seznam.id }}">
                     {{ s.nazev }}</a>
             {% endfor %}
-
-            <details class="seznam-novy">
-                <summary class="seznam-chip">+ Nový</summary>
-                <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
-                      class="uprava-form">
-                    <input type="text" name="nazev" placeholder="Název seznamu"
-                           required autocomplete="off" maxlength="60">
-                    <button type="submit">Založit</button>
-                </form>
-            </details>
         </div>
+        {% endif %}
 
         <form method="post"
               action="{{ url_for('nakup_pridat', id_seznamu=seznam.id) }}"
@@ -173,32 +169,54 @@
     </details>
     {% endif %}
 
-    {# ---------- Nastavení seznamu ---------- #}
-    {# Vidí jen vlastník. Členovi by tu nebylo co nabídnout - přejmenovat
-       ani smazat seznam nesmí. #}
-    {% if seznam.je_vlastnik %}
-    <details class="karta nastaveni-seznamu">
-        <summary>Nastavení seznamu</summary>
+    {# ---------- Seznamy ---------- #}
+    {#
+       Všechna správa seznamů na jednom místě, dole a sbalená. Zakládání
+       bylo původně tlačítkem v proužku nahoře, ale otevřený formulář
+       proužek rozhodil a hlavně se pletl s polem "Co je potřeba koupit?" -
+       dvě skoro stejná políčka pod sebou.
 
-        <form method="post"
-              action="{{ url_for('nakup_prejmenovat', id_seznamu=seznam.id) }}"
-              class="uprava-form">
-            <input type="text" name="nazev" value="{{ seznam.nazev }}"
-                   required maxlength="60">
-            <button type="submit">Přejmenovat</button>
-        </form>
+       V kroku 4 sem přibude pozvánka a připojení ke kódu.
+    #}
+    <details class="karta seznamy-sprava">
+        <summary>Seznamy</summary>
 
-        {# Mazat jde jen úplně prázdný seznam - viz smaz_seznam() v database.py.
-           Tlačítko je tu vždycky, ať je vidět, že to jde; když seznam prázdný
-           není, vrátí se hláška, co v něm ještě zbývá. #}
-        <form method="post"
-              action="{{ url_for('nakup_smazat_seznam', id_seznamu=seznam.id) }}"
-              class="uklid-form"
-              data-potvrdit="Opravdu smazat seznam „{{ seznam.nazev }}“?">
-            <button type="submit" class="uklidit">Smazat seznam</button>
-        </form>
+        <div class="sprava-blok">
+            <h3>Nový seznam</h3>
+            <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
+                  class="pridat-form">
+                <input type="text" name="nazev" placeholder="Název seznamu"
+                       required autocomplete="off" maxlength="60">
+                <button type="submit">Založit</button>
+            </form>
+        </div>
+
+        {# Přejmenovat a smazat smí jen vlastník - členovi se tenhle blok
+           neukazuje, nebylo by v něm co nabídnout. #}
+        {% if seznam.je_vlastnik %}
+        <div class="sprava-blok">
+            <h3>Tenhle seznam</h3>
+
+            <form method="post"
+                  action="{{ url_for('nakup_prejmenovat', id_seznamu=seznam.id) }}"
+                  class="pridat-form">
+                <input type="text" name="nazev" value="{{ seznam.nazev }}"
+                       required maxlength="60">
+                <button type="submit">Přejmenovat</button>
+            </form>
+
+            {# Mazat jde jen úplně prázdný seznam - viz smaz_seznam()
+               v database.py. Tlačítko je tu vždycky, ať je vidět, že to jde;
+               když prázdný není, vrátí se hláška, co v něm ještě zbývá. #}
+            <form method="post"
+                  action="{{ url_for('nakup_smazat_seznam', id_seznamu=seznam.id) }}"
+                  class="uklid-form"
+                  data-potvrdit="Opravdu smazat seznam „{{ seznam.nazev }}“?">
+                <button type="submit" class="uklidit">Smazat seznam</button>
+            </form>
+        </div>
+        {% endif %}
     </details>
-    {% endif %}
 
     {% endif %}
 
