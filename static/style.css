@@ -721,6 +721,16 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .pridat-form { display: flex; gap: .5rem; }
 .pridat-form input { flex: 1; min-width: 0; padding: .7rem .8rem; }
 
+/* Na úzké obrazovce se tři pole vedle sebe nevejdou - do toho hlavního
+   zbyde tak "Co je potře". Text položky proto dostane celý první řádek
+   a množství s tlačítkem se podělí o druhý. */
+@media (max-width: 480px) {
+    .pridat-form { flex-wrap: wrap; }
+    .pridat-form > input:first-child { flex: 1 0 100%; }
+    .pridat-form .pole-mnozstvi { flex: 1 1 auto; }
+    .pridat-form button { flex: 0 0 auto; }
+}
+
 .seznam { list-style: none; margin: 0; padding: 0; }
 .seznam li {
     display: flex;
