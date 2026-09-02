@@ -1,6 +1,6 @@
 {% extends "zaklad.html" %}
 
-{% block titulek %}Nákup — Domácí asistent{% endblock %}
+{% block titulek %}{{ seznam.nazev if seznam else "Nákup" }} — Domácí asistent{% endblock %}
 
 {# Makro na jednu položku seznamu. Používá se pro chybějící i koupené,
    ať se ten kus HTML nepíše dvakrát. #}
@@ -60,13 +60,52 @@
 
 {% block obsah %}
 
-    {# ---------- Přidání položky ---------- #}
+    {# ---------- Žádný seznam ---------- #}
+    {# Běžný stav u nově založeného účtu: právo na Nákup má, ale ještě
+       ho nikdo nikam nepřizval a sám si nic nezaložil. #}
+    {% if not seznam %}
     <div class="karta">
-        <h2>🛒 Nákupní seznam
+        <h2>🛒 Nákup</h2>
+        <p class="prazdno">Zatím nemáš žádný nákupní seznam. Založ si první.</p>
+        <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
+              class="pridat-form">
+            <input type="text" name="nazev" placeholder="Název seznamu"
+                   required autofocus autocomplete="off" maxlength="60">
+            <button type="submit">Založit</button>
+        </form>
+    </div>
+
+    {% else %}
+
+    {# ---------- Přepínač seznamů a přidání položky ---------- #}
+    <div class="karta">
+        <h2>🛒 {{ seznam.nazev }}
             {% if chybejici %}<span class="pocet">{{ chybejici|length }}</span>{% endif %}
         </h2>
 
-        <form method="post" action="{{ url_for('nakup_pridat') }}" class="pridat-form">
+        {# Proužek se seznamy. Ukazuje se, i když je seznam jediný - jinak
+           by se tlačítko "Nový" nemělo kde vzít. #}
+        <div class="seznamy">
+            {% for s in moje_seznamy %}
+                <a href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}"
+                   class="seznam-chip {{ 'aktivni' if s.id == seznam.id }}">
+                    {{ s.nazev }}</a>
+            {% endfor %}
+
+            <details class="seznam-novy">
+                <summary class="seznam-chip">+ Nový</summary>
+                <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
+                      class="uprava-form">
+                    <input type="text" name="nazev" placeholder="Název seznamu"
+                           required autocomplete="off" maxlength="60">
+                    <button type="submit">Založit</button>
+                </form>
+            </details>
+        </div>
+
+        <form method="post"
+              action="{{ url_for('nakup_pridat', id_seznamu=seznam.id) }}"
+              class="pridat-form">
             <input type="text" name="text" placeholder="Co je potřeba koupit?"
                    required autofocus autocomplete="off" maxlength="200">
             {# Množství je volný text - "2 l", "3x", "půl kila".
@@ -78,15 +117,16 @@
 
         {# ---------- Rychlé přidání z historie ---------- #}
         {#
-           Nejčastěji kupované položky. Nabízí se jen ty, které na seznamu
-           zrovna nejsou - o zbytek se postará dotaz v databázi.
+           Nejčastěji kupované položky TOHOTO seznamu. Nabízí se jen ty,
+           které na něm zrovna nejsou - o zbytek se postará dotaz v databázi.
            Každé tlačítko je samostatný formulář s předvyplněným názvem.
         #}
         {% if caste %}
         <div class="caste">
             <span class="caste-popisek">Často:</span>
             {% for nazev in caste %}
-                <form method="post" action="{{ url_for('nakup_pridat') }}">
+                <form method="post"
+                      action="{{ url_for('nakup_pridat', id_seznamu=seznam.id) }}">
                     <input type="hidden" name="text" value="{{ nazev }}">
                     <button type="submit" class="caste-tlacitko">+ {{ nazev }}</button>
                 </form>
@@ -97,11 +137,7 @@
 
     {# ---------- Co ještě chybí ---------- #}
     <div class="karta">
-        {% if not ma_seznam %}
-            <p class="prazdno">Zatím nemáš žádný nákupní seznam.
-               Brzo si budeš moct nějaký založit nebo se připojit
-               k cizímu přes pozvánku.</p>
-        {% elif chybejici %}
+        {% if chybejici %}
             <ul class="seznam">
                 {% for p in chybejici %}{{ polozka(*p) }}{% endfor %}
             </ul>
@@ -126,12 +162,44 @@
             {% for p in koupene %}{{ polozka(*p) }}{% endfor %}
         </ul>
 
-        <form method="post" action="{{ url_for('nakup_uklidit') }}"
+        {% if k_uklidu %}
+        <form method="post"
+              action="{{ url_for('nakup_uklidit', id_seznamu=seznam.id) }}"
               class="uklid-form">
             <button type="submit" class="uklidit">
                 Smazat odškrtnuté ({{ k_uklidu }})</button>
         </form>
+        {% endif %}
     </details>
+    {% endif %}
+
+    {# ---------- Nastavení seznamu ---------- #}
+    {# Vidí jen vlastník. Členovi by tu nebylo co nabídnout - přejmenovat
+       ani smazat seznam nesmí. #}
+    {% if seznam.je_vlastnik %}
+    <details class="karta nastaveni-seznamu">
+        <summary>Nastavení seznamu</summary>
+
+        <form method="post"
+              action="{{ url_for('nakup_prejmenovat', id_seznamu=seznam.id) }}"
+              class="uprava-form">
+            <input type="text" name="nazev" value="{{ seznam.nazev }}"
+                   required maxlength="60">
+            <button type="submit">Přejmenovat</button>
+        </form>
+
+        {# Mazat jde jen úplně prázdný seznam - viz smaz_seznam() v database.py.
+           Tlačítko je tu vždycky, ať je vidět, že to jde; když seznam prázdný
+           není, vrátí se hláška, co v něm ještě zbývá. #}
+        <form method="post"
+              action="{{ url_for('nakup_smazat_seznam', id_seznamu=seznam.id) }}"
+              class="uklid-form"
+              data-potvrdit="Opravdu smazat seznam „{{ seznam.nazev }}“?">
+            <button type="submit" class="uklidit">Smazat seznam</button>
+        </form>
+    </details>
+    {% endif %}
+
     {% endif %}
 
 {% endblock %}

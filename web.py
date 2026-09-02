@@ -591,15 +591,17 @@ def nanoleaf_paleta():
     return jsonify(paleta)
 
 
-def _muj_seznam():
+def _seznam_nebo_404(id_seznamu):
     """
-    Se kterým seznamem uživatel právě pracuje.
+    Načte seznam a ověří, že na něj přihlášený uživatel má právo.
 
-    Zatím vždycky ten první, který má - seznamy se ještě nedají přepínat.
-    Až přibude proužek nahoře, vezme se místo toho číslo z adresy a tahle
-    funkce zůstane jen jako výchozí volba.
+    404, ne 403 - stejně jako u položek. Kdo na seznam nemá právo, nemá se
+    ani dozvědět, že takové číslo něco znamená.
     """
-    return database.vychozi_seznam(session["uzivatel_id"])
+    seznam = database.seznam_pro_uzivatele(id_seznamu, session["uzivatel_id"])
+    if seznam is None:
+        abort(404)
+    return seznam
 
 
 def _polozka_nebo_404(id_polozky):
@@ -616,12 +618,37 @@ def _polozka_nebo_404(id_polozky):
     return polozka
 
 
+def _zpet(id_seznamu, **hlaska):
+    """Návrat na seznam, případně s hláškou v adrese."""
+    return redirect(url_for("nakup_seznam", id_seznamu=id_seznamu, **hlaska))
+
+
 @app.route("/nakup")
 @vyzaduje_pravo("nakup")
 def nakup():
-    """Nákupní seznam."""
-    seznam_id = _muj_seznam()
-    polozky = database.seznam_nakupu(seznam_id, session["uzivatel_id"])
+    """
+    Rozcestí: pošle na první seznam, který uživatel má.
+
+    Kdo nemá žádný, uvidí rovnou tady stránku s nabídkou nějaký založit.
+    Přesměrovávat ho nemáme kam.
+    """
+    seznam_id = database.vychozi_seznam(session["uzivatel_id"])
+    if seznam_id is None:
+        return render_template(
+            "nakup.html", aktivni="nakup",
+            seznam=None, moje_seznamy=[], chybejici=[], koupene=[],
+            k_uklidu=0, caste=[],
+            chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
+        )
+    return redirect(url_for("nakup_seznam", id_seznamu=seznam_id))
+
+
+@app.route("/nakup/<int:id_seznamu>")
+@vyzaduje_pravo("nakup")
+def nakup_seznam(id_seznamu):
+    """Jeden nákupní seznam."""
+    seznam = _seznam_nebo_404(id_seznamu)
+    polozky = database.seznam_nakupu(id_seznamu, session["uzivatel_id"])
 
     # Rozdělíme rovnou tady, ať to šablona nemusí filtrovat dvakrát.
     # Index 2 je sloupec 'koupeno', index 6 'smi_upravit'.
@@ -630,13 +657,14 @@ def nakup():
 
     return render_template(
         "nakup.html", aktivni="nakup",
-        ma_seznam=seznam_id is not None,
+        seznam=seznam,
+        moje_seznamy=database.seznamy_uzivatele(session["uzivatel_id"]),
         chybejici=chybejici, koupene=koupene,
         # Kolik odškrtnutých položek tenhle člověk doopravdy uklidí -
         # ať tlačítko neslibuje víc, než udělá.
         k_uklidu=sum(1 for p in koupene if p[6]),
-        caste=_bezpecne(lambda: database.caste_polozky(seznam_id))[0] or [],
-        chyba=request.args.get("chyba"),
+        caste=_bezpecne(lambda: database.caste_polozky(id_seznamu))[0] or [],
+        chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
     )
 
 
@@ -649,6 +677,12 @@ NENI_TVOJE = "Upravovat a mazat můžeš jen položky, které jsi přidal."
 # ---------------------------------------------------------------------------
 # Akce nad seznamem.
 #
+# Adresy mají dva tvary a je v tom systém:
+#     /nakup/<číslo>/...          <číslo> je SEZNAM
+#     /nakup/polozka/<číslo>/...  <číslo> je POLOŽKA
+# Bez toho oddělení by /nakup/7/smazat znamenalo jednou seznam a jednou
+# položku - a na takové adrese se dřív nebo později někdo splete.
+#
 # Všechny jsou POST, ne GET - a je to důležité pravidlo, ne formalita:
 # GET musí být "bezpečný", tedy nic neměnit. Kdyby odškrtnutí položky bylo
 # GET, stačilo by, aby prohlížeč (nebo jeho přednačítání, nebo antivirus)
@@ -660,65 +694,97 @@ NENI_TVOJE = "Upravovat a mazat můžeš jen položky, které jsi přidal."
 # "odeslat formulář znovu" a položka by se přidala podruhé.
 # ---------------------------------------------------------------------------
 
-@app.route("/nakup/pridat", methods=["POST"])
+@app.route("/nakup/novy", methods=["POST"])
 @vyzaduje_pravo("nakup")
-def nakup_pridat():
+def nakup_novy_seznam():
+    """Založí nový seznam. Zakladatel je jeho vlastníkem."""
+    ok, vysledek = database.vytvor_seznam(
+        request.form.get("nazev", ""), session["uzivatel_id"])
+    if not ok:
+        return redirect(url_for("nakup", chyba=vysledek))
+    return _zpet(vysledek, zprava="Seznam založen.")
+
+
+@app.route("/nakup/<int:id_seznamu>/prejmenovat", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_prejmenovat(id_seznamu):
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.prejmenuj_seznam(
+        id_seznamu, session["uzivatel_id"], request.form.get("nazev", ""))
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
+@app.route("/nakup/<int:id_seznamu>/smazat", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_smazat_seznam(id_seznamu):
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.smaz_seznam(id_seznamu, session["uzivatel_id"])
+    if ok:
+        return redirect(url_for("nakup", zprava=hlaska))
+    return _zpet(id_seznamu, chyba=hlaska)
+
+
+@app.route("/nakup/<int:id_seznamu>/pridat", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_pridat(id_seznamu):
+    _seznam_nebo_404(id_seznamu)
     database.pridej_polozku(
-        _muj_seznam(),
+        id_seznamu,
         request.form.get("text", ""),
         session.get("uzivatel"),
         session["uzivatel_id"],
         request.form.get("mnozstvi", ""),
     )
-    return redirect(url_for("nakup"))
+    return _zpet(id_seznamu)
 
 
-# <int:id_polozky> je proměnná část adresy. Flask z /nakup/7/prepnout
+@app.route("/nakup/<int:id_seznamu>/uklidit", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_uklidit(id_seznamu):
+    """Uklidí odškrtnuté položky - to, co uživatel smí smazat."""
+    _seznam_nebo_404(id_seznamu)
+    database.smaz_koupene(id_seznamu, session["uzivatel_id"])
+    return _zpet(id_seznamu)
+
+
+# <int:id_polozky> je proměnná část adresy. Flask z /nakup/polozka/7/prepnout
 # vytáhne sedmičku a předá ji funkci jako parametr. To "int:" navíc hlídá,
-# že to je opravdu číslo - když někdo zkusí /nakup/abc/prepnout,
-# Flask vrátí 404 a naše funkce se vůbec nespustí.
-@app.route("/nakup/<int:id_polozky>/prepnout", methods=["POST"])
+# že to je opravdu číslo - když někdo zkusí .../abc/prepnout, Flask vrátí
+# 404 a naše funkce se vůbec nespustí.
+@app.route("/nakup/polozka/<int:id_polozky>/prepnout", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_prepnout(id_polozky):
     # Odškrtnout smí každý, kdo položku vidí - stačí tedy branka.
-    _polozka_nebo_404(id_polozky)
+    polozka = _polozka_nebo_404(id_polozky)
     database.prepni_koupeno(id_polozky, session.get("uzivatel"),
                             session["uzivatel_id"])
-    return redirect(url_for("nakup"))
+    return _zpet(polozka["seznam_id"])
 
 
-@app.route("/nakup/<int:id_polozky>/upravit", methods=["POST"])
+@app.route("/nakup/polozka/<int:id_polozky>/upravit", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_upravit(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:
-        return redirect(url_for("nakup", chyba=NENI_TVOJE))
+        return _zpet(polozka["seznam_id"], chyba=NENI_TVOJE)
 
     database.uprav_polozku(
         id_polozky,
         request.form.get("text", ""),
         request.form.get("mnozstvi", ""),
     )
-    return redirect(url_for("nakup"))
+    return _zpet(polozka["seznam_id"])
 
 
-@app.route("/nakup/<int:id_polozky>/smazat", methods=["POST"])
+@app.route("/nakup/polozka/<int:id_polozky>/smazat", methods=["POST"])
 @vyzaduje_pravo("nakup")
 def nakup_smazat(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:
-        return redirect(url_for("nakup", chyba=NENI_TVOJE))
+        return _zpet(polozka["seznam_id"], chyba=NENI_TVOJE)
 
     database.smaz_polozku(id_polozky)
-    return redirect(url_for("nakup"))
-
-
-@app.route("/nakup/uklidit", methods=["POST"])
-@vyzaduje_pravo("nakup")
-def nakup_uklidit():
-    """Uklidí odškrtnuté položky - to, co uživatel smí smazat."""
-    database.smaz_koupene(_muj_seznam(), session["uzivatel_id"])
-    return redirect(url_for("nakup"))
+    return _zpet(polozka["seznam_id"])
 
 
 # ===========================================================================

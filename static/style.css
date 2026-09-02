@@ -520,6 +520,51 @@ footer {
 .stav-cisla .hero { flex-wrap: wrap; margin-bottom: 1rem; }
 .stav-cisla .pruh { margin: .15rem 0 .55rem; }
 
+/* ---- Přepínač nákupních seznamů ---- */
+
+/*
+  Proužek s tlačítky nad seznamem. Vzhledem navazuje na "Často:" pod
+  formulářem - je to stejný druh prvku (rychlá volba), tak ať to i stejně
+  vypadá. Aktivní seznam je vyplněný, ne jen obtažený: na mobilu se pak
+  pozná na první pohled, i když je tlačítek víc řádků.
+*/
+.seznamy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    margin-bottom: 1rem;
+}
+
+.seznam-chip {
+    display: inline-block;
+    font-size: .85rem;
+    padding: .3rem .8rem;
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    background: var(--karta-2);
+    color: var(--text-slaby);
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    list-style: none;
+}
+.seznam-chip:hover { border-color: var(--zelena); color: var(--zelena); }
+
+.seznam-chip.aktivni {
+    background: var(--zelena);
+    border-color: var(--zelena);
+    color: var(--na-zelene);
+    font-weight: 600;
+}
+
+/* Šipka, kterou prohlížeč sám kreslí u <summary>, by tlačítko rozhodila. */
+.seznam-novy summary::-webkit-details-marker { display: none; }
+.seznam-novy summary::marker { content: ""; }
+.seznam-novy[open] > .uprava-form { margin-top: .5rem; }
+
+.nastaveni-seznamu .uprava-form { margin-top: .8rem; }
+
 /* ---- Vysvětlivka u popisku ---- */
 
 /* Dlaždice je ukotvením pro bublinu. Kdyby se bublina ukotvila k samotnému

@@ -488,7 +488,7 @@ def seznamy_uzivatele(id_uzivatele):
     někde omylem obejít.
     """
     with _spojeni() as db:
-        return db.execute("""
+        radky = db.execute("""
             SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
             FROM seznamy s
             WHERE s.vlastnik_id = ?
@@ -496,6 +496,9 @@ def seznamy_uzivatele(id_uzivatele):
                            WHERE uzivatel_id = ?)
             ORDER BY je_vlastnik DESC, s.nazev
         """, (id_uzivatele, id_uzivatele, id_uzivatele)).fetchall()
+
+    # Slovníky, ne n-tice: v šabloně se pak píše s.nazev místo s[1].
+    return [{"id": r[0], "nazev": r[1], "je_vlastnik": bool(r[2])} for r in radky]
 
 
 def vychozi_seznam(id_uzivatele):
@@ -506,7 +509,100 @@ def vychozi_seznam(id_uzivatele):
     ale až přibude zakládání seznamů, bude to úplně běžný stav.
     """
     seznamy = seznamy_uzivatele(id_uzivatele)
-    return seznamy[0][0] if seznamy else None
+    return seznamy[0]["id"] if seznamy else None
+
+
+def vytvor_seznam(nazev, vlastnik_id):
+    """
+    Založí nový seznam. Vrací (True, id) nebo (False, "co je špatně").
+
+    Kód pozvánky se losuje, a protože musí být jedinečný, může (byť
+    nepravděpodobně) padnout na už existující. Proto těch pár pokusů -
+    databáze na tom neuspěje a my to zkusíme znovu s jiným.
+    """
+    nazev = nazev.strip()[:60]
+    if not nazev:
+        return False, "Seznam musí mít název."
+
+    with _spojeni() as db:
+        for _ in range(5):
+            try:
+                db.execute(
+                    "INSERT INTO seznamy (nazev, vlastnik_id, kod) VALUES (?, ?, ?)",
+                    (nazev, vlastnik_id, _novy_kod()),
+                )
+                return True, db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            except sqlite3.IntegrityError:
+                continue
+    return False, "Nepodařilo se vyrobit kód pozvánky, zkus to znovu."
+
+
+def prejmenuj_seznam(id_seznamu, id_uzivatele, nazev):
+    """
+    Přejmenuje seznam. Smí to jen vlastník.
+
+    Podmínka na vlastníka je součástí UPDATE, ne kontrola před ním. Když
+    nesedí, dotaz prostě nezmění ani řádek - a nemůže se stát, že by se
+    mezi kontrolou a zápisem něco změnilo.
+    """
+    nazev = nazev.strip()[:60]
+    if not nazev:
+        return False, "Seznam musí mít název."
+
+    with _spojeni() as db:
+        kurzor = db.execute(
+            "UPDATE seznamy SET nazev = ? WHERE id = ? AND vlastnik_id = ?",
+            (nazev, id_seznamu, id_uzivatele),
+        )
+    if kurzor.rowcount == 0:
+        return False, "Přejmenovat seznam může jen jeho vlastník."
+    return True, "Seznam přejmenován."
+
+
+def smaz_seznam(id_seznamu, id_uzivatele):
+    """
+    Smaže seznam - ale jen vlastníkův a jen úplně prázdný.
+
+    Proč tak přísně: se seznamem by zmizely i položky a historie, a to
+    i lidem, kteří na něm jsou. Na to je smazání moc tiché. Takhle se dá
+    uklidit překlep v názvu, ale ne omylem vymazat cizí nákup.
+
+    Až budou seznamy chodit z ruky do ruky přes pozvánky, bude to chtít
+    pořádné řešení - nabídnout předání vlastníkovi nebo aspoň vypsat,
+    o co všechno kdo přijde.
+    """
+    with _spojeni() as db:
+        seznam = db.execute(
+            "SELECT vlastnik_id FROM seznamy WHERE id = ?", (id_seznamu,)
+        ).fetchone()
+        if seznam is None:
+            return False, "Takový seznam neexistuje."
+        if seznam[0] != id_uzivatele:
+            return False, "Smazat seznam může jen jeho vlastník."
+
+        polozek = db.execute(
+            "SELECT COUNT(*) FROM nakup WHERE seznam_id = ?", (id_seznamu,)
+        ).fetchone()[0]
+        clenu = db.execute(
+            "SELECT COUNT(*) FROM clenove_seznamu WHERE seznam_id = ?", (id_seznamu,)
+        ).fetchone()[0]
+
+        if polozek or clenu:
+            duvod = []
+            if polozek:
+                duvod.append("%d položek" % polozek if polozek > 4
+                             else "%d položky" % polozek if polozek > 1
+                             else "jednu položku")
+            if clenu:
+                duvod.append("%d dalších lidí" % clenu if clenu > 4
+                             else "%d další lidi" % clenu if clenu > 1
+                             else "ještě jednoho člověka")
+            return False, ("Smazat jde jen úplně prázdný seznam a tenhle "
+                           "obsahuje " + " a ".join(duvod) + ".")
+
+        db.execute("DELETE FROM historie_nakupu WHERE seznam_id = ?", (id_seznamu,))
+        db.execute("DELETE FROM seznamy WHERE id = ?", (id_seznamu,))
+    return True, "Seznam smazán."
 
 
 def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
@@ -519,7 +615,7 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
     kde se na to posouzení zapomene - a data už by přitom byla venku.
     """
     with _spojeni() as db:
-        return db.execute("""
+        radek = db.execute("""
             SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
             FROM seznamy s
             WHERE s.id = ?
@@ -527,6 +623,10 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
                    OR s.id IN (SELECT seznam_id FROM clenove_seznamu
                                WHERE uzivatel_id = ?))
         """, (id_uzivatele, id_seznamu, id_uzivatele, id_uzivatele)).fetchone()
+
+    if radek is None:
+        return None
+    return {"id": radek[0], "nazev": radek[1], "je_vlastnik": bool(radek[2])}
 
 
 def polozka_pro_uzivatele(id_polozky, id_uzivatele):
