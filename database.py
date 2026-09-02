@@ -41,6 +41,30 @@ VYCHOZI_PRAVA = ("nakup",)
 ABECEDA_KODU = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
+def _migrace_zabrana(db, nazev):
+    """
+    Zabere jednorázovou migraci pro sebe. True = má ji provést tenhle proces.
+
+    PROČ TO NESTAČÍ OHLÍDAT DOTAZEM "už je to hotové?": gunicorn spouští na
+    serveru dva workery naráz a oba se zeptají dřív, než kterýkoliv z nich
+    stihne cokoliv zapsat. Oba dostanou "ještě ne" a oba migraci provedou.
+    Přesně tak po prvním nasazení vznikly DVA seznamy "Domácnost".
+
+    Zápis do tabulky je proti tomu odolný: název je primární klíč, takže
+    druhý proces na něm neuspěje, ať se ptá kdykoliv. Nerozhoduje o tom
+    načasování, ale databáze.
+
+    Používá se jen u migrací, které NĚCO ZAKLÁDAJÍ. Přidání sloupce se
+    hlídat nemusí - to se buď povede, nebo skončí chybou "sloupec už je",
+    a obojí je v pořádku.
+    """
+    try:
+        db.execute("INSERT INTO migrace (nazev) VALUES (?)", (nazev,))
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+
 def _novy_kod():
     """
     Vyrobí kód pozvánky do seznamu, například 'K7M-4QP'.
@@ -168,6 +192,16 @@ def init_db():
         #
         # klic je název malými písmeny - díky němu se "Mléko" a "mléko"
         # počítají jako jedna položka.
+        # Které jednorázové migrace už proběhly.
+        #
+        # Slouží jako zámek, ne jako záznam pro lidi - viz _migrace_zabrana().
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS migrace (
+                nazev     TEXT PRIMARY KEY,
+                provedena TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+
         # Nákupní seznamy.
         #
         # Jeden seznam = jedna parta lidí, co spolu nakupuje. Vlastník je
@@ -280,7 +314,7 @@ def init_db():
         # "aspoň jeden správce" pak zaručí, že tabulka nikdy neklesne na nulu).
         prazdna = db.execute("SELECT COUNT(*) FROM opravneni").fetchone()[0] == 0
         nejaci = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] > 0
-        if prazdna and nejaci:
+        if prazdna and nejaci and _migrace_zabrana(db, "prvni_opravneni"):
             for (id_u,) in db.execute("SELECT id FROM uzivatele").fetchall():
                 for tab in VSECHNY_TABY:
                     db.execute(
@@ -331,7 +365,9 @@ def init_db():
                 LIMIT 1
             """).fetchone()
 
-            if vlastnik:
+            # Zámek až tady: na prázdné databázi bez účtů není co zakládat
+            # a nemá smysl si migraci zabírat - udělá se, až účet vznikne.
+            if vlastnik and _migrace_zabrana(db, "prvni_seznam"):
                 id_vlastnika = vlastnik[0]
                 db.execute(
                     "INSERT INTO seznamy (nazev, vlastnik_id, kod) VALUES (?, ?, ?)",
@@ -361,6 +397,42 @@ def init_db():
                         (SELECT id FROM uzivatele WHERE jmeno = nakup.koupil)
                     WHERE koupil_id IS NULL AND koupil IS NOT NULL
                 """)
+
+        # ÚKLID po chybě: první nasazení založilo "Domácnost" dvakrát.
+        #
+        # Oba workery migraci provedly současně (proto teď existuje
+        # _migrace_zabrana). Položky i historie skončily jen v jednom z nich,
+        # druhý zůstal prázdný. Necháme ten s obsahem a prázdné duplikáty
+        # smažeme.
+        #
+        # Maže se JEN seznam, ve kterém není vůbec nic. Kdyby se obsah nějak
+        # rozdělil do obou, radši zůstanou oba a člověk si to srovná ručně -
+        # tichá ztráta cizích položek je horší než dva seznamy v proužku.
+        if _migrace_zabrana(db, "uklid_dvojiteho_seznamu"):
+            skupiny = db.execute("""
+                SELECT s.nazev, s.vlastnik_id, COUNT(*)
+                FROM seznamy s GROUP BY s.nazev, s.vlastnik_id
+                HAVING COUNT(*) > 1
+            """).fetchall()
+
+            for nazev, vlastnik_id, _ in skupiny:
+                stejne = db.execute("""
+                    SELECT s.id,
+                           (SELECT COUNT(*) FROM nakup n WHERE n.seznam_id = s.id)
+                         + (SELECT COUNT(*) FROM historie_nakupu h
+                            WHERE h.seznam_id = s.id) AS obsah
+                    FROM seznamy s
+                    WHERE s.nazev = ? AND s.vlastnik_id = ?
+                    ORDER BY s.id
+                """, (nazev, vlastnik_id)).fetchall()
+
+                # Necháme ten s nejvíc obsahem; při shodě ten starší.
+                nechat = max(stejne, key=lambda r: (r[1], -r[0]))[0]
+                for id_seznamu, obsah in stejne:
+                    if id_seznamu != nechat and obsah == 0:
+                        db.execute("DELETE FROM clenove_seznamu WHERE seznam_id = ?",
+                                   (id_seznamu,))
+                        db.execute("DELETE FROM seznamy WHERE id = ?", (id_seznamu,))
 
         # MIGRACE: historie se vede zvlášť pro každý seznam.
         #
