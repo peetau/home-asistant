@@ -418,10 +418,16 @@ def dashboard():
     solax, solax_chyba = (
         _stav_solax() if "solary" in prava else (None, None))
 
+    # Nákupní seznamy. Pro někoho, kdo nemá právo na žádné zařízení, je to
+    # jediný obsah Přehledu - dřív tam měl jen uvítací kartu a nic víc.
+    seznamy = (database.seznamy_uzivatele(session["uzivatel_id"])
+               if "nakup" in prava else [])
+
     return render_template(
         "prehled.html", aktivni="prehled",
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
+        seznamy=seznamy,
     )
 
 

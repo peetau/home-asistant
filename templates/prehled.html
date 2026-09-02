@@ -74,18 +74,40 @@
     </div>
     {% endif %}
 
-    {# Když uživatel nemá právo na žádné zařízení, ať nekouká na prázdno. #}
-    {% if "solary" not in prava and "nanoleaf" not in prava %}
+    {# ---------- Nákupní seznamy ---------- #}
+    {# Dlaždice s počtem chybějících položek. Kdo nemá právo na žádné
+       zařízení, má tady tohle jako jediný obsah Přehledu - dřív koukal
+       na uvítací kartu a nic víc. #}
+    {% if "nakup" in prava %}
+    <div class="karta">
+        <h2>🛒 Nákupní seznamy</h2>
+
+        {% if seznamy %}
+            <div class="dlazdice">
+                {% for s in seznamy %}
+                <a class="polozka seznam-dlazdice"
+                   href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}">
+                    <div class="popisek">{{ s.nazev }}</div>
+                    <div class="hodnota">{{ s.chybi if s.chybi else "✓" }}</div>
+                    <div class="popisek">
+                        {% if s.chybi %}chybí{% else %}vše koupeno{% endif %}</div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="prazdno">Zatím nemáš žádný nákupní seznam.
+               Založ si ho na <a href="{{ url_for('nakup') }}">Nákupu</a>.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Kdo nemá právo vůbec na nic, ať nekouká na prázdnou stránku. #}
+    {% if "solary" not in prava and "nanoleaf" not in prava
+          and "nakup" not in prava %}
     <div class="karta">
         <h2>👋 Vítej</h2>
-        {% if "nakup" in prava %}
-            <p class="prazdno">Zařízení máš skrytá.
-               Co ti zbývá koupit, najdeš na
-               <a href="{{ url_for('nakup') }}">nákupním seznamu</a>.</p>
-        {% else %}
-            <p class="prazdno">Zatím ti nikdo nepřidělil přístup k žádné části.
-               Řekni si správci.</p>
-        {% endif %}
+        <p class="prazdno">Zatím ti nikdo nepřidělil přístup k žádné části.
+           Řekni si správci.</p>
     </div>
     {% endif %}
 

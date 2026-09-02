@@ -498,14 +498,19 @@ def seznamy_uzivatele(id_uzivatele):
     """
     Vrátí seznamy, na které uživatel má právo - vlastní i ty, kam ho přizvali.
 
-    Vrací řádky (id, nazev, je_vlastnik), vlastní první. Tohle je JEDINÉ
-    místo, kde je napsané, co znamená "můj seznam" - všechno ostatní se na
-    něj odkazuje, aby to pravidlo nebylo rozeseté po aplikaci a nedalo se
-    někde omylem obejít.
+    Vrací řádky (id, nazev, je_vlastnik, chybi), vlastní první. Tohle je
+    JEDINÉ místo, kde je napsané, co znamená "můj seznam" - všechno ostatní
+    se na něj odkazuje, aby to pravidlo nebylo rozeseté po aplikaci a nedalo
+    se někde omylem obejít.
+
+    'chybi' je počet neodškrtnutých položek. Počítá ho poddotaz rovnou
+    v databázi; načítat kvůli číslu celý seznam by bylo zbytečné.
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
+            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik,
+                   (SELECT COUNT(*) FROM nakup n
+                    WHERE n.seznam_id = s.id AND n.koupeno = 0) AS chybi
             FROM seznamy s
             WHERE s.vlastnik_id = ?
                OR s.id IN (SELECT seznam_id FROM clenove_seznamu
@@ -514,7 +519,8 @@ def seznamy_uzivatele(id_uzivatele):
         """, (id_uzivatele, id_uzivatele, id_uzivatele)).fetchall()
 
     # Slovníky, ne n-tice: v šabloně se pak píše s.nazev místo s[1].
-    return [{"id": r[0], "nazev": r[1], "je_vlastnik": bool(r[2])} for r in radky]
+    return [{"id": r[0], "nazev": r[1], "je_vlastnik": bool(r[2]), "chybi": r[3]}
+            for r in radky]
 
 
 def vychozi_seznam(id_uzivatele):

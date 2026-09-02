@@ -558,6 +558,22 @@ footer {
     font-weight: 600;
 }
 
+/* Dlaždice se seznamem na Přehledu. Celá je odkaz, ať se na mobilu
+   dobře trefuje palcem. */
+.seznam-dlazdice {
+    display: block;
+    padding: .8rem .9rem;
+    border: 1px solid var(--okraj);
+    border-radius: 10px;
+    background: var(--karta-2);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .15s ease;
+}
+.seznam-dlazdice:hover { border-color: var(--zelena); }
+.seznam-dlazdice .hodnota { color: var(--zelena); margin: .1rem 0; }
+
+
 /* ---- Plovoucí tlačítko "Seznam" ---- */
 
 /*
