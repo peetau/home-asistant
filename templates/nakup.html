@@ -193,16 +193,6 @@
             </form>
         </div>
 
-        <div class="sprava-blok">
-            <h3>Připojit se k cizímu seznamu</h3>
-            <form method="post" action="{{ url_for('nakup_pripojit') }}"
-                  class="pridat-form">
-                <input type="text" name="kod" placeholder="Kód pozvánky"
-                       required autocomplete="off" maxlength="20">
-                <button type="submit">Připojit</button>
-            </form>
-        </div>
-
         {# Kdo je na seznamu. Vidí to všichni, kdo na něm jsou - sdílejí
            spolu nákup, tak ať vědí s kým. Odebírat smí jen vlastník. #}
         <div class="sprava-blok">
@@ -275,5 +265,34 @@
     </details>
 
     {% endif %}
+
+    {# ---------- Připojit se k cizímu seznamu ---------- #}
+    {#
+       Plovoucí tlačítko v rohu. Bylo to schované v rozbalovací kartě dole,
+       jenže připojit se ke sdílenému seznamu je to první, co člověk po
+       obdržení kódu chce udělat - a hledat to nemá kde.
+
+       Je to <details>, ne JavaScript: <summary> se dá otevřít klepnutím
+       i klávesnicí, stejně jako všechno ostatní rozbalovací v aplikaci.
+       Panel se otevírá NAD tlačítko, protože tlačítko sedí dole (viz
+       flex-direction: column-reverse ve stylech).
+    #}
+    <details class="pripojit-plovouci">
+        <summary title="Připojit se k seznamu podle kódu pozvánky">
+            <span class="plus" aria-hidden="true">+</span>
+            <span class="popis">Připojit se</span>
+        </summary>
+
+        <div class="pripojit-panel">
+            <h3>Připojit se k seznamu</h3>
+            <p class="popisek-radku">Zadej kód pozvánky, který ti někdo poslal.</p>
+            <form method="post" action="{{ url_for('nakup_pripojit') }}"
+                  class="pridat-form">
+                <input type="text" name="kod" placeholder="např. K7M-4QP"
+                       required autocomplete="off" maxlength="20">
+                <button type="submit">Připojit</button>
+            </form>
+        </div>
+    </details>
 
 {% endblock %}

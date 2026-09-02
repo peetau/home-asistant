@@ -558,6 +558,73 @@ footer {
     font-weight: 600;
 }
 
+/* ---- Plovoucí tlačítko "Připojit se" ---- */
+
+/*
+  Sedí v pravém dolním rohu obrazovky nad vším ostatním. column-reverse
+  obrací pořadí: <summary> je v HTML první, ale vykreslí se dole, takže
+  se panel otevře NAD tlačítko a nevyleze z obrazovky.
+*/
+.pripojit-plovouci {
+    position: fixed;
+    right: 1rem;
+    bottom: 1.2rem;
+    z-index: 20;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: .6rem;
+}
+
+.pripojit-plovouci > summary {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .7rem 1.1rem;
+    border-radius: 999px;
+    background: var(--zelena);
+    color: var(--na-zelene);
+    font-weight: 600;
+    font-size: .9rem;
+    box-shadow: var(--stin-2);
+    cursor: pointer;
+    white-space: nowrap;
+    list-style: none;
+}
+/* Trojúhelníček, který prohlížeč sám kreslí u <summary>, tu nechceme. */
+.pripojit-plovouci > summary::-webkit-details-marker { display: none; }
+.pripojit-plovouci > summary::marker { content: ""; }
+.pripojit-plovouci > summary:hover { background: var(--zelena-tmava); }
+
+/* Otevřené se plus otočí na křížek - jedna otáčka místo druhé ikony. */
+.pripojit-plovouci .plus {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform .2s ease;
+}
+.pripojit-plovouci[open] .plus { transform: rotate(45deg); }
+
+.pripojit-panel {
+    width: min(19rem, calc(100vw - 2rem));
+    padding: 1.1rem 1.2rem;
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: var(--radius);
+    box-shadow: var(--stin-2);
+}
+.pripojit-panel h3 { margin: 0 0 .3rem; font-size: 1rem; }
+.pripojit-panel p { margin: 0 0 .8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+    .pripojit-plovouci .plus { transition: none; }
+}
+
+/* Na mobilu je dole přišpendlená navigace - tlačítko musí nad ni. */
+@media (max-width: 640px) {
+    .pripojit-plovouci { bottom: 5.2rem; }
+}
+
+
 /* Seznam lidí na nákupním seznamu. */
 .clenove { list-style: none; margin: 0 0 .3rem; padding: 0; }
 .clenove li {
