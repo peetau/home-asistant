@@ -88,7 +88,7 @@
                 <a class="polozka seznam-dlazdice"
                    href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}">
                     <div class="popisek">{{ s.nazev }}</div>
-                    <div class="hodnota">{{ s.chybi if s.chybi else "✓" }}</div>
+                    <div class="hodnota {{ 'chybi' if s.chybi }}">{{ s.chybi if s.chybi else "✓" }}</div>
                     <div class="popisek">
                         {% if s.chybi %}chybí{% else %}vše koupeno{% endif %}</div>
                 </a>

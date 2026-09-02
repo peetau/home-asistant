@@ -571,7 +571,10 @@ footer {
     transition: border-color .15s ease;
 }
 .seznam-dlazdice:hover { border-color: var(--zelena); }
+/* Zelená je "hotovo", ne "je toho čtyři". Číslo chybějících položek
+   je úkol, ne úspěch - proto červeně; fajfka za odškrtaný seznam zeleně. */
 .seznam-dlazdice .hodnota { color: var(--zelena); margin: .1rem 0; }
+.seznam-dlazdice .hodnota.chybi { color: var(--cervena); }
 
 
 /* ---- Plovoucí tlačítko "Seznam" ---- */
