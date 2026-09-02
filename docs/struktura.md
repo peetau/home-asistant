@@ -70,6 +70,25 @@ provozní souvislosti v [`provoz.md`](provoz.md).
 na něm zapisuje měření do databáze. Potkávají se jen přes `asistent.db`,
 takže když jeden spadne, druhý běží dál.
 
+**Migrace, která něco ZAKLÁDÁ, si to musí zamknout.** Gunicorn spouští dva
+workery naráz. Když se migrace hlídá jen dotazem „už je to hotové?", oba se
+zeptají dřív, než kterýkoliv stihne zapsat, oba dostanou „ještě ne" a oba ji
+provedou — takhle na serveru vznikly dva stejné seznamy. Od té doby je
+v databázi tabulka `migrace` a funkce `_migrace_zabrana()`; o tom, kdo
+migraci provede, rozhoduje databáze, ne načasování. Přidání sloupce se
+hlídat nemusí, to se buď povede, nebo skončí chybou „sloupec už je".
+
+**U nákupu vede každý přístup jednou brankou.** `polozka_pro_uzivatele()`
+a `seznam_pro_uzivatele()` vrátí data jen tomu, kdo na ně má právo, a rovnou
+v SQL spočítají, jestli je smí i měnit. Route pak jen zavolá branku a při
+`None` vrátí **404, ne 403** — kdo na cizí seznam nemá právo, nemá se ani
+dozvědět, že existuje. Kód pozvánky se stejným způsobem vůbec nedostane do
+šablony tomu, kdo ho vidět nesmí.
+
+**Čeština nezná rod uživatele.** „Hana koupil" praští do očí, takže se
+u položky píše „koupil(a)" a ve vyúčtování sloveso není vůbec — říká ho
+jednou nadpis. Kdyby přibývaly další věty o lidech, počítej s tím.
+
 **`devices/solax.py` je naše mapa, ne dokumentace.** Dongle posílá pole tří
 set čísel bez jakéhokoliv popisu; co které znamená, jsme museli odvodit.
 Vršek souboru je proto tabulka indexů a je na ní postavené všechno ostatní.

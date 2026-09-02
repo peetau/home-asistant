@@ -5,17 +5,33 @@ neopakuje — jinak by si obojí dřív nebo později začalo protiřečit.
 
 **Kde jsme:** aplikace je nasazená a rodina se do ní přihlašuje odkudkoliv
 přes vlastní doménu. Čte soláry i Nanoleaf, kreslí grafy z historie, Nanoleaf
-umí i ovládat, vede společný nákupní seznam a spravuje účty a jejich práva.
-Tab Soláry ukazuje diagram toku energie, dnešní bilanci a čtyři grafy.
+umí i ovládat a spravuje účty a jejich práva. Tab Soláry ukazuje diagram toku
+energie, dnešní bilanci a čtyři grafy.
+
+**Aplikace se posunula od nástěnky našeho baráku k osobnímu asistentovi.**
+Taby se tím rozpadly na dva druhy:
+
+| druh | taby | kdo | co právo znamená |
+|---|---|---|---|
+| **dům** | Soláry, Nanoleaf | jen rodina | důvěra k naší domácnosti |
+| **nástroje** | Nákup | kdokoliv | nic citlivého, jen tvoje data |
+
+Nákup proto umí **sdílené seznamy**: každý si může založit vlastní, pozvat
+do něj kohokoliv kódem a k zařízením v domě se ten člověk nedostane.
 
 **Co se dělá teď.** Postupně se prochází taby, každý dostane svoje kolo
 práce, a až potom se zamyká přihlášení:
 
-1. ~~tab **Nákup**~~ — hotovo
+1. ~~tab **Nákup**~~ — hotovo, a v září 2026 celý přestavěný na sdílené
+   seznamy (viz níž)
 2. ~~tab **Správa**~~ — hotovo
 3. ~~tab **Soláry**~~ — hotovo (1. 9. 2026)
-4. **Přehled** (dashboard) — na řadě
-5. **limit pokusů o přihlášení** — formulář je veřejně na internetu a nemá
+4. ~~**Přehled** (dashboard)~~ — dostal dlaždice s nákupními seznamy;
+   větší kolo práce ho ještě čeká
+5. **registrace** — účty zatím zakládá správce ručně. Až se otevře
+   registrace, přestane být limit pokusů odloženou věcí a stane se
+   **podmínkou**
+6. **limit pokusů o přihlášení** — formulář je veřejně na internetu a nemá
    žádný strop na počet pokusů; podrobnosti a další odložené věci jsou
    v [`dalsi-kroky.md`](dalsi-kroky.md)
 
@@ -61,3 +77,10 @@ v jakém se stihly.
   včetně soběstačnosti, proužek s dopadajícím slunečním zářením z předpovědi
   počasí a čtyři grafy za 24 hodin. Tok sítě má graf obousměrný — nulu
   uprostřed, nad ní dodávku, pod ní odběr.
+- **Sdílené nákupní seznamy** — každý uživatel si může založit vlastní
+  seznam a pozvat do něj kohokoliv **kódem pozvánky**. Vlastník seznam
+  přejmenuje, odebírá členy a rozhoduje, jestli smí zvát i oni; člen může
+  přidávat a odškrtávat cokoliv, ale upravit nebo smazat jen to svoje.
+  U koupené položky je vidět, **kdo koupil komu a za kolik**, a pod
+  seznamem se z toho spočítá **vyúčtování** — kdo kolik zaplatil a kdo komu
+  co vrátí (vzájemné dluhy se odečítají).
