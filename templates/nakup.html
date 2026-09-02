@@ -171,27 +171,17 @@
     </details>
     {% endif %}
 
-    {# ---------- Správa seznamů ---------- #}
+    {# ---------- Správa seznamu ---------- #}
     {#
-       Všechno kolem seznamů na jednom místě, dole a sbalené. Zakládání
-       bylo původně tlačítkem v proužku nahoře, ale otevřený formulář
-       proužek rozhodil a hlavně se pletl s polem "Co je potřeba koupit?" -
-       dvě skoro stejná políčka pod sebou.
+       Všechno kolem TOHOHLE seznamu: kdo na něm je, jak se jmenuje, koho
+       pozvat a kdy ho zrušit.
 
-       V kroku 4 sem přibude pozvánka a připojení ke kódu.
+       Zakládání nového seznamu a připojení ke kódu tu schválně NEJSOU -
+       obojí přidává seznam, ne mění tenhle, a patří k plovoucímu tlačítku
+       v rohu. Tady dole by se to hledalo.
     #}
     <details class="karta seznamy-sprava">
-        <summary>Správa seznamů</summary>
-
-        <div class="sprava-blok">
-            <h3>Nový seznam</h3>
-            <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
-                  class="pridat-form">
-                <input type="text" name="nazev" placeholder="Název seznamu"
-                       required autocomplete="off" maxlength="60">
-                <button type="submit">Založit</button>
-            </form>
-        </div>
+        <summary>Správa seznamu</summary>
 
         {# Kdo je na seznamu. Vidí to všichni, kdo na něm jsou - sdílejí
            spolu nákup, tak ať vědí s kým. Odebírat smí jen vlastník. #}
@@ -266,32 +256,45 @@
 
     {% endif %}
 
-    {# ---------- Připojit se k cizímu seznamu ---------- #}
+    {# ---------- Přibrat seznam ---------- #}
     {#
-       Plovoucí tlačítko v rohu. Bylo to schované v rozbalovací kartě dole,
-       jenže připojit se ke sdílenému seznamu je to první, co člověk po
-       obdržení kódu chce udělat - a hledat to nemá kde.
+       Plovoucí tlačítko v rohu. Obě cesty, jak přijít k dalšímu seznamu -
+       založit si vlastní, nebo se připojit k cizímu podle kódu. Obojí bylo
+       schované v rozbalovací kartě dole, jenže připojit se ke sdílenému
+       seznamu je to první, co člověk po obdržení kódu chce udělat.
 
        Je to <details>, ne JavaScript: <summary> se dá otevřít klepnutím
        i klávesnicí, stejně jako všechno ostatní rozbalovací v aplikaci.
        Panel se otevírá NAD tlačítko, protože tlačítko sedí dole (viz
        flex-direction: column-reverse ve stylech).
     #}
-    <details class="pripojit-plovouci">
-        <summary title="Připojit se k seznamu podle kódu pozvánky">
+    <details class="seznam-plovouci">
+        <summary title="Založit nový seznam nebo se připojit k cizímu">
             <span class="plus" aria-hidden="true">+</span>
-            <span class="popis">Připojit se</span>
+            <span class="popis">Seznam</span>
         </summary>
 
-        <div class="pripojit-panel">
-            <h3>Připojit se k seznamu</h3>
-            <p class="popisek-radku">Zadej kód pozvánky, který ti někdo poslal.</p>
-            <form method="post" action="{{ url_for('nakup_pripojit') }}"
-                  class="pridat-form">
-                <input type="text" name="kod" placeholder="např. K7M-4QP"
-                       required autocomplete="off" maxlength="20">
-                <button type="submit">Připojit</button>
-            </form>
+        <div class="seznam-panel">
+            <div class="blok">
+                <h3>Nový seznam</h3>
+                <form method="post" action="{{ url_for('nakup_novy_seznam') }}"
+                      class="pridat-form">
+                    <input type="text" name="nazev" placeholder="Název seznamu"
+                           required autocomplete="off" maxlength="60">
+                    <button type="submit">Založit</button>
+                </form>
+            </div>
+
+            <div class="blok">
+                <h3>Připojit se k cizímu</h3>
+                <p class="popisek-radku">Kód pozvánky, který ti někdo poslal.</p>
+                <form method="post" action="{{ url_for('nakup_pripojit') }}"
+                      class="pridat-form">
+                    <input type="text" name="kod" placeholder="např. K7M-4QP"
+                           required autocomplete="off" maxlength="20">
+                    <button type="submit">Připojit</button>
+                </form>
+            </div>
         </div>
     </details>
 
