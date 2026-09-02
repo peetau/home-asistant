@@ -1411,7 +1411,10 @@ details.karta[open] summary { margin-bottom: 1rem; }
     margin-top: .9rem;
 }
 .caste form { margin: 0; }
-.caste-popisek { font-size: .8rem; color: var(--text-slaby); }
+/* Popisek před řadou tlačítek ("Seznamy:", "Často:"). Používá se na dvou
+   místech, proto obecný název - kdyby zůstal u "častých", vypadalo by
+   jeho použití u seznamů jako omyl. */
+.popisek-radku { font-size: .8rem; color: var(--text-slaby); }
 
 .caste-tlacitko {
     font: inherit;

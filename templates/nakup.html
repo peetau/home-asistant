@@ -91,6 +91,7 @@
            mezi čím a jedno osamocené tlačítko by jen mátlo. #}
         {% if moje_seznamy|length > 1 %}
         <div class="seznamy">
+            <span class="popisek-radku">Seznamy:</span>
             {% for s in moje_seznamy %}
                 <a href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}"
                    class="seznam-chip {{ 'aktivni' if s.id == seznam.id }}">
@@ -119,7 +120,7 @@
         #}
         {% if caste %}
         <div class="caste">
-            <span class="caste-popisek">Často:</span>
+            <span class="popisek-radku">Často:</span>
             {% for nazev in caste %}
                 <form method="post"
                       action="{{ url_for('nakup_pridat', id_seznamu=seznam.id) }}">
