@@ -41,6 +41,22 @@ VYCHOZI_PRAVA = ("nakup",)
 ABECEDA_KODU = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
+def _uprav_kod(kod):
+    """
+    Srovná ručně opsaný kód do tvaru, ve kterém je uložený: 'K7M-4QP'.
+
+    Lidi ho budou přepisovat z telefonu na telefon, takže může přijít malými
+    písmeny, bez pomlčky nebo s mezerami. Zahodíme všechno, co do abecedy
+    kódů nepatří, a pomlčku doplníme sami.
+
+    Vrací None, když po očištění nezbylo přesně šest znaků.
+    """
+    znaky = "".join(z for z in (kod or "").upper() if z in ABECEDA_KODU)
+    if len(znaky) != 6:
+        return None
+    return znaky[:3] + "-" + znaky[3:]
+
+
 def _migrace_zabrana(db, nazev):
     """
     Zabere jednorázovou migraci pro sebe. True = má ji provést tenhle proces.
@@ -616,7 +632,7 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
     """
     with _spojeni() as db:
         radek = db.execute("""
-            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik
+            SELECT s.id, s.nazev, s.vlastnik_id = ? AS je_vlastnik, s.kod
             FROM seznamy s
             WHERE s.id = ?
               AND (s.vlastnik_id = ?
@@ -626,7 +642,8 @@ def seznam_pro_uzivatele(id_seznamu, id_uzivatele):
 
     if radek is None:
         return None
-    return {"id": radek[0], "nazev": radek[1], "je_vlastnik": bool(radek[2])}
+    return {"id": radek[0], "nazev": radek[1], "je_vlastnik": bool(radek[2]),
+            "kod": radek[3]}
 
 
 def polozka_pro_uzivatele(id_polozky, id_uzivatele):
@@ -662,6 +679,125 @@ def polozka_pro_uzivatele(id_polozky, id_uzivatele):
     if radek is None:
         return None
     return {"id": radek[0], "seznam_id": radek[1], "smi_upravit": bool(radek[2])}
+
+
+def pripoj_kodem(kod, id_uzivatele):
+    """
+    Připojí uživatele k seznamu podle kódu pozvánky.
+
+    Vrací (povedlo_se, hláška, id_seznamu). id_seznamu se vrací i při
+    neúspěchu z důvodu "už na něm jsi" - je kam poslat, a je to vstřícnější
+    než hlásit chybu a nechat člověka stát na místě.
+
+    Hláška u neznámého kódu záměrně neříká, jestli takový seznam neexistuje,
+    nebo jestli na něj jen nemáš právo. Není z čeho vyčíst, které kódy
+    platí.
+    """
+    upraveny = _uprav_kod(kod)
+    if upraveny is None:
+        return False, "Kód má šest znaků, například K7M-4QP.", None
+
+    with _spojeni() as db:
+        seznam = db.execute(
+            "SELECT id, nazev, vlastnik_id FROM seznamy WHERE kod = ?",
+            (upraveny,)).fetchone()
+        if seznam is None:
+            return False, "Takový kód nikam nevede.", None
+
+        id_seznamu, nazev, vlastnik_id = seznam
+        if vlastnik_id == id_uzivatele:
+            return False, "Tenhle seznam je tvůj vlastní.", id_seznamu
+
+        try:
+            db.execute(
+                "INSERT INTO clenove_seznamu (seznam_id, uzivatel_id) VALUES (?, ?)",
+                (id_seznamu, id_uzivatele))
+        except sqlite3.IntegrityError:
+            # Dvojice (seznam, uživatel) je primární klíč, takže druhé
+            # připojení databáze sama odmítne.
+            return False, "Na seznamu %s už jsi." % nazev, id_seznamu
+
+    return True, "Připojeno k seznamu %s." % nazev, id_seznamu
+
+
+def clenove(id_seznamu):
+    """
+    Kdo je na seznamu. Vlastník první, pak přizvaní podle abecedy.
+
+    Vlastník není v tabulce členů (je sloupcem v tabulce seznamů), takže se
+    obě skupiny musí spojit - od toho je UNION ALL.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT u.id, u.jmeno, 1 AS je_vlastnik
+            FROM seznamy s JOIN uzivatele u ON u.id = s.vlastnik_id
+            WHERE s.id = ?
+            UNION ALL
+            SELECT u.id, u.jmeno, 0
+            FROM clenove_seznamu c JOIN uzivatele u ON u.id = c.uzivatel_id
+            WHERE c.seznam_id = ?
+            ORDER BY je_vlastnik DESC, jmeno
+        """, (id_seznamu, id_seznamu)).fetchall()
+
+    return [{"id": r[0], "jmeno": r[1], "je_vlastnik": bool(r[2])} for r in radky]
+
+
+def novy_kod_seznamu(id_seznamu, id_vlastnika):
+    """
+    Vygeneruje nový kód pozvánky. Starý tím přestane platit.
+
+    Hodí se, když se kód dostal někam, kam neměl - na nikoho, kdo už je
+    členem, to nemá vliv.
+    """
+    with _spojeni() as db:
+        for _ in range(5):
+            try:
+                kurzor = db.execute(
+                    "UPDATE seznamy SET kod = ? WHERE id = ? AND vlastnik_id = ?",
+                    (_novy_kod(), id_seznamu, id_vlastnika))
+                if kurzor.rowcount == 0:
+                    return False, "Změnit kód může jen vlastník seznamu."
+                return True, "Nový kód vygenerován, starý už neplatí."
+            except sqlite3.IntegrityError:
+                continue
+    return False, "Nepodařilo se vyrobit nový kód, zkus to znovu."
+
+
+def odeber_clena(id_seznamu, id_vlastnika, id_clena):
+    """
+    Odebere člena ze seznamu. Smí to jen vlastník.
+
+    Položky, které člen přidal, na seznamu ZŮSTÁVAJÍ - patří seznamu, ne
+    jemu. Přestane je jen vidět.
+    """
+    with _spojeni() as db:
+        kurzor = db.execute("""
+            DELETE FROM clenove_seznamu
+            WHERE seznam_id = ? AND uzivatel_id = ?
+              AND EXISTS (SELECT 1 FROM seznamy
+                          WHERE id = ? AND vlastnik_id = ?)
+        """, (id_seznamu, id_clena, id_seznamu, id_vlastnika))
+
+    if kurzor.rowcount == 0:
+        return False, "Odebrat člena může jen vlastník seznamu."
+    return True, "Člen odebrán."
+
+
+def opust_seznam(id_seznamu, id_uzivatele):
+    """
+    Odchod ze seznamu, na který mě někdo přizval.
+
+    Vlastník odejít nemůže - seznam by zůstal bez vlastníka. Ten ho musí
+    buď smazat, nebo (až to půjde) předat.
+    """
+    with _spojeni() as db:
+        kurzor = db.execute(
+            "DELETE FROM clenove_seznamu WHERE seznam_id = ? AND uzivatel_id = ?",
+            (id_seznamu, id_uzivatele))
+
+    if kurzor.rowcount == 0:
+        return False, "Ze svého vlastního seznamu odejít nejde."
+    return True, "Seznam jsi opustil."
 
 
 def pridej_polozku(seznam_id, text, kdo, kdo_id, mnozstvi=None):

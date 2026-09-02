@@ -664,6 +664,7 @@ def nakup_seznam(id_seznamu):
         # ať tlačítko neslibuje víc, než udělá.
         k_uklidu=sum(1 for p in koupene if p[6]),
         caste=_bezpecne(lambda: database.caste_polozky(id_seznamu))[0] or [],
+        clenove=database.clenove(id_seznamu),
         chyba=request.args.get("chyba"), zprava=request.args.get("zprava"),
     )
 
@@ -720,6 +721,49 @@ def nakup_smazat_seznam(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.smaz_seznam(id_seznamu, session["uzivatel_id"])
     if ok:
+        return redirect(url_for("nakup", zprava=hlaska))
+    return _zpet(id_seznamu, chyba=hlaska)
+
+
+@app.route("/nakup/pripojit", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_pripojit():
+    """Připojení k cizímu seznamu podle kódu pozvánky."""
+    ok, hlaska, id_seznamu = database.pripoj_kodem(
+        request.form.get("kod", ""), session["uzivatel_id"])
+
+    # Když seznam známe, pošleme člověka rovnou na něj - i v případě
+    # "už na něm jsi". Nechat ho stát na místě s chybou by bylo zbytečně
+    # nevlídné, když je vlastně tam, kam chtěl.
+    if id_seznamu is None:
+        return redirect(url_for("nakup", chyba=hlaska))
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
+@app.route("/nakup/<int:id_seznamu>/novy-kod", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_novy_kod(id_seznamu):
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.novy_kod_seznamu(id_seznamu, session["uzivatel_id"])
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
+@app.route("/nakup/<int:id_seznamu>/odebrat/<int:id_clena>", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_odebrat_clena(id_seznamu, id_clena):
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.odeber_clena(
+        id_seznamu, session["uzivatel_id"], id_clena)
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
+@app.route("/nakup/<int:id_seznamu>/odejit", methods=["POST"])
+@vyzaduje_pravo("nakup")
+def nakup_odejit(id_seznamu):
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.opust_seznam(id_seznamu, session["uzivatel_id"])
+    if ok:
+        # Na seznam už právo nemá, takže zpátky na něj poslat nejde.
         return redirect(url_for("nakup", zprava=hlaska))
     return _zpet(id_seznamu, chyba=hlaska)
 

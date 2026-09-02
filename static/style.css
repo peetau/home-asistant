@@ -558,6 +558,41 @@ footer {
     font-weight: 600;
 }
 
+/* Seznam lidí na nákupním seznamu. */
+.clenove { list-style: none; margin: 0 0 .3rem; padding: 0; }
+.clenove li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .35rem 0;
+    border-top: 1px solid var(--okraj-jemny);
+}
+.clenove li:first-child { border-top: none; }
+.clenove form { margin: 0; }
+.clenove .popisek-radku { margin-left: .4rem; }
+
+/* Kód pozvánky. Je určený k přepisování, tak ať se dobře čte a dá
+   se pohodlně označit. */
+.pozvanka {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: .9rem;
+}
+.pozvanka form { margin: 0; }
+.kod {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 1.05rem;
+    letter-spacing: .08em;
+    padding: .25rem .6rem;
+    border: 1px dashed var(--okraj);
+    border-radius: 8px;
+    background: var(--karta-2);
+    user-select: all;
+}
+
 /* ---- Karta se správou seznamů ---- */
 
 /* Dva bloky pod sebou (založit / tenhle seznam) oddělené vlasovou linkou.

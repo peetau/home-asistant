@@ -193,8 +193,50 @@
             </form>
         </div>
 
-        {# Přejmenovat a smazat smí jen vlastník - členovi se tenhle blok
-           neukazuje, nebylo by v něm co nabídnout. #}
+        <div class="sprava-blok">
+            <h3>Připojit se k cizímu seznamu</h3>
+            <form method="post" action="{{ url_for('nakup_pripojit') }}"
+                  class="pridat-form">
+                <input type="text" name="kod" placeholder="Kód pozvánky"
+                       required autocomplete="off" maxlength="20">
+                <button type="submit">Připojit</button>
+            </form>
+        </div>
+
+        {# Kdo je na seznamu. Vidí to všichni, kdo na něm jsou - sdílejí
+           spolu nákup, tak ať vědí s kým. Odebírat smí jen vlastník. #}
+        <div class="sprava-blok">
+            <h3>Kdo je na seznamu</h3>
+            <ul class="clenove">
+                {% for c in clenove %}
+                <li>
+                    <span>{{ c.jmeno }}{% if c.je_vlastnik %}
+                        <span class="popisek-radku">vlastník</span>{% endif %}</span>
+                    {% if seznam.je_vlastnik and not c.je_vlastnik %}
+                    <form method="post"
+                          action="{{ url_for('nakup_odebrat_clena',
+                                             id_seznamu=seznam.id, id_clena=c.id) }}"
+                          data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
+                        <button type="submit" class="smazat" title="Odebrat">×</button>
+                    </form>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+
+            {# Člen může kdykoliv odejít. Vlastník ne - seznam by zůstal
+               bez vlastníka; ten ho musí smazat. #}
+            {% if not seznam.je_vlastnik %}
+            <form method="post"
+                  action="{{ url_for('nakup_odejit', id_seznamu=seznam.id) }}"
+                  class="uklid-form"
+                  data-potvrdit="Opravdu odejít ze seznamu „{{ seznam.nazev }}“?">
+                <button type="submit" class="uklidit">Odejít ze seznamu</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {# Přejmenovat, pozvat a smazat smí jen vlastník. #}
         {% if seznam.je_vlastnik %}
         <div class="sprava-blok">
             <h3>Tenhle seznam</h3>
@@ -206,6 +248,18 @@
                        required maxlength="60">
                 <button type="submit">Přejmenovat</button>
             </form>
+
+            {# Pozvánka. Kód se pošle komu chceš; kdo ho zadá, stane se
+               členem. Přegenerovat se hodí, když se dostane jinam. #}
+            <div class="pozvanka">
+                <span class="popisek-radku">Pozvánka:</span>
+                <code class="kod">{{ seznam.kod }}</code>
+                <form method="post"
+                      action="{{ url_for('nakup_novy_kod', id_seznamu=seznam.id) }}"
+                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
+                    <button type="submit" class="caste-tlacitko">Nový kód</button>
+                </form>
+            </div>
 
             {# Mazat jde jen úplně prázdný seznam - viz smaz_seznam()
                v database.py. Tlačítko je tu vždycky, ať je vidět, že to jde;
