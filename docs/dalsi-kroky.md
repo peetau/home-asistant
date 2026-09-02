@@ -28,6 +28,24 @@ a nerestartoval se při práci. Postup je stejný jako u desktopu.
 Doména běží na `asistant.pepacodes.cz`. Kdyby vadilo, dá se přidat
 `A` záznam pro `asistent.` a v Caddy nechat obojí.
 
+### Stránka Soláry je velká (284 kB)
+**Priorita: střední.** Grafy kreslí ke každému naměřenému bodu neviditelný
+kroužek s bublinou, aby šla hodnota přečíst po najetí myší. Při měření po
+pěti minutách to je 288 bodů za den, krát čtyři grafy — přes tisíc kroužků
+na stránce.
+
+Samo o sobě by to nevadilo, jenže stránka se obnovuje každých 30 sekund.
+Kdo ji nechá otevřenou na mobilních datech, protočí za hodinu kolem 34 MB.
+
+Přišlo se na to až ve chvíli, kdy sběrač poprvé naběhal celý den — do té
+doby bylo bodů pár desítek a nebylo to poznat.
+
+Co s tím:
+- kroužky kreslit jen u části bodů (na dotyk se stejně nedá trefit každý)
+- nebo data pro graf prořídit — na 720 bodů šířky je 288 hodnot zbytečně
+  jemné rozlišení
+- nebo obnovovat řidčeji, případně jen tu část stránky, která se mění
+
 ## Rozvoj
 
 - portfolio na `pepacodes.cz` — přidá se jako další blok v Caddy
