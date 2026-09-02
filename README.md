@@ -1,19 +1,29 @@
-# Domácí rodinný asistent
+# Domácí asistent
 
-Učební projekt: webová aplikace pro rodinu, která na jednom místě ukazuje
-data z domácnosti, drží společný nákupní seznam a ovládá chytrá zařízení.
-Staví se postupně a hlavním cílem není hotový produkt, ale pochopit, jak se
-takový systém dělá.
+Učební projekt: webová aplikace, která na jednom místě ukazuje to podstatné,
+drží sdílené nákupní seznamy a umí ovládat chytrá zařízení. Staví se
+postupně a hlavním cílem není hotový produkt, ale pochopit, jak se takový
+systém dělá.
 
-Běží nasazená na vlastní doméně, přihlašuje se do ní rodinnými účty.
+Běží nasazená na vlastní doméně.
+
+> **Zadání se 2. 9. 2026 změnilo.** Z nástěnky jedné domácnosti se stává
+> osobní asistent, který se má dát k dispozici i lidem mimo rodinu.
+> Soláry a Nanoleaf jsou zařízení jednoho konkrétního domu, takže
+> přestávají být jádrem a stávají se doplňkem — jádrem jsou **Přehled**
+> a **Nákup**. Proč, co z toho plyne a co se musí stihnout dřív, je
+> v [`docs/plan.md`](docs/plan.md). Název aplikace tuhle změnu ještě
+> nedohnal.
 
 ## Co umí
 
-- **Přehled** — domácí rozcestník s aktuálním stavem
-- **Soláry** — výkon a výroba elektrárny, grafy z historie
+- **Přehled** — pozdrav, datum se svátkem a počasí pro každého; pod tím
+  karty zařízení a nákupní seznamy podle práv
+- **Nákup** — sdílené seznamy s pozvánkami na kód, cenami u koupených
+  položek a vyúčtováním, kdo komu co vrátí
+- **Soláry** — výkon a výroba elektrárny, diagram toku energie, grafy
 - **Nanoleaf** — stav panelů i jejich ovládání (vypínač, jas, efekty)
-- **Nákup** — společný nákupní seznam pro celou rodinu
-- **Správa** — rodinné účty a jejich práva na jednotlivé taby
+- **Správa** — účty a jejich práva na jednotlivé taby
 
 Data se sbírají do vlastní databáze, dokud běží sběrač. Vzhled má světlý
 i tmavý motiv.
@@ -36,8 +46,12 @@ měření `sber.py`. Celý návod včetně `config.py` je v [`docs/provoz.md`](d
 
 | dokument | o čem je |
 |---|---|
-| [`docs/stav.md`](docs/stav.md) | kde projekt právě je a co se dělá dál |
+| [`docs/stav.md`](docs/stav.md) | co je hotové a co aplikace umí |
+| [`docs/plan.md`](docs/plan.md) | **kam to míří a v jakém pořadí** |
 | [`docs/struktura.md`](docs/struktura.md) | mapa souborů — co je kde a proč |
 | [`docs/provoz.md`](docs/provoz.md) | spuštění doma, rozdíly na serveru, zálohy |
-| [`docs/dalsi-kroky.md`](docs/dalsi-kroky.md) | věci, na které jsme narazili a odložili je |
+| [`docs/dalsi-kroky.md`](docs/dalsi-kroky.md) | odložené věci a jak je udělat |
 | [`docs/zadani-projektu.md`](docs/zadani-projektu.md) | původní zadání a vize (historický dokument) |
+
+Stav se vede **jen** ve `stav.md` a plán **jen** v `plan.md` — README je
+neopakuje, jinak by si to dřív nebo později začalo protiřečit.

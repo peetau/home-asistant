@@ -3,43 +3,69 @@
 Jediné místo, kde se vede stav. README na tenhle soubor odkazuje a sám ho
 neopakuje — jinak by si obojí dřív nebo později začalo protiřečit.
 
-**Kde jsme:** aplikace je nasazená a rodina se do ní přihlašuje odkudkoliv
-přes vlastní doménu. Čte soláry i Nanoleaf, kreslí grafy z historie, Nanoleaf
-umí i ovládat a spravuje účty a jejich práva. Tab Soláry ukazuje diagram toku
-energie, dnešní bilanci a čtyři grafy.
+Tenhle soubor je o **přítomnosti**: co je hotové a co aplikace umí. Kam to
+míří a v jakém pořadí, je v [`plan.md`](plan.md).
 
-**Aplikace se posunula od nástěnky našeho baráku k osobnímu asistentovi.**
-Taby se tím rozpadly na dva druhy:
+**Kde jsme:** aplikace je nasazená a přihlašuje se do ní odkudkoliv přes
+vlastní doménu. Čte soláry i Nanoleaf, kreslí grafy z historie, Nanoleaf umí
+i ovládat, drží sdílené nákupní seznamy a spravuje účty a jejich práva.
+
+**Zadání se ale 2. 9. 2026 změnilo.** Z nástěnky jedné domácnosti se stává
+**osobní asistent, který se má dát k dispozici i lidem mimo rodinu**.
+Soláry a Nanoleaf jsou zařízení jednoho konkrétního domu, takže přestávají
+být jádrem a stávají se doplňkem. Jádrem jsou **Přehled** a **Nákup**.
+Proč a co z toho plyne, je v [`plan.md`](plan.md).
+
+Taby se tím dělí na dva druhy — ne na dvě poloviny aplikace, ale podle
+toho, jestli potřebují hardware:
 
 | druh | taby | kdo | co právo znamená |
 |---|---|---|---|
-| **dům** | Soláry, Nanoleaf | jen rodina | důvěra k naší domácnosti |
-| **nástroje** | Nákup | kdokoliv | nic citlivého, jen tvoje data |
+| **dům** | Soláry, Nanoleaf | kdo ta zařízení má | důvěra k naší domácnosti |
+| **nástroje** | Přehled, Nákup | kdokoliv | nic citlivého, jen tvoje data |
 
-Nákup proto umí **sdílené seznamy**: každý si může založit vlastní, pozvat
-do něj kohokoliv kódem a k zařízením v domě se ten člověk nedostane.
+## Co aplikace umí
 
-**Co se dělá teď.** Postupně se prochází taby, každý dostane svoje kolo
-práce, a až potom se zamyká přihlášení:
+**Přehled** — nahoře osobní hlavička s pozdravem podle denní doby, datem se
+svátkem a počasím za oknem. Vidí ji **každý bez ohledu na práva**; do té doby
+platilo, že kdo má jen Nákup, kouká na jednu kartu, a kdo nemá nic, na větu
+„řekni si správci". Pod ní karty se zařízeními a dlaždice nákupních seznamů
+s počtem chybějících položek.
 
-1. ~~tab **Nákup**~~ — hotovo, a v září 2026 celý přestavěný na sdílené
-   seznamy (viz níž)
-2. ~~tab **Správa**~~ — hotovo
-3. ~~tab **Soláry**~~ — hotovo (1. 9. 2026)
-4. ~~**Přehled** (dashboard)~~ — dostal dlaždice s nákupními seznamy;
-   větší kolo práce ho ještě čeká
-5. **registrace** — účty zatím zakládá správce ručně. Až se otevře
-   registrace, přestane být limit pokusů odloženou věcí a stane se
-   **podmínkou**
-6. **limit pokusů o přihlášení** — formulář je veřejně na internetu a nemá
-   žádný strop na počet pokusů; podrobnosti a další odložené věci jsou
-   v [`dalsi-kroky.md`](dalsi-kroky.md)
+**Soláry** — diagram toku energie ve vlastním SVG (šipky podle znaménka,
+takže je vidět, kterým směrem energie teče), dnešní bilance včetně
+soběstačnosti, proužek s dopadajícím slunečním zářením z předpovědi počasí
+a čtyři grafy za 24 hodin. Tok sítě má graf obousměrný — nulu uprostřed,
+nad ní dodávku, pod ní odběr.
+
+**Nanoleaf** — stav panelů i ovládání: vypínač, jas, efekty. Obrázek podle
+skutečného rozložení panelů a režim návrhu (nejdřív náhled, do panelů se
+pošle až po Potvrdit). Jediná stránka s vlastním JavaScriptem.
+
+**Nákup** — **sdílené seznamy**: každý si může založit vlastní a pozvat do
+něj kohokoliv **kódem pozvánky**. Vlastník seznam přejmenuje, odebírá členy
+a rozhoduje, jestli smí zvát i oni; člen může přidávat a odškrtávat cokoliv,
+ale upravit nebo smazat jen to svoje. U koupené položky je vidět, **kdo
+koupil komu a za kolik**, a pod seznamem se z toho spočítá **vyúčtování** —
+kdo kolik zaplatil a kdo komu co vrátí (vzájemné dluhy se odečítají).
+
+**Správa** — zakládání a mazání účtů, práva na jednotlivé taby.
+
+**Přihlašovací obrazovka** — pozadí podle denní doby, předpověď počasí, datum
+se svátkem a indikátory sběru dat a zálohy databáze. Nepřihlášený návštěvník
+u indikátorů vidí jen tři stavy (v pořádku / problém / neznámo), žádné časy,
+čísla ani chybové hlášky.
+
+**Napříč aplikací** — tmavý režim s přepínačem, který přežije zavření
+prohlížeče. Sběrač `sber.py` plní databázi nezávisle na webu. Zabezpečená
+přihlašovací cookie, ProxyFix za Caddy a gunicorn; popsáno
+v [`provoz.md`](provoz.md).
 
 ## Roadmapa
 
 Číslování je z původního zadání ([`zadani-projektu.md`](zadani-projektu.md)).
 Ukazuje pořadí, v jakém dávaly jednotlivé dovednosti smysl se učit — ne pořadí,
-v jakém se stihly.
+v jakém se stihly. **Není to plán projektu**, ten je v [`plan.md`](plan.md).
 
 - [x] **1 — Python a Git** — odbyto rovnou na reálném projektu místo cvičení
 - [x] **2 — Web (Flask)** — data dostala stránku v prohlížeči: šablony,
@@ -49,9 +75,7 @@ v jakém se stihly.
 - [x] **4 — Přihlašování a rodinné účty** — hashovaná hesla, zamčený
       dashboard, práva na jednotlivé taby a jejich správa přímo v aplikaci
 - [x] **5 — Ovládání zařízení** — první zápis do zařízení, dosud se jen
-      četlo: vypínač, jas a efekty Nanoleaf, obrázek podle skutečného
-      rozložení panelů a režim návrhu (nejdřív náhled, do panelů se pošle
-      až po Potvrdit)
+      četlo
 - [x] **6 — Hardware naživo na webu** — stránka se sama obnovuje a ukazuje,
       co právě naměřil běžící sběrač
 - [x] **7 — Vzdálený přístup / hosting** — běží na vlastní doméně přes HTTPS,
@@ -61,26 +85,5 @@ v jakém se stihly.
       samostatná fáze
 - [ ] **9 — Rohlík (volitelný capstone)** — nezačato
 
-## Co přibylo mimo roadmapu
-
-- **Nákupní seznam** — společný pro rodinu: přidávání, odškrtávání, úklid
-- **Správa uživatelů** — zakládání a mazání účtů, práva na jednotlivé taby
-- **Tmavý režim** — přepínač motivu, volba přežije zavření prohlížeče
-- **Přihlašovací obrazovka** — pozadí podle denní doby, předpověď počasí,
-  datum se svátkem a indikátory sběru dat a zálohy databáze. Nepřihlášený
-  návštěvník u indikátorů vidí jen tři stavy (v pořádku / problém / neznámo),
-  žádné časy, čísla ani chybové hlášky
-- **Příprava na produkci** — zabezpečená přihlašovací cookie, ProxyFix za
-  Caddy a gunicorn; popsáno v [`provoz.md`](provoz.md)
-- **Tab Soláry** — diagram toku energie ve vlastním SVG (šipky podle
-  znaménka, takže je vidět, kterým směrem energie teče), dnešní bilance
-  včetně soběstačnosti, proužek s dopadajícím slunečním zářením z předpovědi
-  počasí a čtyři grafy za 24 hodin. Tok sítě má graf obousměrný — nulu
-  uprostřed, nad ní dodávku, pod ní odběr.
-- **Sdílené nákupní seznamy** — každý uživatel si může založit vlastní
-  seznam a pozvat do něj kohokoliv **kódem pozvánky**. Vlastník seznam
-  přejmenuje, odebírá členy a rozhoduje, jestli smí zvát i oni; člen může
-  přidávat a odškrtávat cokoliv, ale upravit nebo smazat jen to svoje.
-  U koupené položky je vidět, **kdo koupil komu a za kolik**, a pod
-  seznamem se z toho spočítá **vyúčtování** — kdo kolik zaplatil a kdo komu
-  co vrátí (vzájemné dluhy se odečítají).
+Roadmapa je tím v podstatě vyčerpaná. Co se dělá dál, už z ní nevyplývá —
+vyplývá to ze změny zadání popsané v [`plan.md`](plan.md).

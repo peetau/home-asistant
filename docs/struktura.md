@@ -36,6 +36,7 @@ templates/
 
 docs/
   stav.md             kde projekt je + roadmapa
+  plan.md             kam projekt miri a v jakem poradi
   struktura.md        tenhle soubor
   provoz.md           jak to spustit doma i na serveru
   dalsi-kroky.md      věci, na které jsme narazili a odložili je
@@ -55,6 +56,13 @@ i zapisovat: `set_nanoleaf_on()`, `set_nanoleaf_brightness()`,
 i rozložení panelů jedním dotazem (zařízení to stejně vrací naráz),
 `get_nanoleaf_paleta()` přinese barvy efektu pro náhled a
 `_rozlozeni_na_svg()` spočítá z pozic a natočení panelů vrcholy pro obrázek.
+
+**Hlavička Přehledu je jediná část, která nezávisí na právech.** Pozdrav,
+datum se svátkem a počasí se v `prehled.html` vykreslí každému; karty pod
+ní jsou schované za `{% if "solary" in prava %}` a spol. Je to schválně:
+kdo má jen Nákup, měl dřív Přehled prakticky prázdný. Data pro ni skládá
+route `dashboard()` z `pozdrav()`, `svatky.popis_dne()` a `pocasi.ted()`
+plus prvního dne z `pocasi.predpoved()`.
 
 **JavaScript je v projektu jen na dvou místech.** `static/motiv.js` přepíná
 motiv a `templates/nanoleaf.html` má vlastní skript pro režim návrhu. Obojí
@@ -88,6 +96,13 @@ dozvědět, že existuje. Kód pozvánky se stejným způsobem vůbec nedostane 
 **Čeština nezná rod uživatele.** „Hana koupil" praští do očí, takže se
 u položky píše „koupil(a)" a ve vyúčtování sloveso není vůbec — říká ho
 jednou nadpis. Kdyby přibývaly další věty o lidech, počítej s tím.
+
+Stejný problém má **pátý pád**: „Dobré ráno, Petře" chce skloňování, které
+se z uloženého jména odvodit nedá — závisí na rodu, o kterém nic nevíme,
+a výjimek je spousta (Marek → Marku, Jana → Jano). Proto `pozdrav()`
+ve `web.py` zdraví **bez oslovení jménem**. Jméno má člověk vedle sebe
+v hlavičce stránky, tak ať radši chybí, než aby bylo zkomolené —
+a u cizích jmen by komolení bylo pravidlo, ne výjimka.
 
 **`devices/solax.py` je naše mapa, ne dokumentace.** Dongle posílá pole tří
 set čísel bez jakéhokoliv popisu; co které znamená, jsme museli odvodit.

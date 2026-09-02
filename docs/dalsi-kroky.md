@@ -1,15 +1,19 @@
 # Další kroky
 
-Seznam věcí, na které jsme narazili a odložili je. Není to plán, jen ať
-nezapadnou.
+Věci, na které jsme narazili a odložili je. **Není to plán** — ten je
+v [`plan.md`](plan.md). Tohle je odkladiště, ať nezapadnou.
+
+Co odtud přešlo mezi podmínky otevření veřejnosti, tady zůstává i tak:
+plán říká *že* se to musí udělat, tenhle soubor *jak*.
 
 ## Bezpečnost
 
 ### Limit pokusů o přihlášení
-**Priorita: vysoká.** Přihlašovací formulář je veřejně na internetu
-a nemá žádný strop na počet pokusů — kdokoliv může zkoušet hesla
-donekonečna. Hashování hesel je schválně pomalé, takže útok není snadný,
-ale bránit se tomu nijak nebráníme.
+**Priorita: vysoká — a s registrací se z toho stává podmínka**, viz
+[`plan.md`](plan.md). Přihlašovací formulář je veřejně na internetu a nemá
+žádný strop na počet pokusů — kdokoliv může zkoušet hesla donekonečna.
+Hashování hesel je schválně pomalé, takže útok není snadný, ale bránit se
+tomu nijak nebráníme.
 
 Co s tím:
 - počítat neúspěšné pokusy podle jména i podle IP adresy
@@ -18,15 +22,7 @@ Co s tím:
   mohl schválně zkoušet cizí jméno, aby ho zablokoval)
 - za Caddy je skutečná IP v hlavičce, kterou už čte ProxyFix
 
-## Provoz
-
-### Y520 místo domácího PC jako Tailscale průchod
-Teď drží spojku k zařízením hlavní počítač. Y520 by bral míň proudu
-a nerestartoval se při práci. Postup je stejný jako u desktopu.
-
-### Druhá adresa `asistent.` (bez překlepu)
-Doména běží na `asistant.pepacodes.cz`. Kdyby vadilo, dá se přidat
-`A` záznam pro `asistent.` a v Caddy nechat obojí.
+## Výkon a provoz stránek
 
 ### Stránka Soláry je velká (284 kB)
 **Priorita: střední.** Grafy kreslí ke každému naměřenému bodu neviditelný
@@ -45,6 +41,21 @@ Co s tím:
 - nebo data pro graf prořídit — na 720 bodů šířky je 288 hodnot zbytečně
   jemné rozlišení
 - nebo obnovovat řidčeji, případně jen tu část stránky, která se mění
+
+### Přehled se obnovuje celý každých 10 sekund
+Je to **položka 2 v [`plan.md`](plan.md)**, ne odložená věc — zapsané tady,
+protože je to stejná rodina problému jako Soláry výš. Pro člověka, který má
+jen Nákup, se na Přehledu nic živého neděje a překreslovat ho nemá důvod.
+
+## Provoz serveru
+
+### Y520 místo domácího PC jako Tailscale průchod
+Teď drží spojku k zařízením hlavní počítač. Y520 by bral míň proudu
+a nerestartoval se při práci. Postup je stejný jako u desktopu.
+
+### Druhá adresa `asistent.` (bez překlepu)
+Doména běží na `asistant.pepacodes.cz`. Kdyby vadilo, dá se přidat
+`A` záznam pro `asistent.` a v Caddy nechat obojí.
 
 ## Rozvoj
 

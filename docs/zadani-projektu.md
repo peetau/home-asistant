@@ -1,5 +1,24 @@
 # Domácí rodinný asistent — projektový plán pro Claude Code
 
+> ## ⚠️ Historický dokument — neaktualizuje se
+>
+> Tohle je **původní zadání z 29. 8. 2026**, kdy ještě neexistoval žádný
+> kód. Zůstává v repozitáři schválně, aby bylo vidět, z čeho se vycházelo
+> a jak se to za pár dní posunulo.
+>
+> **Neplatí z něj hlavně vize a roadmapa.** Roadmapa je v podstatě
+> vyčerpaná a 2. 9. 2026 se změnilo i zadání: z aplikace pro jednu rodinu
+> se stává osobní asistent pro kohokoliv. Co platí dnes:
+>
+> | co hledáš | kde to je |
+> |---|---|
+> | co je hotové | [`stav.md`](stav.md) |
+> | kam to míří a v jakém pořadí | [`plan.md`](plan.md) |
+> | zásady, které se nesmí porušit | [`struktura.md`](struktura.md) |
+>
+> Pravidla pro spolupráci hned pod tímhle rámečkem **platí dál** — ta se
+> změnou zadání nikam nezmizela.
+
 ## Kontext pro Claude Code
 
 Tohle je učební projekt. Uživatel je začátečník v programování (zná základy Pythonu:
