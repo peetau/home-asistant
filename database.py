@@ -23,17 +23,20 @@ DB_SOUBOR = os.path.join(os.path.dirname(__file__), "asistent.db")
 
 # Taby, na které se udělují práva.
 #
-# Přehled tu SCHVÁLNĚ NENÍ: je vždy dostupný každému přihlášenému a jeho
-# obsah se poskládá z toho, na co uživatel právo má. Nemá tedy smysl ho
-# povolovat - kdo se přihlásí, na Přehled patří.
+# Přehled ani Nákup tu SCHVÁLNĚ NEJSOU. Přehled je vždy dostupný každému
+# přihlášenému a jeho obsah se poskládá z toho, na co uživatel právo má.
+# Nákup má od 3. 9. 2026 taky každý: aplikace se dělí na Domácnost
+# (zařízení jednoho konkrétního domu) a Asistenta, který je pro kohokoliv -
+# a Nákup patří k Asistentovi. Viz migrace 'zruseni_prava_nakup' níž.
 #
 # Přidání dalšího zařízení = přidat sem jeho název. Nic v databázi se měnit
 # nemusí (viz komentář u tabulky 'opravneni').
-VSECHNY_TABY = ("solary", "nanoleaf", "nakup", "sprava")
+VSECHNY_TABY = ("solary", "nanoleaf", "sprava")
 
-# Co dostane nově založený uživatel. Nejopatrnější rozumný start:
-# přihlásí se, vidí Přehled a může přidávat na nákupní seznam.
-VYCHOZI_PRAVA = ("nakup",)
+# Co dostane nově založený uživatel: nic. Není to skoupost - Přehled
+# i Nákup dostane každý přihlášený a práva se udělují jen na zařízení
+# a Správu. Úplně první účet je výjimka, viz vytvor_uzivatele().
+VYCHOZI_PRAVA = ()
 
 
 # Z čeho se skládá kód pozvánky. Chybí O/0 a I/1 schválně - kód se bude
@@ -320,16 +323,42 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
-        # MIGRACE existující databáze.
+        # MIGRACE: právo "nakup" se ruší, Nákup má každý přihlášený.
         #
-        # Tabulka uživatelů už obsahuje účty založené dřív, než oprávnění
-        # vůbec existovala. Kdybychom nic neudělali, neměly by po nasazení
-        # práva na nic - včetně Správy - a nikdo by se do aplikace nedostal.
+        # Aplikace se dělí na Domácnost (zařízení jednoho konkrétního domu)
+        # a Asistenta, který je pro kohokoliv. Nákup patří k Asistentovi,
+        # takže se na něj právo neuděluje - a řádky, které ho udělovaly,
+        # jsou od téhle chvíle jen smetí. Mazat se dá opakovaně, proto se to
+        # nehlídá zámkem (viz _migrace_zabrana - ten je na zakládání).
+        db.execute("DELETE FROM opravneni WHERE tab = 'nakup'")
+
+        # ⚠️ POJISTKA. MUSÍ BÝT PŘED ZÁCHRANNOU MIGRACÍ NÍŽ, NE ZA NÍ.
+        #
+        # Smazáním řádků výš může tabulka 'opravneni' zůstat PRÁZDNÁ -
+        # stačí, aby v databázi byly jen účty, která měla pouze Nákup
+        # (kamarádi bez jediného zařízení). Záchranná migrace pod tímhle
+        # blokem by pak "všem udělila všechna práva" a z kamaráda by se
+        # rázem stal správce se Soláry.
+        #
+        # Zabereme proto její název jednou provždy. INSERT OR IGNORE proto,
+        # že na produkci už ten řádek je - tam migrace opravdu proběhla.
+        db.execute(
+            "INSERT OR IGNORE INTO migrace (nazev) VALUES ('prvni_opravneni')")
+
+        # MIGRACE existující databáze. UŽ SE NIKDY NESPUSTÍ - viz pojistka výš.
+        #
+        # Zůstává tu kvůli tomu, co říká: tabulka uživatelů obsahovala účty
+        # založené dřív, než oprávnění vůbec existovala. Kdybychom tenkrát
+        # nic neudělali, neměl by po nasazení nikdo právo na nic - včetně
+        # Správy - a nikdo by se do aplikace nedostal.
         #
         # Proto: když jsou oprávnění prázdná, ale uživatelé ne, udělíme
-        # všem existujícím účtům všechna práva. Je to bezpečné i při
-        # opakovaném spuštění, protože podmínka platí jen jednou (pravidlo
-        # "aspoň jeden správce" pak zaručí, že tabulka nikdy neklesne na nulu).
+        # všem existujícím účtům všechna práva.
+        #
+        # Dnes už by to byla chyba, ne záchrana. Prázdná tabulka oprávnění
+        # neznamená "ještě se nerozdávalo", ale "nikdo nemá žádné zařízení" -
+        # což je u veřejné aplikace normální stav. Zamknout se ven nejde ani
+        # bez ní: úplně první účet dostane všechna práva ve vytvor_uzivatele().
         prazdna = db.execute("SELECT COUNT(*) FROM opravneni").fetchone()[0] == 0
         nejaci = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] > 0
         if prazdna and nejaci and _migrace_zabrana(db, "prvni_opravneni"):
@@ -1162,7 +1191,7 @@ def vytvor_uzivatele(jmeno, heslo, prava=None):
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
 
     prava - seznam tabů, které má dostat. Když se nezadá, použijí se
-            VYCHOZI_PRAVA (jen nákupní seznam).
+            VYCHOZI_PRAVA (tedy žádná - Přehled a Nákup má každý).
 
     Vrací True když se povedlo, False když jméno už existuje.
     """

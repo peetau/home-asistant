@@ -31,8 +31,11 @@
         <div class="moje-prava">
             <span class="popisek">Přístup do částí</span>
             <div class="prava-znacky">
+                {# Přehled a Nákup má každý přihlášený - jsou to části
+                   Asistenta, na které se právo neuděluje. #}
                 <span class="znacka">🏠 Přehled</span>
-                {% for tab in ["solary", "nanoleaf", "nakup", "sprava"] %}
+                <span class="znacka">🛒 Nákup</span>
+                {% for tab in ["solary", "nanoleaf", "sprava"] %}
                     {% if tab in prava %}
                         <span class="znacka">{{ popisy_tabu[tab] }}</span>
                     {% endif %}

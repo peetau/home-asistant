@@ -1,0 +1,82 @@
+{% extends "zaklad.html" %}
+
+{% block titulek %}Domácnost — Domácí asistent{% endblock %}
+
+{# Obnovování zůstalo jen tady. Na Domácnosti běží živá data ze zařízení,
+   takže má co obnovovat - na rozdíl od Asistenta, kde se sám od sebe
+   nemění nic. #}
+{% block hlava_navic %}
+    <meta http-equiv="refresh" content="10">
+{% endblock %}
+
+{% block obsah %}
+
+    {# Stránku otevře každý přihlášený, ale poskládá se jen z toho, na co
+       má právo. Kdo nemá žádné zařízení, uvidí prázdno - zatím schválně,
+       obsah pro tenhle případ se teprve vymýšlí. #}
+
+    {# ---------- Soláry: to nejdůležitější ---------- #}
+    {% if "solary" in prava %}
+    <div class="karta">
+        <h2>☀️ Solární elektrárna</h2>
+        {% if solax %}
+            <div class="hero">
+                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
+                <span class="jednotka">kW právě vyrábí</span>
+            </div>
+
+            <div class="dlazdice">
+                <div class="polozka">
+                    <div class="popisek">Dnešní výroba</div>
+                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Výkon střídače</div>
+                    <div class="hodnota">{{ solax.vykon_stridace }} W</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Baterie</div>
+                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
+                    <div class="pruh">
+                        <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="odkaz-detail">
+                <a href="{{ url_for('solary') }}">Podrobnosti a grafy →</a></p>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# ---------- Nanoleaf: to nejdůležitější ---------- #}
+    {% if "nanoleaf" in prava %}
+    <div class="karta">
+        <h2>💡 Nanoleaf</h2>
+        {% if nanoleaf %}
+            <div class="stav-radek">
+                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
+                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
+            </div>
+            <div class="radek">
+                <span class="popisek">Jas</span>
+                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Efekt</span>
+                <span class="hodnota">{{ nanoleaf.effect }}</span>
+            </div>
+
+            <p class="odkaz-detail">
+                <a href="{{ url_for('nanoleaf') }}">Podrobnosti a ovládání →</a></p>
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+{% endblock %}
+
+{% block paticka %}Stránka se sama obnovuje každých 10 sekund.{% endblock %}

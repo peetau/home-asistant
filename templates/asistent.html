@@ -1,0 +1,86 @@
+{# extends = "jsem potomek téhle šablony". Všechno společné (hlavička,
+   navigace, patička) si vezmu odtud a vyplním jen svoje díry. #}
+{% extends "zaklad.html" %}
+
+{% block titulek %}Asistent — Domácí asistent{% endblock %}
+
+{# Tahle stránka se SCHVÁLNĚ neobnovuje. Nákupní seznam se sám od sebe
+   nemění, takže by se každých pár vteřin tahala celá stránka na mobilních
+   datech pro nic za nic. Živá data jsou na Domácnosti, a obnovuje se
+   proto jen ona. #}
+
+{% block obsah %}
+
+    {# ---------- Osobní hlavička ---------- #}
+    {#
+       Pozdrav, datum se svátkem a počasí. Vidí je každý přihlášený -
+       tahle půlka aplikace se na práva neptá vůbec.
+
+       Bydlí u Asistenta, ne u Domácnosti, protože je to věc osobní,
+       ne technická. Na obou by se opakovala.
+    #}
+    <div class="karta karta-uvod">
+        <div class="uvod-text">
+            <p class="uvod-pozdrav">{{ pozdrav }}</p>
+            {% if datum_svatek %}
+                <p class="uvod-datum">{{ datum_svatek }}</p>
+            {% endif %}
+        </div>
+
+        {# Počasí se ukáže, jen když se ho podařilo získat. Když je
+           Open-Meteo nedostupné, hlavička zůstane i tak celá - datum
+           a pozdrav jsou z hodin serveru a ty selhat nemůžou. #}
+        {% if venku %}
+        <div class="uvod-pocasi">
+            {# Samotná ikona by čtečce obrazovky neřekla nic, proto
+               aria-label se slovním popisem. #}
+            <span class="uvod-ikona" role="img"
+                  aria-label="{{ venku.popis }}">{{ venku.ikona }}</span>
+            <span class="uvod-teplota">{{ venku.teplota }}°</span>
+            <span class="uvod-podrobnosti">
+                <span class="uvod-popis">{{ venku.popis }}</span>
+                {# Vedlejší řádek se poskládá z toho, co je k dispozici -
+                   stejnou oddělovací tečkou jako datum se svátkem. #}
+                {% set vedlejsi = [] %}
+                {% if dnes %}
+                    {% set _ = vedlejsi.append(dnes.max ~ "° / " ~ dnes.min ~ "°") %}
+                {% endif %}
+                {% if misto %}
+                    {% set _ = vedlejsi.append(misto) %}
+                {% endif %}
+                {% if vedlejsi %}
+                    <span class="uvod-vedlejsi">{{ vedlejsi|join(" · ") }}</span>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ---------- Nákupní seznamy ---------- #}
+    {# Dlaždice s počtem chybějících položek. Vidí je KAŽDÝ přihlášený -
+       právo "nakup" bylo zrušeno, Nákup patří k Asistentovi.
+
+       Karta "👋 Vítej" tu bývala pro toho, kdo neměl právo na nic.
+       Zanikla: prázdný Asistent už nikomu nevyjde. #}
+    <div class="karta">
+        <h2>🛒 Nákupní seznamy</h2>
+
+        {% if seznamy %}
+            <div class="dlazdice">
+                {% for s in seznamy %}
+                <a class="polozka seznam-dlazdice"
+                   href="{{ url_for('nakup_seznam', id_seznamu=s.id) }}">
+                    <div class="popisek">{{ s.nazev }}</div>
+                    <div class="hodnota {{ 'chybi' if s.chybi }}">{{ s.chybi if s.chybi else "✓" }}</div>
+                    <div class="popisek">
+                        {% if s.chybi %}chybí{% else %}vše koupeno{% endif %}</div>
+                </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="prazdno">Zatím nemáš žádný nákupní seznam.
+               Založ si ho na <a href="{{ url_for('nakup') }}">Nákupu</a>.</p>
+        {% endif %}
+    </div>
+
+{% endblock %}

@@ -87,11 +87,29 @@ if PRODUKCE:
     # tolik jich tam je. Vyšší číslo by dovolilo hlavičky podvrhnout.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+# Do které půlky aplikace tab patří.
+#
+# Přepínač v navigaci má ukazovat, kde zrovna jsi - a to i tehdy, když
+# nekoukáš na úvodní stránku. Kdo je na Solárech, je v Domácnosti; kdo je
+# na Nákupu, je u Asistenta. Bez téhle tabulky by přepínač na podstránkách
+# nevěděl, co o sobě říct.
+#
+# Správa je zatím u Asistenta, protože spravuje účty celé aplikace.
+# Až se z ní stane správa domácnosti (nápad z 3. 9.), přesune se sem.
+PULKA_TABU = {
+    "domacnost": "domacnost",
+    "solary": "domacnost",
+    "nanoleaf": "domacnost",
+    "asistent": "asistent",
+    "nakup": "asistent",
+    "sprava": "asistent",
+    "profil": "asistent",
+}
+
 # Lidské názvy tabů pro Správu. Klíče musí sedět na database.VSECHNY_TABY.
 POPISY_TABU = {
     "solary": "☀️ Soláry",
     "nanoleaf": "💡 Nanoleaf",
-    "nakup": "🛒 Nákup",
     "sprava": "⚙️ Správa",
 }
 
@@ -270,7 +288,7 @@ def vyzaduje_prihlaseni(funkce):
     Použití:
         @app.route("/")
         @vyzaduje_prihlaseni
-        def dashboard(): ...
+        def asistent(): ...
 
     Je to vlastní DEKORÁTOR - stejný princip jako @app.route, jen si ho
     tentokrát píšeme sami. Obalí původní funkci kontrolou: když v session
@@ -309,8 +327,8 @@ def vyzaduje_pravo(tab):
             if "uzivatel" not in session:
                 return redirect(url_for("prihlaseni"))
             if tab not in aktualni_prava():
-                # Bez práva pošleme na Přehled - ten má každý přihlášený.
-                return redirect(url_for("dashboard"))
+                # Bez práva pošleme na Asistenta - ten je pro každého.
+                return redirect(url_for("asistent"))
             return funkce(*args, **kwargs)
         return obalena_funkce
     return dekorator
@@ -331,6 +349,7 @@ def spolecna_data():
         "uzivatel": session.get("uzivatel"),
         "uzivatel_id": session.get("uzivatel_id"),
         "prava": aktualni_prava(),
+        "pulka_tabu": PULKA_TABU,
     }
 
 
@@ -357,7 +376,7 @@ def prihlaseni():
             session["uzivatel"] = uzivatel["jmeno"]
             session["uzivatel_id"] = uzivatel["id"]
             _bezpecne(lambda: database.zaznamenej_prihlaseni(uzivatel["id"]))
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("asistent"))
 
         # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
         # rozlišovali, útočník by si mohl ověřit, která jména existují.
@@ -446,10 +465,55 @@ def _cena(hodnota):
     return _cislo(hodnota, 2) + " Kč"
 
 
+# ---------- Dvě úvodní stránky ----------
+#
+# Aplikace má dvě půlky a přepíná se mezi nimi domácím tlačítkem
+# v navigaci. Nedrží se to v session ani v prohlížeči, ale v ADRESE:
+# každá půlka je obyčejný odkaz, takže se dá uložit na plochu telefonu
+# a funguje i bez JavaScriptu.
+#
+#   /            Asistent  - Nákup a osobní hlavička. Má ji každý.
+#   /domacnost   Domácnost - zařízení. Jen pro toho, kdo je má.
+#
+# Kořen aplikace je Asistent schválně: to je půlka, na kterou patří
+# každý přihlášený. Domácnost je sekce pro toho, kdo má zařízení.
+
+
 @app.route("/")
 @vyzaduje_prihlaseni
-def dashboard():
-    """Přehled - od každého zařízení to nejdůležitější."""
+def asistent():
+    """Asistent - osobní hlavička a nákupní seznamy. Pro každého stejné."""
+    # Datum, svátek a počasí. Dosud to viselo jen na PŘIHLAŠOVACÍ stránce,
+    # takže to viděl kolemjdoucí, ale přihlášený člověk ne.
+    #
+    # Obojí má v pocasi.py mezipaměť (10 a 30 minut), takže se Open-Meteo
+    # neptáme při každém načtení stránky.
+    venku = _bezpecne(lambda: pocasi.ted(
+        config.POCASI_LAT, config.POCASI_LON))[0]
+    predpoved = _bezpecne(lambda: pocasi.predpoved(
+        config.POCASI_LAT, config.POCASI_LON))[0]
+    dnes = predpoved[0] if predpoved else None
+
+    return render_template(
+        "asistent.html", aktivni="asistent",
+        pozdrav=pozdrav(),
+        datum_svatek=_bezpecne(svatky.popis_dne)[0],
+        venku=venku, dnes=dnes,
+        misto=getattr(config, "POCASI_MISTO", ""),
+        seznamy=database.seznamy_uzivatele(session["uzivatel_id"]),
+    )
+
+
+@app.route("/domacnost")
+@vyzaduje_prihlaseni
+def domacnost():
+    """
+    Domácnost - od každého zařízení to nejdůležitější.
+
+    Právo tu NENÍ potřeba: stránku otevře každý, ale poskládá se jen
+    z toho, na co má právo. Kdo nemá žádné zařízení, uvidí prázdno -
+    a to je zatím schválně, viz plán.
+    """
     # Čteme jen zařízení, na která má uživatel právo. Nejde jen o úsporu:
     # každé čtení je volání po síti, takže bez téhle podmínky by se čekalo
     # i na data, která se stejně nezobrazí.
@@ -460,33 +524,10 @@ def dashboard():
     solax, solax_chyba = (
         _stav_solax() if "solary" in prava else (None, None))
 
-    # Nákupní seznamy. Pro někoho, kdo nemá právo na žádné zařízení, je to
-    # jediný obsah Přehledu - dřív tam měl jen uvítací kartu a nic víc.
-    seznamy = (database.seznamy_uzivatele(session["uzivatel_id"])
-               if "nakup" in prava else [])
-
-    # Datum, svátek a počasí. Dosud to viselo jen na PŘIHLAŠOVACÍ stránce,
-    # takže to viděl kolemjdoucí, ale přihlášený člověk ne. Na Přehledu je
-    # to navíc jediná část, která se ukáže každému bez ohledu na práva -
-    # kdo má jen Nákup, dřív koukal na jednu kartu a nic víc.
-    #
-    # Obojí má v pocasi.py mezipaměť (10 a 30 minut), takže desetivteřinové
-    # obnovování stránky nedělá nové dotazy na Open-Meteo.
-    venku = _bezpecne(lambda: pocasi.ted(
-        config.POCASI_LAT, config.POCASI_LON))[0]
-    predpoved = _bezpecne(lambda: pocasi.predpoved(
-        config.POCASI_LAT, config.POCASI_LON))[0]
-    dnes = predpoved[0] if predpoved else None
-
     return render_template(
-        "prehled.html", aktivni="prehled",
-        pozdrav=pozdrav(),
-        datum_svatek=_bezpecne(svatky.popis_dne)[0],
-        venku=venku, dnes=dnes,
-        misto=getattr(config, "POCASI_MISTO", ""),
+        "domacnost.html", aktivni="domacnost",
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
-        seznamy=seznamy,
     )
 
 
@@ -698,7 +739,7 @@ def _zpet(id_seznamu, koupeno=False, **hlaska):
 
 
 @app.route("/nakup")
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup():
     """
     Rozcestí: pošle na první seznam, který uživatel má.
@@ -718,7 +759,7 @@ def nakup():
 
 
 @app.route("/nakup/<int:id_seznamu>")
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_seznam(id_seznamu):
     """Jeden nákupní seznam."""
     seznam = _seznam_nebo_404(id_seznamu)
@@ -771,7 +812,7 @@ NENI_TVOJE = "Upravovat a mazat můžeš jen položky, které jsi přidal."
 # ---------------------------------------------------------------------------
 
 @app.route("/nakup/novy", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_novy_seznam():
     """Založí nový seznam. Zakladatel je jeho vlastníkem."""
     ok, vysledek = database.vytvor_seznam(
@@ -782,7 +823,7 @@ def nakup_novy_seznam():
 
 
 @app.route("/nakup/<int:id_seznamu>/prejmenovat", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_prejmenovat(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.prejmenuj_seznam(
@@ -791,7 +832,7 @@ def nakup_prejmenovat(id_seznamu):
 
 
 @app.route("/nakup/<int:id_seznamu>/smazat", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_smazat_seznam(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.smaz_seznam(id_seznamu, session["uzivatel_id"])
@@ -801,7 +842,7 @@ def nakup_smazat_seznam(id_seznamu):
 
 
 @app.route("/nakup/pripojit", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_pripojit():
     """Připojení k cizímu seznamu podle kódu pozvánky."""
     ok, hlaska, id_seznamu = database.pripoj_kodem(
@@ -816,7 +857,7 @@ def nakup_pripojit():
 
 
 @app.route("/nakup/<int:id_seznamu>/novy-kod", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_novy_kod(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.novy_kod_seznamu(id_seznamu, session["uzivatel_id"])
@@ -824,7 +865,7 @@ def nakup_novy_kod(id_seznamu):
 
 
 @app.route("/nakup/<int:id_seznamu>/zvani", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_zvani(id_seznamu):
     """Smí členové zvát další lidi? Rozhoduje vlastník."""
     _seznam_nebo_404(id_seznamu)
@@ -835,7 +876,7 @@ def nakup_zvani(id_seznamu):
 
 
 @app.route("/nakup/<int:id_seznamu>/odebrat/<int:id_clena>", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_odebrat_clena(id_seznamu, id_clena):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.odeber_clena(
@@ -844,7 +885,7 @@ def nakup_odebrat_clena(id_seznamu, id_clena):
 
 
 @app.route("/nakup/<int:id_seznamu>/odejit", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_odejit(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.opust_seznam(id_seznamu, session["uzivatel_id"])
@@ -855,7 +896,7 @@ def nakup_odejit(id_seznamu):
 
 
 @app.route("/nakup/<int:id_seznamu>/pridat", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_pridat(id_seznamu):
     _seznam_nebo_404(id_seznamu)
     database.pridej_polozku(
@@ -869,7 +910,7 @@ def nakup_pridat(id_seznamu):
 
 
 @app.route("/nakup/<int:id_seznamu>/uklidit", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_uklidit(id_seznamu):
     """Uklidí odškrtnuté položky - to, co uživatel smí smazat."""
     _seznam_nebo_404(id_seznamu)
@@ -882,7 +923,7 @@ def nakup_uklidit(id_seznamu):
 # že to je opravdu číslo - když někdo zkusí .../abc/prepnout, Flask vrátí
 # 404 a naše funkce se vůbec nespustí.
 @app.route("/nakup/polozka/<int:id_polozky>/prepnout", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_prepnout(id_polozky):
     # Odškrtnout smí každý, kdo položku vidí - stačí tedy branka.
     polozka = _polozka_nebo_404(id_polozky)
@@ -894,7 +935,7 @@ def nakup_prepnout(id_polozky):
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/upravit", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_upravit(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:
@@ -910,7 +951,7 @@ def nakup_upravit(id_polozky):
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/cena", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_cena(id_polozky):
     """Kolik položka stála. Vyplňuje ji ten, kdo ji koupil."""
     polozka = _polozka_nebo_404(id_polozky)
@@ -922,7 +963,7 @@ def nakup_cena(id_polozky):
 
 
 @app.route("/nakup/polozka/<int:id_polozky>/smazat", methods=["POST"])
-@vyzaduje_pravo("nakup")
+@vyzaduje_prihlaseni
 def nakup_smazat(id_polozky):
     polozka = _polozka_nebo_404(id_polozky)
     if not polozka["smi_upravit"]:

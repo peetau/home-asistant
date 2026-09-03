@@ -205,27 +205,27 @@ footer {
 .taby a.aktivni { color: var(--zelena); border-bottom-color: var(--zelena); }
 
 
-/* --- Domácí tlačítko (Přehled) --- */
+/* --- Domácí tlačítko = přepínač Domácnost / Asistent --- */
 /*
-  Přehled není "jeden z tabů", je to záchytný bod - odkud se dá vždy začít
-  znovu. Proto vypadá jako TLAČÍTKO, kdežto ostatní jsou jen text: má výplň,
+  Není to "jeden z tabů", je to záchytný bod - odkud se dá vždy začít znovu.
+  Proto vypadá jako TLAČÍTKO, kdežto ostatní jsou jen text: má výplň,
   rámeček, stín a je oddělený svislou čárkou.
+
+  Od 3. 9. 2026 jsou tlačítka dvě a drží spolu jako jeden prvek. Chrome
+  (rámeček, stín, zaoblení) proto sedí na OBALU .prepinac, ne na odkazech
+  uvnitř - jinak by z toho byla dvě samostatná tlačítka vedle sebe.
 
   Odlišuje se tvarem, ne další barvou - zelená na liště už znamená
   "tady zrovna jsi" a dvojí význam jedné barvy by mátl.
 */
-.taby a.domu {
-    background: var(--karta);
-    border: 1px solid var(--okraj);
-    border-radius: 10px;
-    box-shadow: var(--stin);
-    color: var(--text);
-    padding: .55rem 1rem;
-    margin: 0 1rem .35rem 0;
+.taby .prepinac {
+    position: relative;
     align-self: center;
-    border-bottom-width: 1px;
+    margin: 0 1rem .35rem 0;
 }
-.taby a.domu::after {
+
+/* Svislá čárka, která přepínač odděluje od ostatních tabů. */
+.taby .prepinac::after {
     content: "";
     position: absolute;
     right: -.55rem;
@@ -234,22 +234,83 @@ footer {
     width: 1px;
     background: var(--okraj);
 }
-.taby a.domu { position: relative; }
 
-.taby a.domu:hover {
+/* Samotné tlačítko. <summary> je ta viditelná část <details>. */
+.taby .prepinac > summary {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem .9rem;
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: 10px;
+    box-shadow: var(--stin);
+    color: var(--text);
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    /* Pryč s výchozím trojúhelníčkem prohlížeče - máme vlastní šipku.
+       Dvě řádky proto, že Safari poslouchá jen tu druhou. */
+    list-style: none;
+}
+.taby .prepinac > summary::-webkit-details-marker { display: none; }
+
+.taby .prepinac > summary:hover {
     background: var(--karta-2);
     box-shadow: var(--stin-2);
 }
+.taby .prepinac[open] > summary { background: var(--karta-2); }
 
-/* Aktivní domeček: plná zelená - nejvýraznější stav na celé liště. */
-.taby a.domu.aktivni {
+/* Když jsi na úvodní stránce některé půlky: plná zelená - nejvýraznější
+   stav na celé liště. Na podstránkách (Soláry, Nákup) tlačítko jen říká,
+   kde jsi, ale zelená patří tabu, na kterém právě stojíš. */
+.taby .prepinac.aktivni > summary {
     background: var(--zelena);
     border-color: var(--zelena);
     color: var(--na-zelene);
 }
-.taby a.domu.aktivni:hover { background: var(--zelena-tmava); }
+.taby .prepinac.aktivni > summary:hover { background: var(--zelena-tmava); }
 
-.taby a.domu .tab-ikona { font-size: 1.1rem; }
+.taby .prepinac > summary .tab-ikona { font-size: 1.1rem; }
+
+.taby .prepinac .sipka {
+    font-size: .7rem;
+    opacity: .7;
+    display: inline-block;
+}
+.taby .prepinac[open] .sipka { transform: rotate(180deg); }
+
+/* --- Vyjetá nabídka --- */
+.taby .prepinac-nabidka {
+    position: absolute;
+    top: calc(100% + .35rem);
+    left: 0;
+    min-width: 100%;
+    padding: .25rem;
+    background: var(--karta);
+    border: 1px solid var(--okraj);
+    border-radius: 10px;
+    box-shadow: var(--stin-2);
+    /* Nad obsahem stránky, jinak by ji překryla první karta. */
+    z-index: 20;
+}
+
+.taby .prepinac-nabidka a {
+    padding: .5rem .8rem;
+    border-radius: 8px;
+    border-bottom: none;
+    margin-bottom: 0;
+    color: var(--text);
+    /* Jen na odkazech, ne na celé nabídce - zděděný nowrap už nám jednou
+       rozbil bubliny s nápovědou jinde na stránce. */
+    white-space: nowrap;
+}
+.taby .prepinac-nabidka a:hover { background: var(--karta-2); }
+.taby .prepinac-nabidka a.aktivni {
+    background: var(--zelena);
+    color: var(--na-zelene);
+    border-bottom-color: transparent;
+}
 
 
 /* ==================== Karty a hodnoty ==================== */
@@ -1123,37 +1184,67 @@ details.karta[open] summary { margin-bottom: 1rem; }
     }
     .taby a.aktivni { border-top-color: var(--zelena); }
 
+    /* Na telefonu se přepínač chová jako kterákoliv jiná položka lišty. */
+    .taby .prepinac {
+        flex: 1;
+        align-self: stretch;
+        margin: 0;
+    }
+    .taby .prepinac::after { display: none; }
+
     /* Na úzké liště by tlačítko s rámečkem přes celou výšku bylo
        těžkopádné - výplň dostane jen kolečko kolem ikony. */
-    .taby a.domu {
+    .taby .prepinac > summary {
+        flex-direction: column;
+        justify-content: center;
+        gap: .15rem;
+        height: 100%;
+        padding: .4rem .2rem .55rem;
         background: none;
         border: none;
         border-top: 2px solid transparent;
-        box-shadow: none;
-        margin: 0;
-        padding: .4rem .2rem .55rem;
         border-radius: 0;
+        box-shadow: none;
         color: var(--text-slaby);
-        align-self: stretch;
+        font-size: .7rem;
     }
-    .taby a.domu::after { display: none; }
-    .taby a.domu:hover { background: none; box-shadow: none; }
+    .taby .prepinac > summary:hover { background: none; box-shadow: none; }
+    .taby .prepinac[open] > summary { background: none; }
 
-    .taby a.domu .tab-ikona {
+    .taby .prepinac > summary .tab-ikona {
         background: var(--karta-2);
         border: 1px solid var(--okraj);
         border-radius: 999px;
         padding: .2rem .5rem;
         font-size: 1.1rem;
     }
-    .taby a.domu.aktivni {
+
+    /* Šipka na úzké liště zmizí: na 320 px se "Domácnost ▾" nevejde na
+       jeden řádek a šipka spadne pod text jako překlep. Nowrap by ji
+       nespravil - text by místo toho vytekl z lišty ven. */
+    .taby .prepinac .sipka { display: none; }
+    .taby .prepinac.aktivni > summary {
         background: none;
         color: var(--zelena);
         border-top-color: var(--zelena);
     }
-    .taby a.domu.aktivni .tab-ikona {
+    .taby .prepinac.aktivni > summary .tab-ikona {
         background: var(--zelena);
         border-color: var(--zelena);
+    }
+
+    /* Lišta je dole, takže nabídka musí vyjet NAHORU, ne dolů. */
+    .taby .prepinac-nabidka {
+        top: auto;
+        bottom: calc(100% + .4rem);
+        left: .2rem;
+    }
+    .taby .prepinac-nabidka a {
+        flex-direction: row;
+        gap: .5rem;
+        font-size: .9rem;
+        padding: .6rem .8rem;
+        border-top: none;
     }
 
     /* Aby fixní lišta nezakrývala konec stránky. */

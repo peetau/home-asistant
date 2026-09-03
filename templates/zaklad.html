@@ -57,12 +57,41 @@
        a nesváže šablonu s tím, jak se zrovna jmenují funkce v Pythonu.
     #}
     <nav class="taby">
-        {# Přehled je "domácí tlačítko" - záchytný bod, odkud se dá vždy
-           začít znovu. Proto je výraznější a oddělený od ostatních tabů. #}
-        <a href="{{ url_for('dashboard') }}"
-           class="domu {{ 'aktivni' if aktivni == 'prehled' }}">
-            <span class="tab-ikona">🏠</span><span class="tab-text">Přehled</span>
-        </a>
+        {# Domácí tlačítko je PŘEPÍNAČ mezi dvěma půlkami aplikace:
+           Domácnost (zařízení tohohle domu) a Asistent (Nákup, a časem víc).
+
+           Tlačítko ukazuje, ve které půlce zrovna jsi, a po klepnutí vyjede
+           nabídka s oběma. Je to <details>, tedy stejný trik, jakým drží
+           rozbalovací karty na Nákupu - žádný JavaScript, funguje na dotyk
+           i myší.
+
+           V nabídce jsou OBĚ půlky, ne jen ta druhá. Kdyby tam byla jen ta
+           druhá, nešlo by se ze Solárů vrátit na úvodní stránku Domácnosti.
+
+           Kterou půlku ukázat, říká PULKA_TABU z web.py - jinak by přepínač
+           na podstránkách (Soláry, Nákup) nevěděl, co o sobě říct. #}
+        {% set pulka = pulka_tabu.get(aktivni, "asistent") %}
+        <details class="prepinac {{ 'aktivni' if aktivni in ('domacnost', 'asistent') }}">
+            <summary>
+                {% if pulka == "domacnost" %}
+                    <span class="tab-ikona">🏠</span>
+                    <span class="tab-text">Domácnost <span class="sipka">▾</span></span>
+                {% else %}
+                    <span class="tab-ikona">🤖</span>
+                    <span class="tab-text">Asistent <span class="sipka">▾</span></span>
+                {% endif %}
+            </summary>
+            <div class="prepinac-nabidka">
+                <a href="{{ url_for('domacnost') }}"
+                   class="{{ 'aktivni' if pulka == 'domacnost' }}">
+                    <span class="tab-ikona">🏠</span><span class="tab-text">Domácnost</span>
+                </a>
+                <a href="{{ url_for('asistent') }}"
+                   class="{{ 'aktivni' if pulka == 'asistent' }}">
+                    <span class="tab-ikona">🤖</span><span class="tab-text">Asistent</span>
+                </a>
+            </div>
+        </details>
         {# Ostatní taby jen tomu, kdo na ně má právo. Tohle je POHODLÍ,
            ne ochrana - tu dělá dekorátor vyzaduje_pravo na routách. #}
         {% if "solary" in prava %}
@@ -79,12 +108,12 @@
         </a>
         {% endif %}
 
-        {% if "nakup" in prava %}
+        {# Nákup nemá podmínku: patří k Asistentovi, kterého má každý.
+           Právo "nakup" bylo zrušeno - viz migrace v database.py. #}
         <a href="{{ url_for('nakup') }}"
            class="{{ 'aktivni' if aktivni == 'nakup' }}">
             <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
         </a>
-        {% endif %}
 
         {% if "sprava" in prava %}
         <a href="{{ url_for('sprava') }}"
