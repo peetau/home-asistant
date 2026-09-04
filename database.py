@@ -12,6 +12,11 @@ import os
 import secrets
 import sqlite3
 
+# Vyrábí z obyčejné funkce správce kontextu - tedy něco, co se dá použít
+# v bloku "with". Co je před yield, se stane při vstupu do bloku,
+# co za ním, při odchodu z něj (a to i když blok skončí chybou).
+from contextlib import contextmanager
+
 # Funkce na bezpečnou práci s hesly. Werkzeug přišel automaticky s Flaskem,
 # takže se nic neinstaluje. Sami si hashování NIKDY nepíšeme - je to oblast,
 # kde se snadno udělá chyba s vážnými následky, a tyhle funkce ji řeší správně.
@@ -99,12 +104,22 @@ def _novy_kod():
     return znaky[:3] + "-" + znaky[3:]
 
 
+@contextmanager
 def _spojeni():
     """
-    Otevře spojení s databázovým souborem a vrátí ho.
+    Otevře spojení s databázovým souborem, půjčí ho bloku "with"
+    a na konci ho zase zavře.
 
     Když soubor asistent.db ještě neexistuje, SQLite ho při prvním
     spojení sám vytvoří. Není tedy co "zakládat" ručně.
+
+    ⚠️ Zavírání tu musí být napsané ručně. Samotné "with spojeni:" totiž
+    spojení NEZAVÍRÁ - jenom potvrdí (nebo při chybě vrátí zpět) transakci
+    a soubor nechá dál otevřený. Na serveru se takhle 4. 9. 2026 za patnáct
+    hodin provozu nasbíralo přes tisíc otevřených kopií asistent.db, došly
+    systémové deskriptory (strop je 1024) a aplikace přestala umět databázi
+    otevřít vůbec. Vnitřní "with spojeni:" se o transakci stará jako dřív,
+    "finally" navíc soubor zavře - a to i když v bloku vznikne chyba.
     """
     spojeni = sqlite3.connect(DB_SOUBOR)
 
@@ -113,7 +128,12 @@ def _spojeni():
     # Bez tohohle řádku by ON DELETE CASCADE u oprávnění nefungovalo
     # a po smazání uživatele by v databázi zůstala jeho osiřelá práva.
     spojeni.execute("PRAGMA foreign_keys = ON")
-    return spojeni
+
+    try:
+        with spojeni:
+            yield spojeni
+    finally:
+        spojeni.close()
 
 
 def init_db():

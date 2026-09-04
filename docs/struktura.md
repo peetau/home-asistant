@@ -78,6 +78,16 @@ provozní souvislosti v [`provoz.md`](provoz.md).
 na něm zapisuje měření do databáze. Potkávají se jen přes `asistent.db`,
 takže když jeden spadne, druhý běží dál.
 
+**`with sqlite3.connect(...)` spojení NEZAVÍRÁ.** Potvrdí transakci, ale
+soubor nechá otevřený — zavře ho až uklízeč paměti, a ten se v dlouho
+běžícím gunicornu spouští jen občas. Než se na to přišlo, nasbíral každý
+worker za patnáct hodin přes tisíc otevřených kopií `asistent.db`, došly
+systémové deskriptory (strop je 1024) a aplikace přestala umět databázi
+otevřít vůbec — stránka spadla na `unable to open database file`. Proto je
+`_spojeni()` správce kontextu, který zavírá v `finally`, a proto se spojení
+nikde nesmí otevírat přímo přes `sqlite3.connect()`. Sběrače se to netýkalo:
+jedno spojení za pět minut uklízeč vždycky stihl uklidit.
+
 **Migrace, která něco ZAKLÁDÁ, si to musí zamknout.** Gunicorn spouští dva
 workery naráz. Když se migrace hlídá jen dotazem „už je to hotové?", oba se
 zeptají dřív, než kterýkoliv stihne zapsat, oba dostanou „ještě ne" a oba ji
