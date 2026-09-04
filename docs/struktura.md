@@ -34,6 +34,14 @@ templates/
   sprava.html       tab Správa (účty a práva)
   prihlaseni.html   přihlašovací stránka
 
+testy/
+  spust.py           pustí všechny testy a vypíše souhrn
+  spolecne.py        zázemí testů: dočasná databáze, účet, spouštěč
+  test_spojeni.py    spojení s databází se zavírají
+  test_prihlaseni.py strop na počet přihlašovacích pokusů
+  test_stranky.py    stránky odpovídají a nenechávají viset spojení
+  README.md          jak se testy pouštějí a jak přidat další
+
 docs/
   stav.md             kde projekt je + roadmapa
   plan.md             kam projekt miri a v jakem poradi

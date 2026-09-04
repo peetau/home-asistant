@@ -62,6 +62,18 @@ Web (B) a sběrač (C) běží každý ve **svém okně** zároveň: sběrač za
 měření do `asistent.db`, web z ní čte. Obojí zastavíš `Ctrl+C`. Data se
 sbírají jen tak dlouho, dokud `sber.py` běží.
 
+## Testy
+
+Před nasazením se vyplatí pustit:
+
+```
+.venv\Scripts\python.exe testy\spust.py
+```
+
+Testy běží nad prázdnou databází v dočasné složce, na `asistent.db` nesahají,
+a nic se k nim neinstaluje. Co který hlídá, je v
+[`testy/README.md`](../testy/README.md).
+
 ## Doma vs. na serveru
 
 Ten samý kód běží na dvou místech a chová se na každém trochu jinak.
