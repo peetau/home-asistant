@@ -61,8 +61,6 @@ minuta čekání, po deseti pět minut, po patnácti čtvrt hodiny. Počítá se
 adresa, ne jméno — jinak by stačilo zkoušet cizí jméno a majitele účtu tím
 vyřadit z provozu. Podrobnosti v [`struktura.md`](struktura.md).
 
-Podrobnosti k provedení jsou v [`dalsi-kroky.md`](dalsi-kroky.md).
-
 ### 3. Zapomenuté heslo
 Kdo dnes zapomene heslo, nemá žádnou cestu zpátky — musí napsat správci,
 který mu ho v aplikaci přepíše. Cizí člověk nikoho takového nemá.
