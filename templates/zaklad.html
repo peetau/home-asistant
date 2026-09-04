@@ -92,34 +92,45 @@
                 </a>
             </div>
         </details>
-        {# Ostatní taby jen tomu, kdo na ně má právo. Tohle je POHODLÍ,
-           ne ochrana - tu dělá dekorátor vyzaduje_pravo na routách. #}
-        {% if "solary" in prava %}
-        <a href="{{ url_for('solary') }}"
-           class="{{ 'aktivni' if aktivni == 'solary' }}">
-            <span class="tab-ikona">☀️</span><span class="tab-text">Soláry</span>
-        </a>
-        {% endif %}
+        {# Pruh tabů patří k půlce, ve které zrovna jsi - od 4. 9. 2026.
+           Přepínač se tím stal jedinou cestou mezi půlkami a lišta na
+           telefonu se zkrátila z pěti položek na tři.
 
-        {% if "nanoleaf" in prava %}
-        <a href="{{ url_for('nanoleaf') }}"
-           class="{{ 'aktivni' if aktivni == 'nanoleaf' }}">
-            <span class="tab-ikona">💡</span><span class="tab-text">Nanoleaf</span>
-        </a>
-        {% endif %}
+           Schování tabu je POHODLÍ, ne ochrana. Tu dělají dekorátory
+           vyzaduje_domacnost a vyzaduje_pravo na routách - kdo zná adresu,
+           může požadavek poslat i tak. #}
+        {% if pulka == "domacnost" %}
 
-        {# Nákup nemá podmínku: patří k Asistentovi, kterého má každý.
-           Právo "nakup" bylo zrušeno - viz migrace v database.py. #}
-        <a href="{{ url_for('nakup') }}"
-           class="{{ 'aktivni' if aktivni == 'nakup' }}">
-            <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
-        </a>
+            {# Zařízení vidí jen člen domácnosti, které patří. Kdo v žádné
+               není, má Domácnost prázdnou i bez tabů - a na ní pozvánku. #}
+            {% if domacnost %}
+            <a href="{{ url_for('solary') }}"
+               class="{{ 'aktivni' if aktivni == 'solary' }}">
+                <span class="tab-ikona">☀️</span><span class="tab-text">Soláry</span>
+            </a>
 
-        {% if "sprava" in prava %}
-        <a href="{{ url_for('sprava') }}"
-           class="{{ 'aktivni' if aktivni == 'sprava' }}">
-            <span class="tab-ikona">⚙️</span><span class="tab-text">Správa</span>
-        </a>
+            <a href="{{ url_for('nanoleaf') }}"
+               class="{{ 'aktivni' if aktivni == 'nanoleaf' }}">
+                <span class="tab-ikona">💡</span><span class="tab-text">Nanoleaf</span>
+            </a>
+            {% endif %}
+
+        {% else %}
+
+            {# Nákup nemá podmínku: patří k Asistentovi, kterého má každý.
+               Právo "nakup" bylo zrušeno - viz migrace v database.py. #}
+            <a href="{{ url_for('nakup') }}"
+               class="{{ 'aktivni' if aktivni == 'nakup' }}">
+                <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
+            </a>
+
+            {% if "sprava" in prava %}
+            <a href="{{ url_for('sprava') }}"
+               class="{{ 'aktivni' if aktivni == 'sprava' }}">
+                <span class="tab-ikona">⚙️</span><span class="tab-text">Správa</span>
+            </a>
+            {% endif %}
+
         {% endif %}
     </nav>
 

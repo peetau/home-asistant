@@ -27,11 +27,12 @@ templates/
   motiv_skript.html nastavení motivu před vykreslením (proti bliknutí)
   makra.html        znovupoužitelné kousky: nakresli_graf,
                     nakresli_diagram, napoveda, tabulka_mereni
-  prehled.html      tab Přehled
+  asistent.html     půlka Asistent (hlavička, nákupní seznamy)
+  domacnost.html    půlka Domácnost (zařízení, nebo pozvánka)
   solary.html       tab Soláry
   nanoleaf.html     tab Nanoleaf (jediná stránka s vlastním JavaScriptem)
   nakup.html        tab Nákup
-  sprava.html       tab Správa (účty a práva)
+  sprava.html       tab Správa (účty a právo na Správu)
   prihlaseni.html   přihlašovací stránka
 
 testy/
@@ -65,10 +66,11 @@ i rozložení panelů jedním dotazem (zařízení to stejně vrací naráz),
 `get_nanoleaf_paleta()` přinese barvy efektu pro náhled a
 `_rozlozeni_na_svg()` spočítá z pozic a natočení panelů vrcholy pro obrázek.
 
-**Hlavička Přehledu je jediná část, která nezávisí na právech.** Pozdrav,
-datum se svátkem a počasí se v `prehled.html` vykreslí každému; karty pod
-ní jsou schované za `{% if "solary" in prava %}` a spol. Je to schválně:
-kdo má jen Nákup, měl dřív Přehled prakticky prázdný. Data pro ni skládá
+**Osobní hlavička patří Asistentovi a vidí ji každý.** Pozdrav, datum se
+svátkem a počasí se vykreslí v `asistent.html` bez ohledu na cokoliv. Je to
+schválně: kdo má jen Nákup, měl dřív Přehled prakticky prázdný. Zařízení
+jsou na druhé půlce, v `domacnost.html`, a ta se řídí členstvím v domácnosti
+(viz níž). Data pro hlavičku skládá
 route `dashboard()` z `pozdrav()`, `svatky.popis_dne()` a `pocasi.ted()`
 plus prvního dne z `pocasi.predpoved()`.
 
@@ -110,6 +112,32 @@ v SQL spočítají, jestli je smí i měnit. Route pak jen zavolá branku a při
 `None` vrátí **404, ne 403** — kdo na cizí seznam nemá právo, nemá se ani
 dozvědět, že existuje. Kód pozvánky se stejným způsobem vůbec nedostane do
 šablony tomu, kdo ho vidět nesmí.
+
+**K zařízením se nechodí přes právo, ale přes členství v domácnosti.**
+Práva `solary` a `nanoleaf` byla 4. 9. 2026 zrušená stejně jako předtím
+`nakup`; `VSECHNY_TABY` zbylo jediné, `sprava`. Domácnost je věc v databázi
+s vlastníkem, členy a pozvánkou kódem — tedy přesně to, co už umí nákupní
+seznam, jen podruhé.
+
+⚠️ **Sloupec `ma_zarizeni` není ozdoba.** Zařízení jsou pořád v `config.py`,
+tedy společná pro celý server. Kdyby se podmínka ptala jen „jsi člen nějaké
+domácnosti", stačilo by si jednu založit a člověk by viděl cizí SolaX.
+Podmínka proto zní „jsi člen TÉ domácnosti, které patří zařízení z configu".
+Že takovou domácnost může být nejvýš jedna, hlídá **částečný unikátní index**
+(`WHERE ma_zarizeni = 1`) — tedy databáze, ne Python; dva workery zakládající
+naráz si dvě hlavní domácnosti udělat nemůžou.
+
+Podmínka je napsaná na **jednom místě**, v `uzivatel_a_prava()`, protože je
+bezpečnostní: `domacnost_uzivatele()` z ní jen bere výsledek. Dvě kopie by
+znamenaly, že se jednou opraví jen jedna.
+
+**Pruh tabů se filtruje podle půlky.** V Domácnosti svítí Soláry a Nanoleaf
+(jen členovi), v Asistentovi Nákup a Správa. Přepínač se tím stal jedinou
+cestou mezi půlkami a lišta na telefonu se zkrátila z pěti položek na tři.
+Schování tabu je ale **pohodlí, ne ochrana** — tu dělá `vyzaduje_domacnost`
+na routách. Ten vrací **302 na Asistenta, ne 404**: pravidlo „404 místo 403"
+platí u Nákupu, kde by odpověď prozradila, že cizí seznam existuje, ale
+u tabu není co prozradit.
 
 **Strop na přihlašování počítá adresy, ne jména.** Pět chybných pokusů
 z jedné IP znamená minutu čekání, deset pět minut, patnáct čtvrt hodiny;

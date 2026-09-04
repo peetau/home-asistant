@@ -2,21 +2,55 @@
 
 {% block titulek %}Domácnost — Domácí asistent{% endblock %}
 
-{# Obnovování zůstalo jen tady. Na Domácnosti běží živá data ze zařízení,
-   takže má co obnovovat - na rozdíl od Asistenta, kde se sám od sebe
-   nemění nic. #}
+{# Obnovování má smysl jen pro člena - jemu na stránce běží živá data ze
+   zařízení. Kdo do domácnosti nepatří, kouká na pozvánku, a ta se sama od
+   sebe nezmění; nemá proč každých deset sekund tahat celou stránku na
+   mobilních datech. #}
 {% block hlava_navic %}
-    <meta http-equiv="refresh" content="10">
+    {% if domacnost %}<meta http-equiv="refresh" content="10">{% endif %}
 {% endblock %}
 
 {% block obsah %}
 
-    {# Stránku otevře každý přihlášený, ale poskládá se jen z toho, na co
-       má právo. Kdo nemá žádné zařízení, uvidí prázdno - zatím schválně,
-       obsah pro tenhle případ se teprve vymýšlí. #}
+{% if not domacnost %}
+
+    {# ---------- Kdo do žádné domácnosti nepatří ----------
+       Do 4. 9. 2026 tady bylo prázdno. Teď je tu cesta dovnitř: buď kód,
+       který ti někdo poslal, nebo vlastní domácnost. #}
+    <div class="karta">
+        <h2>🏠 Zatím nejsi v žádné domácnosti</h2>
+        <p class="prazdno">
+            Domácnost sdružuje lidi, kterým patří stejná zařízení — soláry,
+            světla a časem další. Kdo do ní patří, vidí je na téhle stránce.
+        </p>
+
+        <div class="blok">
+            <h3>Připojit se ke stávající</h3>
+            <p class="popisek-radku">Kód pozvánky, který ti někdo poslal.</p>
+            <form method="post" action="{{ url_for('domacnost_pripojit') }}"
+                  class="pridat-form">
+                <input type="text" name="kod" placeholder="např. K7M-4QP"
+                       required autocomplete="off" maxlength="20">
+                <button type="submit">Připojit</button>
+            </form>
+        </div>
+
+        <div class="blok">
+            <h3>Nebo si založit vlastní</h3>
+            <p class="popisek-radku">Zařízení do ní přibudou, až je bude kam
+               připojit.</p>
+            <form method="post" action="{{ url_for('domacnost_zalozit') }}"
+                  class="pridat-form">
+                <input type="text" name="nazev" placeholder="Název domácnosti"
+                       required autocomplete="off" maxlength="60">
+                <button type="submit">Založit</button>
+            </form>
+        </div>
+    </div>
+
+{% else %}
 
     {# ---------- Soláry: to nejdůležitější ---------- #}
-    {% if "solary" in prava %}
     <div class="karta">
         <h2>☀️ Solární elektrárna</h2>
         {% if solax %}
@@ -49,10 +83,8 @@
             <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
         {% endif %}
     </div>
-    {% endif %}
 
     {# ---------- Nanoleaf: to nejdůležitější ---------- #}
-    {% if "nanoleaf" in prava %}
     <div class="karta">
         <h2>💡 Nanoleaf</h2>
         {% if nanoleaf %}
@@ -75,8 +107,25 @@
             <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
         {% endif %}
     </div>
+
+    {# ---------- Pozvánka ----------
+       Kód dostane do šablony jen vlastník - route ho ostatním vůbec
+       nepošle, stejně jako u nákupního seznamu. Zvát tedy zatím smí jen
+       on; "členové smí zvát" umí Nákup, ale sem to přijde až se Správou
+       domácnosti. #}
+    {% if kod %}
+    <div class="karta">
+        <h2>✉️ Pozvánka</h2>
+        <p class="popisek-radku">Komu pošleš tenhle kód, ten se k domácnosti
+           připojí a uvidí její zařízení.</p>
+        <p><code class="kod" title="Kód pozvánky do domácnosti">{{ kod }}</code></p>
+    </div>
     {% endif %}
+
+{% endif %}
 
 {% endblock %}
 
-{% block paticka %}Stránka se sama obnovuje každých 10 sekund.{% endblock %}
+{% block paticka %}
+    {% if domacnost %}Stránka se sama obnovuje každých 10 sekund.{% endif %}
+{% endblock %}

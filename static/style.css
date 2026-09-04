@@ -760,8 +760,10 @@ body { padding-bottom: 5rem; }
 .seznam-panel h3 { margin: 0 0 .3rem; font-size: 1rem; }
 .seznam-panel p { margin: 0 0 .7rem; }
 
-/* Dvě cesty k dalšímu seznamu oddělené vlasovou linkou, ať nesplynou. */
-.seznam-panel .blok + .blok {
+/* Dvě cesty dál (nový seznam / připojit se, založit domácnost / připojit se)
+   oddělené vlasovou linkou, ať nesplynou. Není to vázané na jedno místo:
+   stejný blok používá plovoucí panel na Nákupu i karta na Domácnosti. */
+.blok + .blok {
     margin-top: 1.1rem;
     padding-top: 1.1rem;
     border-top: 1px solid var(--okraj-jemny);

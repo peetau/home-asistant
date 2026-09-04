@@ -32,6 +32,13 @@ platilo, že kdo má jen Nákup, kouká na jednu kartu, a kdo nemá nic, na vět
 „řekni si správci". Pod ní karty se zařízeními a dlaždice nákupních seznamů
 s počtem chybějících položek.
 
+**Domácnost** — parta lidí, které patří zařízení: má vlastníka, členy
+a **pozvánku kódem**, stejně jako nákupní seznam. Kdo je členem, vidí karty
+Solárů a Nanoleafu a v pruhu tabů jejich stránky; kdo v žádné domácnosti
+není, dostane místo prázdna nabídku připojit se kódem nebo si založit
+vlastní. Práva `solary` a `nanoleaf` tím zanikla — k zařízením se chodí
+přes členství.
+
 **Soláry** — diagram toku energie ve vlastním SVG (šipky podle znaménka,
 takže je vidět, kterým směrem energie teče), dnešní bilance včetně
 soběstačnosti, proužek s dopadajícím slunečním zářením z předpovědi počasí

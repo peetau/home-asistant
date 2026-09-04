@@ -108,8 +108,6 @@ PULKA_TABU = {
 
 # Lidské názvy tabů pro Správu. Klíče musí sedět na database.VSECHNY_TABY.
 POPISY_TABU = {
-    "solary": "☀️ Soláry",
-    "nanoleaf": "💡 Nanoleaf",
     "sprava": "⚙️ Správa",
 }
 
@@ -270,15 +268,61 @@ def aktualni_prava():
 
     if "uzivatel_id" not in session:
         g.prava = set()
+        g.domacnost = None
         return g.prava
 
     zaznam = database.uzivatel_a_prava(session["uzivatel_id"])
     if zaznam is None:
         session.clear()
         g.prava = set()
+        g.domacnost = None
     else:
         g.prava = zaznam[1]
+        g.domacnost = zaznam[2]
     return g.prava
+
+
+def aktualni_domacnost():
+    """
+    Domácnost se zařízeními, do které přihlášený uživatel patří - nebo None.
+
+    Vrací (id, nazev, je_vlastnik). Od 4. 9. 2026 tohle nahrazuje práva
+    "solary" a "nanoleaf": k zařízením se nechodí přes právo, ale přes
+    ČLENSTVÍ. Kdo do domácnosti nepatří, zařízení neuvidí a nedostane se
+    k nim ani přímou adresou.
+
+    Bere se ze stejného dotazu jako práva, takže dotazů na požadavek
+    nepřibylo - a stejně jako práva se schovává do g na dobu požadavku.
+    """
+    aktualni_prava()          # naplní g.prava i g.domacnost jedním dotazem
+    return g.domacnost
+
+
+def vyzaduje_domacnost(funkce):
+    """
+    Nálepka pro route se zařízeními. Pustí jen člena domácnosti, které ta
+    zařízení patří.
+
+        @app.route("/solary")
+        @vyzaduje_domacnost
+        def solary(): ...
+
+    Kdo do ní nepatří, jde na Asistenta - tedy 302, NE 404. Pravidlo
+    "404 místo 403" platí u Nákupu, kde by odpověď prozradila, že cizí
+    seznam existuje. U tabu není co prozradit: že aplikace umí Soláry, je
+    vidět odkudkoliv. A přesměrování je navíc to, co člověk čeká.
+
+    Nepřihlášený jde na přihlášení, ne na Asistenta - jinak by se dozvěděl
+    jen to, že "tady nic není", místo aby se mohl přihlásit.
+    """
+    @wraps(funkce)
+    def obalena_funkce(*args, **kwargs):
+        if "uzivatel" not in session:
+            return redirect(url_for("prihlaseni"))
+        if aktualni_domacnost() is None:
+            return redirect(url_for("asistent"))
+        return funkce(*args, **kwargs)
+    return obalena_funkce
 
 
 def vyzaduje_prihlaseni(funkce):
@@ -309,12 +353,15 @@ def vyzaduje_pravo(tab):
     """
     Nálepka pro route, které smí jen uživatel s právem na daný tab.
 
-        @app.route("/solary")
-        @vyzaduje_pravo("solary")
-        def solary(): ...
+        @app.route("/sprava")
+        @vyzaduje_pravo("sprava")
+        def sprava(): ...
+
+    Od 4. 9. 2026 zbylo jediné právo, a to na Správu - k zařízením se chodí
+    přes členství v domácnosti, viz vyzaduje_domacnost().
 
     Oproti vyzaduje_prihlaseni je to o patro výš: dekorátor S PARAMETREM.
-    Funguje tak, že vyzaduje_pravo("solary") nejdřív VYROBÍ dekorátor
+    Funguje tak, že vyzaduje_pravo("sprava") nejdřív VYROBÍ dekorátor
     (funkci dekorator níž) a teprve ten se přilepí na route. Proto jsou
     tu tři vnořené funkce místo dvou.
 
@@ -349,6 +396,7 @@ def spolecna_data():
         "uzivatel": session.get("uzivatel"),
         "uzivatel_id": session.get("uzivatel_id"),
         "prava": aktualni_prava(),
+        "domacnost": aktualni_domacnost(),
         "pulka_tabu": PULKA_TABU,
     }
 
@@ -557,29 +605,58 @@ def domacnost():
     """
     Domácnost - od každého zařízení to nejdůležitější.
 
-    Právo tu NENÍ potřeba: stránku otevře každý, ale poskládá se jen
-    z toho, na co má právo. Kdo nemá žádné zařízení, uvidí prázdno -
-    a to je zatím schválně, viz plán.
+    Stránku otevře každý přihlášený, ale zařízení na ní uvidí jen člen
+    domácnosti, které patří. Kdo do žádné nepatří, dostane pozvánkovou
+    kartu místo prázdna.
     """
-    # Čteme jen zařízení, na která má uživatel právo. Nejde jen o úsporu:
-    # každé čtení je volání po síti, takže bez téhle podmínky by se čekalo
+    # Čteme jen tehdy, když je komu co ukázat. Nejde jen o úsporu: každé
+    # čtení je volání po síti, takže bez téhle podmínky by se čekalo
     # i na data, která se stejně nezobrazí.
-    prava = aktualni_prava()
+    domacnost = aktualni_domacnost()
 
     nanoleaf, nanoleaf_chyba = (
-        _stav_nanoleaf() if "nanoleaf" in prava else (None, None))
+        _stav_nanoleaf() if domacnost else (None, None))
     solax, solax_chyba = (
-        _stav_solax() if "solary" in prava else (None, None))
+        _stav_solax() if domacnost else (None, None))
+
+    # Kód pozvánky dostane do šablony jen vlastník. Nerozhoduje o tom
+    # tenhle řádek, ale SQL dotaz uvnitř - komu kód nepatří, tomu se vrátí
+    # None a do šablony se nedostane vůbec.
+    kod = (database.kod_domacnosti(domacnost[0], session["uzivatel_id"])
+           if domacnost else None)
 
     return render_template(
-        "domacnost.html", aktivni="domacnost",
+        "domacnost.html", aktivni="domacnost", kod=kod,
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
     )
 
 
+@app.route("/domacnost/zalozit", methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_zalozit():
+    """Založení vlastní domácnosti z prázdné stránky Domácnost."""
+    ok, vysledek = database.zaloz_domacnost(
+        request.form.get("nazev", ""), session["uzivatel_id"])
+
+    if ok:
+        return redirect(url_for("domacnost", zprava="Domácnost je založená."))
+    return redirect(url_for("domacnost", chyba=vysledek))
+
+
+@app.route("/domacnost/pripojit", methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_pripojit():
+    """Připojení k domácnosti podle kódu pozvánky."""
+    ok, hlaska = database.pripoj_domacnost_kodem(
+        request.form.get("kod", ""), session["uzivatel_id"])
+
+    return redirect(url_for(
+        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
 @app.route("/solary")
-@vyzaduje_pravo("solary")
+@vyzaduje_domacnost
 def solary():
     """Detail solární elektrárny: aktuální stav, grafy, historie."""
     solax, solax_chyba = _stav_solax()
@@ -630,7 +707,7 @@ def solary():
 
 
 @app.route("/nanoleaf")
-@vyzaduje_pravo("nanoleaf")
+@vyzaduje_domacnost
 def nanoleaf():
     """Detail Nanoleaf: stav, rozložení panelů, ovládání."""
     stav, chyba = _bezpecne(lambda: get_nanoleaf_detail(
@@ -650,7 +727,7 @@ def nanoleaf():
 # ---------------------------------------------------------------------------
 
 @app.route("/nanoleaf/prepnout", methods=["POST"])
-@vyzaduje_pravo("nanoleaf")
+@vyzaduje_domacnost
 def nanoleaf_prepnout():
     """Zapne nebo vypne panely - podle toho, jak svítí teď."""
     stav, chyba = _stav_nanoleaf()
@@ -661,7 +738,7 @@ def nanoleaf_prepnout():
 
 
 @app.route("/nanoleaf/jas", methods=["POST"])
-@vyzaduje_pravo("nanoleaf")
+@vyzaduje_domacnost
 def nanoleaf_jas():
     """
     Nastaví jas podle posuvníku.
@@ -691,7 +768,7 @@ def nanoleaf_jas():
 
 
 @app.route("/nanoleaf/efekt", methods=["POST"])
-@vyzaduje_pravo("nanoleaf")
+@vyzaduje_domacnost
 def nanoleaf_efekt():
     """
     Potvrzení návrhu: přepne efekt a zároveň nastaví jas.
@@ -720,7 +797,7 @@ def nanoleaf_efekt():
 
 
 @app.route("/nanoleaf/paleta")
-@vyzaduje_pravo("nanoleaf")
+@vyzaduje_domacnost
 def nanoleaf_paleta():
     """
     Vrátí barvy zvoleného efektu jako JSON - pro náhled v prohlížeči.

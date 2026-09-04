@@ -34,13 +34,15 @@ DB_SOUBOR = os.path.join(os.path.dirname(__file__), "asistent.db")
 # (zařízení jednoho konkrétního domu) a Asistenta, který je pro kohokoliv -
 # a Nákup patří k Asistentovi. Viz migrace 'zruseni_prava_nakup' níž.
 #
-# Přidání dalšího zařízení = přidat sem jeho název. Nic v databázi se měnit
-# nemusí (viz komentář u tabulky 'opravneni').
-VSECHNY_TABY = ("solary", "nanoleaf", "sprava")
+# Od 4. 9. 2026 tu nejsou ani 'solary' a 'nanoleaf'. K zařízením se nechodí
+# přes právo, ale přes ČLENSTVÍ v domácnosti - viz migrace
+# 'zalozeni_domacnosti' níž a funkce domacnost_uzivatele(). Práva tak zbyla
+# jen na Správu, tedy na účty celé aplikace.
+VSECHNY_TABY = ("sprava",)
 
 # Co dostane nově založený uživatel: nic. Není to skoupost - Přehled
-# i Nákup dostane každý přihlášený a práva se udělují jen na zařízení
-# a Správu. Úplně první účet je výjimka, viz vytvor_uzivatele().
+# i Nákup dostane každý přihlášený a právo zbylo jediné, na Správu.
+# Úplně první účet je výjimka, viz vytvor_uzivatele().
 VYCHOZI_PRAVA = ()
 
 
@@ -308,6 +310,52 @@ def init_db():
             )
         """)
 
+        # Domácnost: parta lidí, které patří zařízení.
+        #
+        # Vlastník je SLOUPEC, ne řádek v tabulce členů s nějakou rolí -
+        # stejně jako u nákupního seznamu. Díky tomu hlídá databáze sama,
+        # že vlastníka má domácnost právě jednoho.
+        #
+        # ma_zarizeni říká, KTERÉ domácnosti patří zařízení z config.py.
+        # Bez toho sloupce by se podmínka nedala napsat bezpečně: zařízení
+        # jsou v configu, tedy společná pro celý server, takže "jsi člen
+        # nějaké domácnosti" by pustilo k cizímu SolaXu každého, kdo si
+        # založí vlastní. Až se zařízení přestěhují do databáze, sloupec
+        # zmizí a nahradí ho vazba zařízení -> domácnost.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS domacnosti (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                nazev       TEXT    NOT NULL,
+                vlastnik_id INTEGER NOT NULL REFERENCES uzivatele(id),
+                kod         TEXT    UNIQUE,
+                ma_zarizeni INTEGER NOT NULL DEFAULT 0,
+                vytvorena   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+
+        # Zařízení smí mít nejvýš JEDNA domácnost - a hlídá to databáze,
+        # ne Python. Částečný index (WHERE ma_zarizeni = 1) hlídá jedničky
+        # a nuly nechává být, takže domácností bez zařízení může být kolik
+        # chce. Dva workery zakládající naráz si tím nemůžou udělat dvě
+        # hlavní domácnosti - druhý dostane IntegrityError, úplně stejně
+        # jako u _migrace_zabrana(). Rozhoduje databáze, ne načasování.
+        db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS jedna_domacnost_se_zarizenimi
+                ON domacnosti (ma_zarizeni) WHERE ma_zarizeni = 1
+        """)
+
+        # Kdo do domácnosti patří. Vlastník tu NENÍ - je sloupcem výš.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS clenove_domacnosti (
+                domacnost_id INTEGER NOT NULL
+                             REFERENCES domacnosti(id) ON DELETE CASCADE,
+                uzivatel_id  INTEGER NOT NULL
+                             REFERENCES uzivatele(id) ON DELETE CASCADE,
+                pridan       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                PRIMARY KEY (domacnost_id, uzivatel_id)
+            )
+        """)
+
         # MIGRACE: sloupec s množstvím.
         #
         # Tabulka nakup uz obsahuje data, takze ji nestaci vytvorit jinak -
@@ -383,6 +431,49 @@ def init_db():
         # že na produkci už ten řádek je - tam migrace opravdu proběhla.
         db.execute(
             "INSERT OR IGNORE INTO migrace (nazev) VALUES ('prvni_opravneni')")
+
+        # MIGRACE: práva 'solary' a 'nanoleaf' se ruší, nahrazuje je
+        # ČLENSTVÍ v domácnosti.
+        #
+        # ⚠️ Pod zámkem je i to MAZÁNÍ, na rozdíl od práva 'nakup' výš.
+        # Tam mazání na ničem nezáviselo, tady ano: nejdřív se z 'opravneni'
+        # čte, kdo se má stát členem, a teprve pak se maže. Kdyby mazal
+        # druhý worker mimo zámek, mohl by to stihnout dřív, než si to první
+        # přečte - a vznikla by domácnost bez jediného člena.
+        if _migrace_zabrana(db, "zalozeni_domacnosti"):
+            lide = [r[0] for r in db.execute(
+                "SELECT DISTINCT uzivatel_id FROM opravneni "
+                "WHERE tab IN ('solary', 'nanoleaf')"
+            ).fetchall()]
+
+            if lide:
+                # Vlastníkem se stane správce, který zařízení taky měl -
+                # a když takový není, prostě nejstarší z nich. Někdo to být
+                # musí, vlastnik_id je NOT NULL.
+                spravci = {r[0] for r in db.execute(
+                    "SELECT uzivatel_id FROM opravneni WHERE tab = 'sprava'"
+                ).fetchall()}
+                vlastnik = min(set(lide) & spravci) if set(lide) & spravci \
+                    else min(lide)
+
+                db.execute(
+                    "INSERT INTO domacnosti (nazev, vlastnik_id, kod, ma_zarizeni) "
+                    "VALUES (?, ?, ?, 1)",
+                    ("Domácnost", vlastnik, _novy_kod()),
+                )
+                id_domacnosti = db.execute(
+                    "SELECT last_insert_rowid()").fetchone()[0]
+
+                for id_u in lide:
+                    if id_u != vlastnik:
+                        db.execute(
+                            "INSERT OR IGNORE INTO clenove_domacnosti "
+                            "(domacnost_id, uzivatel_id) VALUES (?, ?)",
+                            (id_domacnosti, id_u),
+                        )
+
+            db.execute(
+                "DELETE FROM opravneni WHERE tab IN ('solary', 'nanoleaf')")
 
         # MIGRACE existující databáze. UŽ SE NIKDY NESPUSTÍ - viz pojistka výš.
         #
@@ -1225,6 +1316,114 @@ def smaz_koupene(seznam_id, id_uzivatele):
         return kurzor.rowcount
 
 
+def zaloz_domacnost(nazev, vlastnik_id):
+    """
+    Založí domácnost. Vrací (True, id) nebo (False, "co je špatně").
+
+    Když ještě žádná domácnost nemá zařízení z config.py, zdědí je tahle.
+    Config popisuje zařízení TÉHLE instalace, takže patří té první
+    domácnosti, co vznikne - na produkci té z migrace, na čerstvé databázi
+    té, kterou si člověk založí sám. Bez toho pravidla by na nové instalaci
+    neviděl Soláry ani majitel serveru.
+
+    Kód pozvánky se losuje a musí být jedinečný, takže těch pár pokusů -
+    stejně jako u vytvor_seznam(). Ve stejné smyčce se řeší i druhý důvod,
+    proč může zápis neuspět: jiný proces si mezitím vzal zařízení. Právě
+    proto se ma_zarizeni počítá ZNOVU při každém pokusu, ne jednou předem.
+    """
+    nazev = nazev.strip()[:60]
+    if not nazev:
+        return False, "Domácnost musí mít název."
+
+    with _spojeni() as db:
+        for _ in range(5):
+            zarizeni_volna = db.execute(
+                "SELECT COUNT(*) FROM domacnosti WHERE ma_zarizeni = 1"
+            ).fetchone()[0] == 0
+            try:
+                db.execute(
+                    "INSERT INTO domacnosti "
+                    "(nazev, vlastnik_id, kod, ma_zarizeni) VALUES (?, ?, ?, ?)",
+                    (nazev, vlastnik_id, _novy_kod(), 1 if zarizeni_volna else 0),
+                )
+                return True, db.execute(
+                    "SELECT last_insert_rowid()").fetchone()[0]
+            except sqlite3.IntegrityError:
+                continue
+
+    return False, "Nepodařilo se domácnost založit, zkus to znovu."
+
+
+def domacnost_uzivatele(id_uzivatele):
+    """
+    Vrátí (id, nazev, je_vlastnik) domácnosti se zařízeními - ale jen když
+    do ní uživatel patří. Jinak None.
+
+    Sama se neptá - bere výsledek z uzivatel_a_prava(). Ta podmínka je
+    bezpečnostní a psát ji na dvou místech by znamenalo, že se jednou opraví
+    jen jedno z nich. Tady je proto jen jméno pro tu samou věc.
+    """
+    zaznam = uzivatel_a_prava(id_uzivatele)
+    return None if zaznam is None else zaznam[2]
+
+
+def kod_domacnosti(id_domacnosti, id_vlastnika):
+    """
+    Kód pozvánky - ale jen vlastníkovi. Jinak None.
+
+    Podmínka na vlastníka je součástí dotazu, ne kontrola před ním. Kód se
+    tak k tomu, kdo ho vidět nemá, vůbec nedostane do šablony - úplně
+    stejně jako u nákupního seznamu.
+    """
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT kod FROM domacnosti WHERE id = ? AND vlastnik_id = ?",
+            (id_domacnosti, id_vlastnika),
+        ).fetchone()
+
+    return None if radek is None else radek[0]
+
+
+def pripoj_domacnost_kodem(kod, id_uzivatele):
+    """
+    Připojí uživatele k domácnosti podle kódu pozvánky.
+
+    Vrací (povedlo_se, hláška).
+
+    Hláška u neznámého kódu záměrně neříká, jestli taková domácnost
+    neexistuje, nebo jestli se k ní jen nesmí. Není z čeho vyčíst, které
+    kódy platí.
+    """
+    upraveny = _uprav_kod(kod)
+    if upraveny is None:
+        return False, "Kód má šest znaků, například K7M-4QP."
+
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT id, nazev, vlastnik_id FROM domacnosti WHERE kod = ?",
+            (upraveny,),
+        ).fetchone()
+        if radek is None:
+            return False, "Takový kód nikam nevede."
+
+        id_domacnosti, nazev, vlastnik_id = radek
+        if vlastnik_id == id_uzivatele:
+            return False, "Tahle domácnost je tvoje vlastní."
+
+        try:
+            db.execute(
+                "INSERT INTO clenove_domacnosti (domacnost_id, uzivatel_id) "
+                "VALUES (?, ?)",
+                (id_domacnosti, id_uzivatele),
+            )
+        except sqlite3.IntegrityError:
+            # Dvojice (domácnost, uživatel) je primární klíč, takže druhé
+            # připojení databáze sama odmítne.
+            return False, "V domácnosti %s už jsi." % nazev
+
+    return True, "Připojeno k domácnosti %s." % nazev
+
+
 def vytvor_uzivatele(jmeno, heslo, prava=None):
     """
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
@@ -1473,22 +1672,48 @@ def uzivatel_a_prava(id_uzivatele):
     Vrátí (jmeno, mnozina_prav) pro daného uživatele, nebo None když už
     neexistuje (třeba když mu správce mezitím účet smazal).
 
-    Čte se při KAŽDÉM požadavku, proto jedním dotazem místo dvou.
-    LEFT JOIN vrátí uživatele i tehdy, když nemá žádná práva - pak přijde
-    jeden řádek s prázdným tabem, který níž přeskočíme.
+    Čte se při KAŽDÉM požadavku, proto jedním dotazem místo tří.
+    LEFT JOIN vrátí uživatele i tehdy, když nemá žádná práva ani domácnost -
+    pak přijde jeden řádek s prázdnými sloupci, který níž přeskočíme.
+
+    Třetí vrácená věc je domácnost se zařízeními, ale jen když do ní
+    uživatel patří: (id, nazev, je_vlastnik), jinak None. Podmínka je
+    schválně tady v SQL, ne v Pythonu za dotazem - je to JEDINÉ místo,
+    kde je napsaná, takže se nedá zapomenout na druhém.
+
+    ⚠️ Vlastník NENÍ v tabulce clenove_domacnosti, je sloupcem. Podmínka
+    proto musí pokrýt obojí, jinak by se vlastník ke svým vlastním
+    zařízením nedostal.
+
+    ⚠️ ma_zarizeni = 1 není ozdoba. Bez něj by stačilo založit si libovolnou
+    domácnost a člověk by se dostal k cizím zařízením - ta jsou v config.py,
+    tedy společná pro celý server.
+
+    Řádky se JOINem násobí počtem domácností, ale ta je nejvýš jedna
+    (hlídá to částečný index), takže jedničkou.
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT u.jmeno, o.tab
+            SELECT u.jmeno, o.tab, d.id, d.nazev, d.vlastnik_id = u.id
             FROM uzivatele u
             LEFT JOIN opravneni o ON o.uzivatel_id = u.id
+            LEFT JOIN domacnosti d
+                   ON d.ma_zarizeni = 1
+                  AND (d.vlastnik_id = u.id
+                       OR d.id IN (SELECT domacnost_id FROM clenove_domacnosti
+                                   WHERE uzivatel_id = u.id))
             WHERE u.id = ?
         """, (id_uzivatele,)).fetchall()
 
     if not radky:
         return None
 
-    return radky[0][0], {tab for _, tab in radky if tab}
+    prava = {radek[1] for radek in radky if radek[1]}
+
+    prvni = radky[0]
+    domacnost = None if prvni[2] is None else (prvni[2], prvni[3], bool(prvni[4]))
+
+    return prvni[0], prava, domacnost
 
 
 def pocet_spravcu():
