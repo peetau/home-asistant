@@ -472,6 +472,184 @@ def test_clen_kod_pozvanky_nevidi():
         "člen vidí kód pozvánky, i když zvát nesmí"
 
 
+# --- správa členů -----------------------------------------------------
+
+def jmena(seznam):
+    return [c["jmeno"] for c in seznam]
+
+
+def test_vypis_clenu_ma_vlastnika_prvniho():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    id_alex = zaloz_ucet("Alex")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+    pridej_clena(id_dom, id_alex)
+
+    seznam = database.clenove_domacnosti(id_dom)
+    assert jmena(seznam) == ["Petr", "Alex", "Hana"], \
+        "vlastník má být první, pak abeceda: %s" % jmena(seznam)
+    assert seznam[0]["je_vlastnik"] is True
+    assert seznam[1]["je_vlastnik"] is False
+
+
+def test_vlastnik_odebere_clena():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.odeber_clena_domacnosti(id_dom, id_petr, id_hana)
+
+    assert povedlo, hlaska
+    assert database.domacnost_uzivatele(id_hana) is None, \
+        "odebraná Hana pořád vidí zařízení"
+
+
+def test_clen_nemuze_odebrat_jineho_clena():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    id_alex = zaloz_ucet("Alex")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+    pridej_clena(id_dom, id_alex)
+
+    povedlo, hlaska = database.odeber_clena_domacnosti(id_dom, id_hana, id_alex)
+
+    assert not povedlo
+    assert database.domacnost_uzivatele(id_alex) is not None, \
+        "člen dokázal odebrat jiného člena"
+
+
+def test_vlastnika_odebrat_nejde():
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    povedlo, hlaska = database.odeber_clena_domacnosti(id_dom, id_petr, id_petr)
+
+    assert not povedlo, "vlastník odebral sám sebe a domácnost osiřela"
+    assert database.domacnost_uzivatele(id_petr) is not None
+
+
+def test_novy_kod_zneplatni_stary_ale_clenstvi_nechá():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+    stary = kod_domacnosti(id_dom)
+
+    povedlo, hlaska = database.novy_kod_domacnosti(id_dom, id_petr)
+
+    assert povedlo, hlaska
+    assert kod_domacnosti(id_dom) != stary, "kód se nezměnil"
+    assert database.domacnost_uzivatele(id_hana) is not None, \
+        "nový kód vyhodil stávajícího člena"
+
+    id_cizi = zaloz_ucet("Cizi")
+    slo, _ = database.pripoj_domacnost_kodem(stary, id_cizi)
+    assert not slo, "starý kód pořád funguje"
+
+
+def test_clen_nemuze_vygenerovat_novy_kod():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+    stary = kod_domacnosti(id_dom)
+
+    povedlo, hlaska = database.novy_kod_domacnosti(id_dom, id_hana)
+
+    assert not povedlo
+    assert kod_domacnosti(id_dom) == stary, "člen přegeneroval cizí kód"
+
+
+def test_clen_muze_odejit():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.opust_domacnost(id_dom, id_hana)
+
+    assert povedlo, hlaska
+    assert database.domacnost_uzivatele(id_hana) is None
+
+
+def test_vlastnik_odejit_nemuze():
+    """Domácnost musí někomu patřit - vlastnik_id je NOT NULL. Odchod
+    vlastníka by udělal sirotka, takže se musí odmítnout hláškou, ne mlčky."""
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    povedlo, hlaska = database.opust_domacnost(id_dom, id_petr)
+
+    assert not povedlo
+    assert database.domacnost_uzivatele(id_petr) is not None
+
+
+# --- správa členů na stránce ------------------------------------------
+
+def test_vlastnik_vidi_u_clena_odebrat():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    html = stranka(prihlaseny("Petr"), "/domacnost")
+    assert "Hana" in html, "vlastník nevidí výpis členů"
+    assert "/domacnost/odebrat/%d" % id_hana in html, \
+        "vlastník nemá čím člena odebrat"
+
+
+def test_clen_vidi_vypis_ale_neodebira():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    html = stranka(prihlaseny("Hana"), "/domacnost")
+    assert "Petr" in html, "člen nevidí, kdo do domácnosti patří"
+    assert "/domacnost/odebrat/" not in html, "člen má tlačítko Odebrat"
+    assert "/domacnost/novy-kod" not in html, "člen může přegenerovat kód"
+    assert "/domacnost/odejit" in html, "člen nemá jak odejít"
+
+
+def test_vlastnik_nema_tlacitko_odejit():
+    id_petr = zaloz_ucet("Petr")
+    database.zaloz_domacnost("Doma", id_petr)
+
+    html = stranka(prihlaseny("Petr"), "/domacnost")
+    assert "/domacnost/odejit" not in html, \
+        "vlastník má nabídnuté odejít, čímž by domácnost osiřela"
+
+
+def test_odebrany_clen_prijde_o_zarizeni_hned():
+    """Práva se čtou z databáze při každém požadavku, ne ze session - takže
+    odebranému zmizí Soláry na další kliknutí, ne až po odhlášení."""
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    hana = prihlaseny("Hana")
+    prihlaseny("Petr").post("/domacnost/odebrat/%d" % id_hana)
+
+    assert hana.get("/solary").status_code == 302, \
+        "odebraná Hana se pořád dostane na Soláry"
+
+
+def test_domacnost_ukazuje_stari_mereni():
+    """Když karta Solárů hlásí chybu, tohle je odpověď na otázku, jestli
+    sběrač ještě měří."""
+    id_petr = zaloz_ucet("Petr")
+    database.zaloz_domacnost("Doma", id_petr)
+    with database._spojeni() as db:
+        db.execute("INSERT INTO mereni (cas) VALUES (datetime('now','localtime'))")
+
+    html = stranka(prihlaseny("Petr"), "/domacnost")
+    assert "Poslední měření" in html, "na Domácnosti chybí stáří měření"
+
+
 if __name__ == "__main__":
     import sys
     kolik, spadlo = spust(globals(), __doc__.strip().splitlines()[0])

@@ -39,6 +39,11 @@ není, dostane místo prázdna nabídku připojit se kódem nebo si založit
 vlastní. Práva `solary` a `nanoleaf` tím zanikla — k zařízením se chodí
 přes členství.
 
+Dole na stránce je karta **Správa domácnosti**: výpis členů (vlastník první),
+vlastníkovi navíc tlačítko Odebrat, kód pozvánky a Nový kód; člen z ní může
+odejít, vlastník ne — domácnost musí někomu patřit. Je na ní i **poslední
+měření**: když karta Solárů mlčí, tohle řekne, jestli sběrač ještě měří.
+
 **Soláry** — diagram toku energie ve vlastním SVG (šipky podle znaménka,
 takže je vidět, kterým směrem energie teče), dnešní bilance včetně
 soběstačnosti, proužek s dopadajícím slunečním zářením z předpovědi počasí
@@ -56,7 +61,9 @@ ale upravit nebo smazat jen to svoje. U koupené položky je vidět, **kdo
 koupil komu a za kolik**, a pod seznamem se z toho spočítá **vyúčtování** —
 kdo kolik zaplatil a kdo komu co vrátí (vzájemné dluhy se odečítají).
 
-**Správa** — zakládání a mazání účtů, práva na jednotlivé taby.
+**Správa** — zakládání a mazání účtů, hesla, QR s adresou a **stav
+serveru** (záloha, velikost databáze, volné místo). Právo zbylo jediné, na
+Správu samotnou.
 
 **Přihlašovací obrazovka** — pozadí podle denní doby, předpověď počasí, datum
 se svátkem a indikátory sběru dat a zálohy databáze. Nepřihlášený návštěvník

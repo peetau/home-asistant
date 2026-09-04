@@ -130,9 +130,6 @@ def podrobny_stav():
     def zjisti():
         udaje = {}
 
-        minuty = database.stari_posledniho_mereni()
-        udaje["mereni_minut"] = None if minuty is None else round(minuty)
-
         with database._spojeni() as db:
             udaje["mereni_pocet"] = db.execute(
                 "SELECT COUNT(*) FROM mereni").fetchone()[0]
@@ -625,8 +622,16 @@ def domacnost():
     kod = (database.kod_domacnosti(domacnost[0], session["uzivatel_id"])
            if domacnost else None)
 
+    # Stáří posledního měření se sem přestěhovalo ze Správy. Když karta
+    # Solárů hlásí chybu, tohle je odpověď na otázku, jestli sběrač ještě
+    # měří - a to je věc členů domácnosti, ne správce serveru.
+    clenove = database.clenove_domacnosti(domacnost[0]) if domacnost else []
+    minuty = _bezpecne(database.stari_posledniho_mereni)[0] if domacnost else None
+
     return render_template(
         "domacnost.html", aktivni="domacnost", kod=kod,
+        clenove=clenove, je_vlastnik=bool(domacnost and domacnost[2]),
+        mereni_minut=None if minuty is None else round(minuty),
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
     )
@@ -642,6 +647,41 @@ def domacnost_zalozit():
     if ok:
         return redirect(url_for("domacnost", zprava="Domácnost je založená."))
     return redirect(url_for("domacnost", chyba=vysledek))
+
+
+@app.route("/domacnost/odebrat/<int:id_clena>", methods=["POST"])
+@vyzaduje_domacnost
+def domacnost_odebrat(id_clena):
+    """Vlastník vyhodí člena z domácnosti."""
+    domacnost = aktualni_domacnost()
+    ok, hlaska = database.odeber_clena_domacnosti(
+        domacnost[0], session["uzivatel_id"], id_clena)
+
+    return redirect(url_for(
+        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
+@app.route("/domacnost/novy-kod", methods=["POST"])
+@vyzaduje_domacnost
+def domacnost_novy_kod():
+    """Vlastník vygeneruje nový kód pozvánky, starý přestane platit."""
+    domacnost = aktualni_domacnost()
+    ok, hlaska = database.novy_kod_domacnosti(
+        domacnost[0], session["uzivatel_id"])
+
+    return redirect(url_for(
+        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
+@app.route("/domacnost/odejit", methods=["POST"])
+@vyzaduje_domacnost
+def domacnost_odejit():
+    """Člen z domácnosti odejde sám."""
+    domacnost = aktualni_domacnost()
+    ok, hlaska = database.opust_domacnost(domacnost[0], session["uzivatel_id"])
+
+    return redirect(url_for(
+        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
 @app.route("/domacnost/pripojit", methods=["POST"])

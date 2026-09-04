@@ -1367,6 +1367,108 @@ def domacnost_uzivatele(id_uzivatele):
     return None if zaznam is None else zaznam[2]
 
 
+def clenove_domacnosti(id_domacnosti):
+    """
+    Kdo do domácnosti patří. Vlastník první, pak přizvaní podle abecedy.
+
+    Vlastník není v tabulce členů (je sloupcem v tabulce domácností), takže
+    se obě skupiny musí spojit - od toho je UNION ALL. Stejně jako
+    u nákupního seznamu.
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT u.id, u.jmeno, 1 AS je_vlastnik
+            FROM domacnosti d JOIN uzivatele u ON u.id = d.vlastnik_id
+            WHERE d.id = ?
+            UNION ALL
+            SELECT u.id, u.jmeno, 0
+            FROM clenove_domacnosti c JOIN uzivatele u ON u.id = c.uzivatel_id
+            WHERE c.domacnost_id = ?
+            ORDER BY je_vlastnik DESC, jmeno
+        """, (id_domacnosti, id_domacnosti)).fetchall()
+
+    return [{"id": r[0], "jmeno": r[1], "je_vlastnik": bool(r[2])} for r in radky]
+
+
+def odeber_clena_domacnosti(id_domacnosti, id_vlastnika, id_clena):
+    """
+    Vyhodí člena z domácnosti. Smí to jen vlastník. Vrací (ok, hláška).
+
+    Podmínka na vlastníka je součástí DELETE, ne kontrola před ním. Když
+    nesedí, dotaz nesmaže ani řádek a rowcount == 0 je odpověď.
+    """
+    # Tahle jediná podmínka je v Pythonu, a je tu kvůli HLÁŠCE, ne kvůli
+    # ochraně: vlastník v tabulce členů není, takže by ho DELETE netrefil
+    # tak jako tak - jenže by to vypadalo jako "tohle smí jen vlastník",
+    # což by u vlastníka byla lež.
+    if id_clena == id_vlastnika:
+        return False, "Vlastníka odebrat nejde, domácnost musí někomu patřit."
+
+    with _spojeni() as db:
+        kurzor = db.execute("""
+            DELETE FROM clenove_domacnosti
+            WHERE domacnost_id = ?
+              AND uzivatel_id = ?
+              AND EXISTS (SELECT 1 FROM domacnosti
+                          WHERE id = ? AND vlastnik_id = ?)
+        """, (id_domacnosti, id_clena, id_domacnosti, id_vlastnika))
+
+        if kurzor.rowcount == 0:
+            return False, "Odebrat člena může jen vlastník domácnosti."
+
+    return True, "Člen odebrán."
+
+
+def novy_kod_domacnosti(id_domacnosti, id_vlastnika):
+    """
+    Vygeneruje nový kód pozvánky. Starý tím přestane platit.
+
+    Na nikoho, kdo už členem je, to nemá vliv - zneplatní se jen pozvánky,
+    které ještě nikdo nepoužil.
+    """
+    with _spojeni() as db:
+        for _ in range(5):
+            try:
+                kurzor = db.execute(
+                    "UPDATE domacnosti SET kod = ? WHERE id = ? AND vlastnik_id = ?",
+                    (_novy_kod(), id_domacnosti, id_vlastnika),
+                )
+                if kurzor.rowcount == 0:
+                    return False, "Změnit kód může jen vlastník domácnosti."
+                return True, "Nový kód je hotový, starý už neplatí."
+            except sqlite3.IntegrityError:
+                continue
+
+    return False, "Nepodařilo se vyrobit nový kód, zkus to znovu."
+
+
+def opust_domacnost(id_domacnosti, id_uzivatele):
+    """
+    Člen odejde z domácnosti sám. Vrací (ok, hláška).
+
+    Vlastník odejít nemůže: vlastnik_id je NOT NULL, takže by jeho odchodem
+    vznikla domácnost bez majitele. Odmítne se to hláškou, ne mlčky - DELETE
+    by ho stejně netrefil (v tabulce členů není) a "povedlo se" by byla lež.
+    """
+    with _spojeni() as db:
+        je_vlastnik = db.execute(
+            "SELECT 1 FROM domacnosti WHERE id = ? AND vlastnik_id = ?",
+            (id_domacnosti, id_uzivatele),
+        ).fetchone() is not None
+        if je_vlastnik:
+            return False, "Vlastník z domácnosti odejít nemůže."
+
+        kurzor = db.execute(
+            "DELETE FROM clenove_domacnosti "
+            "WHERE domacnost_id = ? AND uzivatel_id = ?",
+            (id_domacnosti, id_uzivatele),
+        )
+        if kurzor.rowcount == 0:
+            return False, "V téhle domácnosti nejsi."
+
+    return True, "Do domácnosti už nepatříš."
+
+
 def kod_domacnosti(id_domacnosti, id_vlastnika):
     """
     Kód pozvánky - ale jen vlastníkovi. Jinak None.

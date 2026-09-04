@@ -108,19 +108,77 @@
         {% endif %}
     </div>
 
-    {# ---------- Pozvánka ----------
-       Kód dostane do šablony jen vlastník - route ho ostatním vůbec
-       nepošle, stejně jako u nákupního seznamu. Zvát tedy zatím smí jen
-       on; "členové smí zvát" umí Nákup, ale sem to přijde až se Správou
-       domácnosti. #}
-    {% if kod %}
+    {# ---------- Správa domácnosti ----------
+       Karta, ne vlastní tab: zvát a odebírat se bude párkrát za rok, takže
+       by tab byl zbytečně nahlas. Je to stejné místo, kde má Nákup kartu
+       „Správa aktuálního seznamu".
+
+       Kdo co smí, rozhoduje SQL v database.py - tohle je jen pohodlí, aby
+       se nenabízela tlačítka, která by stejně neprošla. #}
     <div class="karta">
-        <h2>✉️ Pozvánka</h2>
-        <p class="popisek-radku">Komu pošleš tenhle kód, ten se k domácnosti
-           připojí a uvidí její zařízení.</p>
-        <p><code class="kod" title="Kód pozvánky do domácnosti">{{ kod }}</code></p>
+        <h2>⚙️ Správa domácnosti</h2>
+
+        <div class="blok">
+            <h3>Členové ({{ clenove|length }})</h3>
+            {% for c in clenove %}
+            <div class="radek">
+                <span class="popisek">
+                    {{ c.jmeno }}
+                    {% if c.je_vlastnik %}<span class="ja">vlastník</span>{% endif %}
+                </span>
+                <span class="hodnota">
+                    {# Vlastníka odebrat nejde - domácnost musí někomu patřit. #}
+                    {% if je_vlastnik and not c.je_vlastnik %}
+                    <form method="post"
+                          action="{{ url_for('domacnost_odebrat', id_clena=c.id) }}"
+                          data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti? Přijde o Soláry i Nanoleaf.">
+                        <button type="submit" class="caste-tlacitko">Odebrat</button>
+                    </form>
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Kód dostane do šablony jen vlastník - route ho ostatním vůbec
+           nepošle, stejně jako u nákupního seznamu. #}
+        {% if kod %}
+        <div class="blok">
+            <h3>Pozvánka</h3>
+            <p class="popisek-radku">Komu pošleš tenhle kód, ten se k domácnosti
+               připojí a uvidí její zařízení.</p>
+            <div class="pozvanka">
+                <code class="kod" title="Kód pozvánky do domácnosti">{{ kod }}</code>
+                <form method="post" action="{{ url_for('domacnost_novy_kod') }}"
+                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
+                    <button type="submit" class="caste-tlacitko">Nový kód</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Přestěhováno ze Správy. Když karta Solárů hlásí chybu, tohle je
+           odpověď na otázku, jestli sběrač ještě měří. #}
+        <div class="blok">
+            <h3>Sběr měření</h3>
+            <div class="radek">
+                <span class="popisek">Poslední měření</span>
+                <span class="hodnota">
+                    {% if mereni_minut is none %}zatím žádné
+                    {% elif mereni_minut < 60 %}před {{ mereni_minut }} min
+                    {% else %}před {{ (mereni_minut / 60)|round(1) }} h{% endif %}
+                </span>
+            </div>
+        </div>
+
+        {% if not je_vlastnik %}
+        <form method="post" action="{{ url_for('domacnost_odejit') }}"
+              class="uklid-form"
+              data-potvrdit="Opravdu odejít z domácnosti? Přijdeš o Soláry i Nanoleaf.">
+            <button type="submit" class="uklidit">Odejít z domácnosti</button>
+        </form>
+        {% endif %}
     </div>
-    {% endif %}
 
 {% endif %}
 

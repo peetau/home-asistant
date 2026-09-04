@@ -15,16 +15,11 @@
     #}
     {% if stav %}
     <div class="karta">
-        <h2>📊 Stav systému</h2>
+        {# Stáří posledního měření se odsud 4. 9. 2026 přestěhovalo na
+           Domácnost. Je to fakt o zařízeních, ne o serveru, a zajímá právě
+           členy domácnosti - tady zůstalo, co je o serveru samotném. #}
+        <h2>📊 Stav serveru</h2>
         <div class="dlazdice">
-            <div class="polozka">
-                <div class="popisek">Poslední měření</div>
-                <div class="hodnota">
-                    {% if stav.mereni_minut is none %}—
-                    {% elif stav.mereni_minut < 60 %}před {{ stav.mereni_minut }} min
-                    {% else %}před {{ (stav.mereni_minut / 60)|round(1) }} h{% endif %}
-                </div>
-            </div>
             <div class="polozka">
                 <div class="popisek">Poslední záloha</div>
                 <div class="hodnota">
