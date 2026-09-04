@@ -54,11 +54,12 @@ komukoliv mimo rodinu dávat adresu.
 Účty dnes zakládá správce ručně přes Správu nebo `sprava_uctu.py`. To
 u cizích lidí nejde — musí si účet založit sami.
 
-### 2. Limit pokusů o přihlášení
-Přihlašovací formulář je veřejně na internetu a **nemá žádný strop na
-počet pokusů**. Dokud byla uvnitř jen rodina, byla to odložená věc.
-S registrací se z ní stává podmínka, protože přibude jméno, které
-útočník uhodne snadno.
+### 2. ~~Limit pokusů o přihlášení~~ — hotovo 4. 9. 2026
+Přihlašovací formulář je veřejně na internetu a neměl žádný strop na počet
+pokusů. Od 4. 9. 2026 se počítají chybné pokusy z jedné IP adresy: po pěti
+minuta čekání, po deseti pět minut, po patnácti čtvrt hodiny. Počítá se
+adresa, ne jméno — jinak by stačilo zkoušet cizí jméno a majitele účtu tím
+vyřadit z provozu. Podrobnosti v [`struktura.md`](struktura.md).
 
 Podrobnosti k provedení jsou v [`dalsi-kroky.md`](dalsi-kroky.md).
 
@@ -98,10 +99,10 @@ Zůstane ale **větší půlka a je celá obecná**: `svatky.py` (440 řádků),
 ## Pořadí práce
 
 1. ~~**Přehled: osobní hlavička**~~ — hotovo 2. 9. 2026
-2. **Přehled: obnovování** — stránka se překresluje celá každých 10 sekund.
-   Pro toho, kdo má jen Nákup, se na ní nic živého neděje; je to zbytečný
-   provoz na mobilních datech. Souvisí s velikostí stránky Soláry
-   v [`dalsi-kroky.md`](dalsi-kroky.md).
+2. ~~**Přehled: obnovování**~~ — vyřešilo se samo rozdělením na Domácnost
+   a Asistenta (3. 9. 2026): obnovuje se jen Domácnost, kde běží živá data
+   ze zařízení, a od 4. 9. ani ta, když do domácnosti nepatříš. Zbývá
+   velikost stránky Soláry v [`dalsi-kroky.md`](dalsi-kroky.md).
 3. **Přehled: prázdný stav** — hláška „Zatím ti nikdo nepřidělil přístup,
    řekni si správci" je psaná pro člena rodiny, ne pro cizího člověka.
 4. **Registrace** — a s ní podmínky 2 až 6 výš.
