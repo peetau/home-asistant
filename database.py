@@ -242,6 +242,25 @@ def init_db():
             )
         """)
 
+        # Neúspěšné pokusy o přihlášení, jeden řádek na IP adresu.
+        #
+        # Počítá se ADRESA, ne jméno. Kdyby se počítalo jméno, stačilo by
+        # útočníkovi zkoušet cizí jméno a majitel účtu by se sám nedostal
+        # dovnitř - vyřadit člověka z provozu by bylo snazší než se k němu
+        # vloupat.
+        #
+        # Tabulka se schválně nedrží v paměti procesu: gunicorn má dva
+        # workery, každý by měl vlastní počítadlo (tedy dvojnásobek pokusů)
+        # a restart by je vynuloval.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS pokusy_prihlaseni (
+                ip           TEXT PRIMARY KEY,
+                chyb         INTEGER NOT NULL DEFAULT 0,
+                blokovano_do TEXT,
+                posledni     TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+
         # Nákupní seznamy.
         #
         # Jeden seznam = jedna parta lidí, co spolu nakupuje. Vlastník je
@@ -1256,6 +1275,79 @@ def vytvor_uzivatele(jmeno, heslo, prava=None):
     except sqlite3.IntegrityError:
         # Sem se dostaneme, když jméno porušilo pravidlo UNIQUE.
         return False
+
+
+# Strop na přihlašovací pokusy: (kolik chyb, kolik sekund se pak čeká).
+# Řadí se od nejpřísnějšího, hledá se první práh, na který se dosáhne.
+STROPY_PRIHLASENI = ((15, 900), (10, 300), (5, 60))
+
+
+def zbyva_blokace(ip):
+    """
+    Kolik sekund musí adresa ještě počkat, než smí zkusit heslo znovu.
+    Vrací 0, když čekat nemusí.
+    """
+    with _spojeni() as db:
+        radek = db.execute("""
+            SELECT CAST(strftime('%s', blokovano_do)
+                      - strftime('%s', datetime('now', 'localtime')) AS INTEGER)
+            FROM pokusy_prihlaseni
+            WHERE ip = ? AND blokovano_do IS NOT NULL
+        """, (ip,)).fetchone()
+
+    if radek is None or radek[0] is None or radek[0] <= 0:
+        return 0
+    return radek[0]
+
+
+def zaznamenej_chybny_pokus(ip):
+    """
+    Připočte adrese jeden neúspěšný pokus a podle počtu jí nastaví čekání.
+
+    Blokace se přepisuje při KAŽDÉM dalším chybném pokusu nad prahem, ne
+    jen přesně na pěti a deseti - jinak by byly pokusy šest až devět zdarma.
+    """
+    with _spojeni() as db:
+        # Úklid, ať tabulka neroste donekonečna. Den je dost: nejdelší
+        # čekání je čtvrt hodiny, o starší adresy se nezajímáme.
+        db.execute(
+            "DELETE FROM pokusy_prihlaseni "
+            "WHERE posledni < datetime('now', 'localtime', '-1 day')"
+        )
+
+        # ON CONFLICT = "když už řádek s tímhle klíčem je, uprav ho".
+        # Jedním příkazem tak zvládneme založení i přičtení.
+        db.execute("""
+            INSERT INTO pokusy_prihlaseni (ip, chyb, posledni)
+            VALUES (?, 1, datetime('now', 'localtime'))
+            ON CONFLICT(ip) DO UPDATE SET
+                chyb     = chyb + 1,
+                posledni = datetime('now', 'localtime')
+        """, (ip,))
+
+        chyb = db.execute(
+            "SELECT chyb FROM pokusy_prihlaseni WHERE ip = ?", (ip,)
+        ).fetchone()[0]
+
+        for prah, sekundy in STROPY_PRIHLASENI:
+            if chyb >= prah:
+                db.execute(
+                    "UPDATE pokusy_prihlaseni SET blokovano_do = "
+                    "datetime('now', 'localtime', ?) WHERE ip = ?",
+                    ("+%d seconds" % sekundy, ip),
+                )
+                break
+
+
+def zapomen_pokusy(ip):
+    """
+    Zapomene neúspěšné pokusy adresy. Volá se po úspěšném přihlášení.
+
+    Díky tomu se doma nezaseknete: rodina má jednu veřejnou adresu, takže
+    když někdo párkrát překlepne heslo a pak se přihlásí, počítadlo je pryč.
+    """
+    with _spojeni() as db:
+        db.execute("DELETE FROM pokusy_prihlaseni WHERE ip = ?", (ip,))
 
 
 def over_uzivatele(jmeno, heslo):

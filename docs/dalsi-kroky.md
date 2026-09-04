@@ -6,22 +6,6 @@ v [`plan.md`](plan.md). Tohle je odkladiště, ať nezapadnou.
 Co odtud přešlo mezi podmínky otevření veřejnosti, tady zůstává i tak:
 plán říká *že* se to musí udělat, tenhle soubor *jak*.
 
-## Bezpečnost
-
-### Limit pokusů o přihlášení
-**Priorita: vysoká — a s registrací se z toho stává podmínka**, viz
-[`plan.md`](plan.md). Přihlašovací formulář je veřejně na internetu a nemá
-žádný strop na počet pokusů — kdokoliv může zkoušet hesla donekonečna.
-Hashování hesel je schválně pomalé, takže útok není snadný, ale bránit se
-tomu nijak nebráníme.
-
-Co s tím:
-- počítat neúspěšné pokusy podle jména i podle IP adresy
-- po několika pokusech krátká prodleva, po dalších delší
-- pozor, ať se tím nedá vyřadit z provozu poctivý uživatel (útočník by
-  mohl schválně zkoušet cizí jméno, aby ho zablokoval)
-- za Caddy je skutečná IP v hlavičce, kterou už čte ProxyFix
-
 ## Výkon a provoz stránek
 
 ### Stránka Soláry je velká (284 kB)

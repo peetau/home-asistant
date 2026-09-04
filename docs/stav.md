@@ -54,7 +54,9 @@ kdo kolik zaplatil a kdo komu co vrátí (vzájemné dluhy se odečítají).
 **Přihlašovací obrazovka** — pozadí podle denní doby, předpověď počasí, datum
 se svátkem a indikátory sběru dat a zálohy databáze. Nepřihlášený návštěvník
 u indikátorů vidí jen tři stavy (v pořádku / problém / neznámo), žádné časy,
-čísla ani chybové hlášky.
+čísla ani chybové hlášky. Formulář má **strop na počet pokusů**: po pěti
+chybách z jedné adresy minuta čekání, po deseti pět minut, po patnácti čtvrt
+hodiny.
 
 **Napříč aplikací** — tmavý režim s přepínačem, který přežije zavření
 prohlížeče. Sběrač `sber.py` plní databázi nezávisle na webu. Zabezpečená

@@ -353,6 +353,33 @@ def spolecna_data():
     }
 
 
+def _cesky_pocet(kolik, jedna, dve_az_ctyri, pet_a_vic):
+    """
+    Čeština skloňuje podle počtu: 1 minutu, 3 minuty, 5 minut. U jedničky
+    se číslo nepíše vůbec - "za minutu" zní líp než "za 1 minutu".
+    """
+    if kolik == 1:
+        return jedna
+    if kolik < 5:
+        return "%d %s" % (kolik, dve_az_ctyri)
+    return "%d %s" % (kolik, pet_a_vic)
+
+
+def _za_jak_dlouho(sekundy):
+    """
+    Přeloží počet sekund na text do hlášky: "za sekundu", "za 30 sekund",
+    "za minutu", "za 5 minut".
+
+    Zaokrouhluje se NAHORU. Slíbit kratší čekání, než jaké doopravdy platí,
+    by znamenalo, že se člověk vrátí a narazí na tutéž hlášku znovu.
+    """
+    if sekundy < 60:
+        return _cesky_pocet(sekundy, "sekundu", "sekundy", "sekund")
+
+    minut = -(-sekundy // 60)  # dělení se zaokrouhlením nahoru
+    return _cesky_pocet(minut, "minutu", "minuty", "minut")
+
+
 # methods=["GET", "POST"] říká, že tahle adresa umí dvě věci:
 #   GET  = "ukaž mi formulář"        (když na stránku přijdeš)
 #   POST = "tady máš vyplněné údaje" (když odešleš formulář)
@@ -367,20 +394,40 @@ def prihlaseni():
         jmeno = request.form.get("jmeno", "").strip()
         heslo = request.form.get("heslo", "")
 
-        uzivatel = database.over_uzivatele(jmeno, heslo)
+        # Skutečnou adresu návštěvníka sem dosazuje ProxyFix z hlavičky,
+        # kterou přidává Caddy. Bez něj by tu byla adresa samotné proxy -
+        # pro všechny stejná, takže by strop platil pro celý internet
+        # dohromady a první útočník by zamkl všechny ostatní.
+        adresa = request.remote_addr or "neznámá"
+        zbyva = database.zbyva_blokace(adresa)
 
-        if uzivatel:
-            # Do session zapíšeme, kdo je přihlášen. Flask to zabalí
-            # do podepsané cookie a prohlížeč ji pošle s každým dalším
-            # požadavkem - tím si nás server "pamatuje".
-            session["uzivatel"] = uzivatel["jmeno"]
-            session["uzivatel_id"] = uzivatel["id"]
-            _bezpecne(lambda: database.zaznamenej_prihlaseni(uzivatel["id"]))
-            return redirect(url_for("asistent"))
+        if zbyva:
+            # Heslo se tu schválně vůbec neověřuje. Hashování je záměrně
+            # pomalé, takže by se opakovanými pokusy dal vytížit procesor
+            # serveru i bez sebemenší naděje na uhodnutí hesla.
+            chyba = ("Příliš mnoho pokusů o přihlášení. "
+                     "Zkus to znovu za %s." % _za_jak_dlouho(zbyva))
+        else:
+            uzivatel = database.over_uzivatele(jmeno, heslo)
 
-        # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
-        # rozlišovali, útočník by si mohl ověřit, která jména existují.
-        chyba = "Nesprávné jméno nebo heslo."
+            if uzivatel:
+                # Povedlo se - počítadlo chyb té adresy jde pryč, ať se
+                # doma nezasekneme kvůli pár překlepům.
+                database.zapomen_pokusy(adresa)
+
+                # Do session zapíšeme, kdo je přihlášen. Flask to zabalí
+                # do podepsané cookie a prohlížeč ji pošle s každým dalším
+                # požadavkem - tím si nás server "pamatuje".
+                session["uzivatel"] = uzivatel["jmeno"]
+                session["uzivatel_id"] = uzivatel["id"]
+                _bezpecne(lambda: database.zaznamenej_prihlaseni(uzivatel["id"]))
+                return redirect(url_for("asistent"))
+
+            database.zaznamenej_chybny_pokus(adresa)
+
+            # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
+            # rozlišovali, útočník by si mohl ověřit, která jména existují.
+            chyba = "Nesprávné jméno nebo heslo."
 
     return render_template(
         "prihlaseni.html",

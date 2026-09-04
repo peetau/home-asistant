@@ -103,6 +103,16 @@ v SQL spočítají, jestli je smí i měnit. Route pak jen zavolá branku a při
 dozvědět, že existuje. Kód pozvánky se stejným způsobem vůbec nedostane do
 šablony tomu, kdo ho vidět nesmí.
 
+**Strop na přihlašování počítá adresy, ne jména.** Pět chybných pokusů
+z jedné IP znamená minutu čekání, deset pět minut, patnáct čtvrt hodiny;
+úspěšné přihlášení počítadlo smaže. Kdyby se počítala jména, stačilo by
+útočníkovi zkoušet cizí jméno a majitele účtu tím vyřadit z provozu —
+zamknout někoho by bylo snazší než se k němu vloupat. Zablokované adrese se
+heslo vůbec neověřuje: hashování je záměrně pomalé, takže by se opakovanými
+pokusy dal vytížit procesor i bez naděje na uhodnutí. Počítadlo je v tabulce
+`pokusy_prihlaseni`, ne v paměti procesu — gunicorn má dva workery a každý by
+měl vlastní.
+
 **Čeština nezná rod uživatele.** „Hana koupil" praští do očí, takže se
 u položky píše „koupil(a)" a ve vyúčtování sloveso není vůbec — říká ho
 jednou nadpis. Kdyby přibývaly další věty o lidech, počítej s tím.
