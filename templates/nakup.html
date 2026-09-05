@@ -285,6 +285,13 @@
                         <span class="popisek-radku">vlastník</span>{% endif %}</span>
                     {% if seznam.je_vlastnik and not c.je_vlastnik %}
                     <form method="post"
+                          action="{{ url_for('nakup_predat',
+                                             id_seznamu=seznam.id, id_clena=c.id) }}"
+                          data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tobě zůstane jen členství.">
+                        <button type="submit" class="caste-tlacitko"
+                                title="Předat vlastnictví">Předat</button>
+                    </form>
+                    <form method="post"
                           action="{{ url_for('nakup_odebrat_clena',
                                              id_seznamu=seznam.id, id_clena=c.id) }}"
                           data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">

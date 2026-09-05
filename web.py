@@ -786,6 +786,20 @@ def domacnost_novy_kod(id_domacnosti):
         **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
+@app.route("/domacnost/<int:id_domacnosti>/predat/<int:id_clena>",
+           methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_predat(id_domacnosti, id_clena):
+    """Vlastník předá domácnost jinému členovi."""
+    _moje_domacnost(id_domacnosti)
+    ok, hlaska = database.predej_domacnost(
+        id_domacnosti, session["uzivatel_id"], id_clena)
+
+    return redirect(url_for(
+        "domacnost_detail", id_domacnosti=id_domacnosti,
+        **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
 @app.route("/domacnost/<int:id_domacnosti>/smazat", methods=["POST"])
 @vyzaduje_prihlaseni
 def domacnost_smazat(id_domacnosti):
@@ -1178,6 +1192,16 @@ def nakup_zvani(id_seznamu):
 def nakup_odebrat_clena(id_seznamu, id_clena):
     _seznam_nebo_404(id_seznamu)
     ok, hlaska = database.odeber_clena(
+        id_seznamu, session["uzivatel_id"], id_clena)
+    return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
+
+
+@app.route("/nakup/<int:id_seznamu>/predat/<int:id_clena>", methods=["POST"])
+@vyzaduje_prihlaseni
+def nakup_predat(id_seznamu, id_clena):
+    """Vlastník předá seznam jinému členovi."""
+    _seznam_nebo_404(id_seznamu)
+    ok, hlaska = database.predej_seznam(
         id_seznamu, session["uzivatel_id"], id_clena)
     return _zpet(id_seznamu, **({"zprava": hlaska} if ok else {"chyba": hlaska}))
 

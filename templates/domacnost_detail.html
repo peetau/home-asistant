@@ -110,6 +110,14 @@
                 <span class="hodnota">
                     {# Vlastníka odebrat nejde - domácnost musí někomu patřit. #}
                     {% if domacnost.je_vlastnik and not c.je_vlastnik %}
+                    {# Předání je nevratné jedním klepnutím, proto potvrzení
+                       říká i to, co nový vlastník získá. U domácnosti se
+                       zařízeními je to ovládání skutečných krabiček. #}
+                    <form method="post"
+                          action="{{ url_for('domacnost_predat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
+                          data-potvrdit="Předat domácnost {{ domacnost.nazev }} komu: {{ c.jmeno }}?{% if domacnost.ma_zarizeni %} Získá přístup k Solárům a Nanoleafu.{% endif %} Tobě zůstane jen členství.">
+                        <button type="submit" class="caste-tlacitko">Předat</button>
+                    </form>
                     <form method="post"
                           action="{{ url_for('domacnost_odebrat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
                           data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti? Přijde o její zařízení.">

@@ -773,6 +773,130 @@ def test_clen_tlacitko_smazat_domacnost_nevidi():
     assert "/smazat" not in html, "člen má tlačítko na smazání cizí domácnosti"
 
 
+# --- předání vlastnictví ----------------------------------------------
+
+def role(id_domacnosti, id_uzivatele):
+    """Vrátí 'vlastnik', 'clen', nebo None."""
+    with database._spojeni() as db:
+        if db.execute("SELECT 1 FROM domacnosti WHERE id = ? AND vlastnik_id = ?",
+                      (id_domacnosti, id_uzivatele)).fetchone():
+            return "vlastnik"
+        if db.execute("SELECT 1 FROM clenove_domacnosti "
+                      "WHERE domacnost_id = ? AND uzivatel_id = ?",
+                      (id_domacnosti, id_uzivatele)).fetchone():
+            return "clen"
+    return None
+
+
+def test_vlastnik_preda_clenovi_a_role_se_prohodi():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.predej_domacnost(id_dom, id_petr, id_hana)
+
+    assert povedlo, hlaska
+    assert role(id_dom, id_hana) == "vlastnik", "nový vlastník se jím nestal"
+    assert role(id_dom, id_petr) == "clen", \
+        "starý vlastník má zůstat členem, ne přijít o přístup"
+
+
+def test_clen_predat_nemuze():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    id_alex = zaloz_ucet("Alex")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+    pridej_clena(id_dom, id_alex)
+
+    povedlo, hlaska = database.predej_domacnost(id_dom, id_hana, id_alex)
+
+    assert not povedlo, "člen předal cizí domácnost"
+    assert role(id_dom, id_petr) == "vlastnik"
+
+
+def test_predat_neclenovi_nejde():
+    """Předat jde jen tomu, kdo v domácnosti už je - nikoho jiného vlastník
+    stejně nevidí."""
+    id_petr = zaloz_ucet("Petr")
+    id_cizi = zaloz_ucet("Cizi")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    povedlo, hlaska = database.predej_domacnost(id_dom, id_petr, id_cizi)
+
+    assert not povedlo, "domácnost se předala někomu, kdo v ní není"
+    assert role(id_dom, id_petr) == "vlastnik"
+
+
+def test_predat_sam_sobe_nejde():
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    povedlo, hlaska = database.predej_domacnost(id_dom, id_petr, id_petr)
+
+    assert not povedlo
+    assert role(id_dom, id_petr) == "vlastnik"
+
+
+def test_domacnost_se_zarizenimi_jde_predat_i_se_zarizenimi():
+    """Rozhodnutí z 5. 9.: předat jde všechno, jen s důraznějším
+    potvrzením. Zařízení musí zůstat u domácnosti, ne u člověka."""
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.predej_domacnost(id_dom, id_petr, id_hana)
+
+    assert povedlo, hlaska
+    with database._spojeni() as db:
+        ma = db.execute("SELECT ma_zarizeni FROM domacnosti WHERE id = ?",
+                        (id_dom,)).fetchone()[0]
+    assert ma == 1, "domácnost při předání přišla o zařízení"
+    assert database.domacnost_uzivatele(id_hana) is not None, \
+        "nový vlastník se k zařízením nedostane"
+
+
+def test_po_predani_jde_puvodni_ucet_zrusit():
+    """To hlavní, kvůli čemu předání vzniklo: dokud účet něco vlastnil,
+    nešel zrušit vůbec."""
+    zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+    pridej_clena(id_dom, id_hana)
+
+    neslo, duvod = database.smaz_uzivatele(id_tester)
+    assert not neslo, "účet vlastnící domácnost šel smazat rovnou"
+
+    database.predej_domacnost(id_dom, id_tester, id_hana)
+    ok, hlaska = database.smaz_uzivatele(id_tester)
+
+    assert ok, hlaska
+
+
+def test_vlastnik_vidi_tlacitko_predat():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "/domacnost/%d/predat/%d" % (id_dom, id_hana) in html, \
+        "vlastník nemá čím domácnost předat"
+
+
+def test_clen_tlacitko_predat_nevidi():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    html = stranka(prihlaseny("Hana"), "/domacnost/%d" % id_dom)
+    assert "/predat/" not in html, "člen může předávat cizí domácnost"
+
+
 if __name__ == "__main__":
     import sys
     kolik, spadlo = spust(globals(), __doc__.strip().splitlines()[0])

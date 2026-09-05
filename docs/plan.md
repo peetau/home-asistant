@@ -73,8 +73,15 @@ seznamem": účet, který vlastní seznam nebo domácnost, se zrušit **nedá** 
 nejdřív je musí předat nebo smazat. Položky, které člověk napsal nebo
 koupil, zůstávají i se jménem jako textem, aby vyúčtování sedělo.
 
-⚠️ **Zůstává díra:** předání vlastnictví neexistuje, takže kdo vlastní
-domácnost s lidmi, se zrušit nemůže vůbec.
+**Předání vlastnictví** přibylo 5. 9. 2026: vlastník předá seznam nebo
+domácnost jinému členovi a sám se stane členem. Tím se účet uvolní
+a zrušit už jde.
+
+⚠️ **Zbyl poslední případ:** kdo vlastní neprázdný seznam nebo domácnost
+se zařízeními a **nemá komu předat** (žádní členové), se pořád zrušit
+nemůže — smazat jde jen prázdný seznam a domácnost bez zařízení. Řešením
+nejsou další pojistky, ale konektory: až budou zařízení v databázi, půjde
+domácnost smazat jako každá jiná.
 
 ### 5. ~~Přehodnocení Správy~~ — hotovo 5. 9. 2026
 Správce **zůstává pečovatel**: smí přepsat cizí heslo i smazat účet. Bez

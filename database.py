@@ -668,6 +668,43 @@ def prejmenuj_seznam(id_seznamu, id_uzivatele, nazev):
     return True, "Seznam přejmenován."
 
 
+def predej_seznam(id_seznamu, id_vlastnika, id_noveho):
+    """
+    Předá nákupní seznam jinému členovi. Vrací (povedlo_se, hláška).
+
+    Stejné pravidlo jako u domácnosti: role se prohodí, předat jde jen
+    členovi a obě podmínky jsou v UPDATE, ne před ním. Položky ani historie
+    se nedotýkají - patří seznamu, ne vlastníkovi.
+    """
+    if id_noveho == id_vlastnika:
+        return False, "Předat sám sobě nejde."
+
+    with _spojeni() as db:
+        radek = db.execute("SELECT nazev FROM seznamy WHERE id = ?",
+                           (id_seznamu,)).fetchone()
+
+        kurzor = db.execute("""
+            UPDATE seznamy SET vlastnik_id = ?
+            WHERE id = ?
+              AND vlastnik_id = ?
+              AND EXISTS (SELECT 1 FROM clenove_seznamu
+                          WHERE seznam_id = ? AND uzivatel_id = ?)
+        """, (id_noveho, id_seznamu, id_vlastnika, id_seznamu, id_noveho))
+
+        if kurzor.rowcount == 0:
+            return False, ("Předat seznam může jen jeho vlastník, "
+                           "a jen někomu, kdo na něm je.")
+
+        db.execute("DELETE FROM clenove_seznamu "
+                   "WHERE seznam_id = ? AND uzivatel_id = ?",
+                   (id_seznamu, id_noveho))
+        db.execute("INSERT OR IGNORE INTO clenove_seznamu "
+                   "(seznam_id, uzivatel_id) VALUES (?, ?)",
+                   (id_seznamu, id_vlastnika))
+
+    return True, "Seznam %s je předaný, tobě zůstalo členství." % radek[0]
+
+
 def smaz_seznam(id_seznamu, id_uzivatele):
     """
     Smaže seznam - ale jen vlastníkův a jen úplně prázdný.
@@ -1332,6 +1369,51 @@ def _pocet_domacnosti(kolik):
     if kolik < 5:
         return "%d domácnosti" % kolik
     return "%d domácností" % kolik
+
+
+def predej_domacnost(id_domacnosti, id_vlastnika, id_noveho):
+    """
+    Předá domácnost jinému členovi. Vrací (povedlo_se, hláška).
+
+    Role se PROHODÍ: nový vlastník přestane být členem, starý se jím stane.
+    Nepřijde tím o přístup, jen o právo rozhodovat.
+
+    Předat jde jen ČLENOVI - nikoho jiného vlastník stejně nevidí. Obě
+    podmínky (ptá se vlastník, nový je člen) jsou součástí UPDATE, ne
+    kontrola před ním: kdyby se ptalo dopředu, mezi ověřením a zápisem by
+    vzniklo okno, ve kterém se stav změní.
+
+    Zařízení zůstávají domácnosti, ne člověku - `ma_zarizeni` se nedotýkáme.
+    Že tím nový vlastník získá přístup k Solárům, říká potvrzení v šabloně.
+    """
+    if id_noveho == id_vlastnika:
+        return False, "Předat sám sobě nejde."
+
+    with _spojeni() as db:
+        radek = db.execute("SELECT nazev FROM domacnosti WHERE id = ?",
+                           (id_domacnosti,)).fetchone()
+
+        kurzor = db.execute("""
+            UPDATE domacnosti SET vlastnik_id = ?
+            WHERE id = ?
+              AND vlastnik_id = ?
+              AND EXISTS (SELECT 1 FROM clenove_domacnosti
+                          WHERE domacnost_id = ? AND uzivatel_id = ?)
+        """, (id_noveho, id_domacnosti, id_vlastnika,
+              id_domacnosti, id_noveho))
+
+        if kurzor.rowcount == 0:
+            return False, ("Předat domácnost může jen její vlastník, "
+                           "a jen někomu, kdo do ní patří.")
+
+        db.execute("DELETE FROM clenove_domacnosti "
+                   "WHERE domacnost_id = ? AND uzivatel_id = ?",
+                   (id_domacnosti, id_noveho))
+        db.execute("INSERT OR IGNORE INTO clenove_domacnosti "
+                   "(domacnost_id, uzivatel_id) VALUES (?, ?)",
+                   (id_domacnosti, id_vlastnika))
+
+    return True, "Domácnost %s je předaná, tobě zůstalo členství." % radek[0]
 
 
 def smaz_domacnost(id_domacnosti, id_vlastnika):
