@@ -1805,6 +1805,34 @@ details.karta[open] summary { margin-bottom: 1rem; }
 }
 
 /* --- Úprava položky --- */
+/* Akce u člena seznamu i domácnosti se schovávají za "Více".
+   Bez toho by řádek rostl s každou další akcí - a stejně by na úzkém
+   displeji nebylo místo. <details> jako jinde: žádný JavaScript. */
+.clen-vice { flex: none; }
+.clen-vice summary {
+    cursor: pointer;
+    list-style: none;
+    padding: .25rem .6rem;
+    border: 1px solid var(--okraj);
+    border-radius: 999px;
+    color: var(--text-slaby);
+    font-size: .8rem;
+    white-space: nowrap;
+}
+.clen-vice summary::-webkit-details-marker { display: none; }
+.clen-vice summary:hover { color: var(--text); }
+.clen-vice[open] summary { color: var(--text); }
+
+/* Akce pod sebou, ne vedle sebe: na 320 px se dvě tlačítka s popiskem
+   vedle sebe nevejdou a text by z nich vytekl. */
+.clen-vice-akce {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    margin-top: .45rem;
+}
+.clen-vice-akce form { margin: 0; }
+
 .uprava { flex: none; }
 .uprava summary {
     cursor: pointer;

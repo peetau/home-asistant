@@ -283,20 +283,27 @@
                 <li>
                     <span>{{ c.jmeno }}{% if c.je_vlastnik %}
                         <span class="popisek-radku">vlastník</span>{% endif %}</span>
+                    {# Akce se schovávají za "Více" - stejně jako u členů
+                       domácnosti, ať se táž věc neovládá na dvou místech
+                       jinak. #}
                     {% if seznam.je_vlastnik and not c.je_vlastnik %}
-                    <form method="post"
-                          action="{{ url_for('nakup_predat',
-                                             id_seznamu=seznam.id, id_clena=c.id) }}"
-                          data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tobě zůstane jen členství.">
-                        <button type="submit" class="caste-tlacitko"
-                                title="Předat vlastnictví">Předat</button>
-                    </form>
-                    <form method="post"
-                          action="{{ url_for('nakup_odebrat_clena',
-                                             id_seznamu=seznam.id, id_clena=c.id) }}"
-                          data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
-                        <button type="submit" class="smazat" title="Odebrat">×</button>
-                    </form>
+                    <details class="clen-vice">
+                        <summary title="Co se dá s členem dělat">⋯ Více</summary>
+                        <div class="clen-vice-akce">
+                            <form method="post"
+                                  action="{{ url_for('nakup_predat',
+                                                     id_seznamu=seznam.id, id_clena=c.id) }}"
+                                  data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tobě zůstane jen členství.">
+                                <button type="submit" class="caste-tlacitko">Předat vlastnictví</button>
+                            </form>
+                            <form method="post"
+                                  action="{{ url_for('nakup_odebrat_clena',
+                                                     id_seznamu=seznam.id, id_clena=c.id) }}"
+                                  data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
+                                <button type="submit" class="caste-tlacitko">Odebrat ze seznamu</button>
+                            </form>
+                        </div>
+                    </details>
                     {% endif %}
                 </li>
                 {% endfor %}
