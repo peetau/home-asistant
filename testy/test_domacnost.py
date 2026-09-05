@@ -18,7 +18,7 @@ HESLO = "tajne-heslo"
 
 def zaloz_ucet(jmeno):
     """Založí účet a vrátí jeho id."""
-    database.vytvor_uzivatele(jmeno, HESLO)
+    database.vytvor_uzivatele(jmeno, "%s@test.cz" % jmeno.lower(), HESLO)
     with database._spojeni() as db:
         return db.execute(
             "SELECT id FROM uzivatele WHERE jmeno = ?", (jmeno,)
@@ -235,7 +235,9 @@ def bez_skutecnych_zarizeni():
 
 def prihlaseny(jmeno):
     prohlizec = klient()
-    prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": HESLO})
+    prohlizec.post("/prihlaseni",
+                   data={"email": "%s@test.cz" % jmeno.lower(),
+                         "heslo": HESLO})
     return prohlizec
 
 

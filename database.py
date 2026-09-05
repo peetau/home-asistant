@@ -244,6 +244,25 @@ def init_db():
             )
         """)
 
+        # Nastavení aplikace: klíč a hodnota.
+        #
+        # Zatím tu bydlí jediná věc, registrační kód. Tabulka je i tak na
+        # místě: alternativou by byl další sloupec někde, kam nepatří, nebo
+        # hodnota v souboru, kterou by nešlo změnit z aplikace.
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS nastaveni (
+                klic    TEXT PRIMARY KEY,
+                hodnota TEXT NOT NULL
+            )
+        """)
+
+        # Registrační kód musí existovat od první chvíle, jinak by se nikdo
+        # nezaregistroval a nebylo by kde ho vzít. INSERT OR IGNORE proto,
+        # že při druhém startu už tam je - a přepsat ho by znamenalo
+        # zneplatnit kód, který mezitím někdo rozeslal.
+        db.execute("INSERT OR IGNORE INTO nastaveni (klic, hodnota) "
+                   "VALUES ('registracni_kod', ?)", (_novy_kod(),))
+
         # Neúspěšné pokusy o přihlášení, jeden řádek na IP adresu.
         #
         # Počítá se ADRESA, ne jméno. Kdyby se počítalo jméno, stačilo by
@@ -696,6 +715,86 @@ def init_db():
                 except sqlite3.OperationalError:
                     pass
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
+
+    # Až nakonec, mimo blok výš: přestavba potřebuje vlastní spojení
+    # a hlavně už hotový sloupec email, který přidává migrace uvnitř.
+    _zrus_jedinecnost_jmena()
+
+
+def _zrus_jedinecnost_jmena():
+    """
+    Zruší jedinečnost jména přestavbou tabulky `uzivatele`.
+
+    SQLite neumí UNIQUE odebrat příkazem ALTER - implicitní index, který
+    z něj vznikl, nejde zahodit. Tabulka se proto musí postavit znovu
+    a data přelít. Jméno už není přihlašovací údaj (od 5. 9. 2026 je jím
+    e-mail), takže není důvod někomu brát jméno jen proto, že ho má i někdo
+    jiný.
+
+    ⚠️ Běží na VLASTNÍM spojení s VYPNUTÝMI cizími klíči, a schválně mimo
+    hlavní blok init_db(). Se zapnutými klíči by `DROP TABLE uzivatele`
+    spustil ON DELETE CASCADE u oprávnění a členství a smazal by je - a u
+    seznamů a domácností by naopak selhal, protože jejich vlastník je
+    NOT NULL. Vypnout klíče uprostřed transakce nejde, PRAGMA se tam tiše
+    ignoruje; proto samostatné spojení.
+
+    Na konci se pouští `PRAGMA foreign_key_check`. Přestavba se dělá jednou
+    za život aplikace a s vypnutými klíči - kdyby se něco pokazilo, je lepší
+    spadnout hned při startu než tihočinit s rozbitou databazí.
+    """
+    spojeni = sqlite3.connect(DB_SOUBOR)
+    try:
+        tabulky = [r[0] for r in spojeni.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'")]
+        if "uzivatele" not in tabulky:
+            return
+
+        # Zbyl ještě UNIQUE po jménu? Index z UNIQUE má v index_list původ 'u'.
+        potreba = False
+        for radek in spojeni.execute("PRAGMA index_list(uzivatele)").fetchall():
+            nazev, je_unikatni, puvod = radek[1], radek[2], radek[3]
+            if je_unikatni and puvod == "u":
+                sloupce = [s[2] for s in
+                           spojeni.execute("PRAGMA index_info(%s)" % nazev)]
+                if sloupce == ["jmeno"]:
+                    potreba = True
+
+        if not potreba:
+            return
+
+        spojeni.execute("PRAGMA foreign_keys = OFF")
+        with spojeni:
+            spojeni.execute("""
+                CREATE TABLE uzivatele_nova (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    jmeno               TEXT    NOT NULL,
+                    heslo_hash          TEXT    NOT NULL,
+                    vytvoren            TEXT    NOT NULL
+                                        DEFAULT (datetime('now', 'localtime')),
+                    posledni_prihlaseni TEXT,
+                    email               TEXT
+                )
+            """)
+            spojeni.execute("""
+                INSERT INTO uzivatele_nova
+                       (id, jmeno, heslo_hash, vytvoren, posledni_prihlaseni, email)
+                SELECT  id, jmeno, heslo_hash, vytvoren, posledni_prihlaseni, email
+                FROM uzivatele
+            """)
+            spojeni.execute("DROP TABLE uzivatele")
+            spojeni.execute("ALTER TABLE uzivatele_nova RENAME TO uzivatele")
+            spojeni.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS jeden_email_na_ucet
+                    ON uzivatele (email)
+            """)
+
+        potize = spojeni.execute("PRAGMA foreign_key_check").fetchall()
+        if potize:
+            raise RuntimeError(
+                "po přestavbě tabulky uzivatele nesedí cizí klíče: %r"
+                % (potize[:3],))
+    finally:
+        spojeni.close()
 
 
 # ==================== Nákupní seznam ====================
@@ -1262,12 +1361,15 @@ def vyuctovani(seznam_id):
     třicet, výsledek je "Petr dluží Janě sedmdesát" - vracet si dvě částky
     tam a zpátky nemá smysl.
 
-    Počítá se podle JMEN, ne podle ID: jméno je u položky vždycky, i když
-    účet mezitím zmizel, a v aplikaci je jedinečné.
+    ⚠️ Počítá se podle LIDÍ, ne podle jmen. Dřív stačila jména, protože
+    byla jedinečná; od 5. 9. 2026 jedinečná nejsou a dva různí Petrové by
+    se slili do jednoho - dluh by pak seděl někomu jinému. Klíčem je proto
+    id, a jméno zbývá jen tam, kde id chybí: u účtu, který mezitím zmizel.
+    Jméno si položka pamatuje jako text, takže se částka neztratí.
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT cena, koupil, pridal FROM nakup
+            SELECT cena, koupil, koupil_id, pridal, pridal_id FROM nakup
             WHERE seznam_id = ? AND koupeno = 1
         """, (seznam_id,)).fetchall()
 
@@ -1275,15 +1377,26 @@ def vyuctovani(seznam_id):
     bez_ceny = 0
     zaplatil = {}
     dluh = {}
+    jmena = {}          # klíč člověka -> jméno, které se má vypsat
 
-    for cena, koupil, pridal in radky:
+    def klic(id_cloveka, jmeno):
+        """Rozliší LIDI, ne jména. U smazaného účtu id chybí, zbývá jméno."""
+        return ("id", id_cloveka) if id_cloveka is not None else ("jmeno", jmeno)
+
+    for cena, koupil, koupil_id, pridal, pridal_id in radky:
         if cena is None:
             bez_ceny += 1
             continue
+
+        k_koupil = klic(koupil_id, koupil)
+        k_pridal = klic(pridal_id, pridal)
+        jmena[k_koupil] = koupil
+        jmena[k_pridal] = pridal
+
         celkem += cena
-        zaplatil[koupil] = zaplatil.get(koupil, 0.0) + cena
-        if koupil != pridal:
-            dluh[(pridal, koupil)] = dluh.get((pridal, koupil), 0.0) + cena
+        zaplatil[k_koupil] = zaplatil.get(k_koupil, 0.0) + cena
+        if k_koupil != k_pridal:
+            dluh[(k_pridal, k_koupil)] = dluh.get((k_pridal, k_koupil), 0.0) + cena
 
     # Odečtení vzájemných dluhů. Dvojici procházíme jen jednou - proto ta
     # podmínka na pořadí jmen, jinak bychom si odečet udělali dvakrát
@@ -1302,10 +1415,11 @@ def vyuctovani(seznam_id):
     return {
         "celkem": round(celkem, 2),
         "zaplatili": sorted(
-            ({"jmeno": j, "castka": round(c, 2)} for j, c in zaplatil.items()),
+            ({"jmeno": jmena[k], "castka": round(c, 2)}
+             for k, c in zaplatil.items()),
             key=lambda z: -z["castka"]),
         "dluhy": sorted(
-            ({"dluznik": d, "verite": v, "castka": c}
+            ({"dluznik": jmena[d], "verite": jmena[v], "castka": c}
              for (d, v), c in vysledek.items()),
             key=lambda z: -z["castka"]),
         "bez_ceny": bez_ceny,
@@ -1444,6 +1558,31 @@ def domacnost_pro_uzivatele(id_domacnosti, id_uzivatele):
         return None
     return {"id": radek[0], "nazev": radek[1],
             "je_vlastnik": bool(radek[2]), "ma_zarizeni": bool(radek[3])}
+
+
+def registracni_kod():
+    """Kód, bez kterého se nikdo nezaregistruje."""
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT hodnota FROM nastaveni WHERE klic = 'registracni_kod'"
+        ).fetchone()
+
+    return None if radek is None else radek[0]
+
+
+def novy_registracni_kod():
+    """
+    Vyrobí nový registrační kód. Starý tím přestane platit.
+
+    Na účty, které už vznikly, to nemá vliv - zneplatní se jen pozvánky,
+    které ještě nikdo nepoužil.
+    """
+    with _spojeni() as db:
+        kod = _novy_kod()
+        db.execute("UPDATE nastaveni SET hodnota = ? "
+                   "WHERE klic = 'registracni_kod'", (kod,))
+
+    return kod
 
 
 def _pocet_domacnosti(kolik):
@@ -1704,15 +1843,24 @@ def nastav_email(id_uzivatele, email):
     return True, "E-mail uložen."
 
 
-def vytvor_uzivatele(jmeno, heslo, prava=None):
+def vytvor_uzivatele(jmeno, email, heslo, prava=None):
     """
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
 
     prava - seznam tabů, které má dostat. Když se nezadá, použijí se
             VYCHOZI_PRAVA (tedy žádná - Přehled a Nákup má každý).
 
-    Vrací True když se povedlo, False když jméno už existuje.
+    Vrací True když se povedlo, False když e-mail už někdo používá nebo
+    to e-mail vůbec není.
+
+    E-mail je od 5. 9. 2026 POVINNÝ: přihlašuje se podle něj, takže účet
+    bez něj by se neměl jak dostat dovnitř. Jméno naopak jedinečné být
+    nemusí - je to jen to, co o člověku vidí ostatní.
     """
+    email = _uprav_email(email)
+    if email is None:
+        return False
+
     # generate_password_hash dělá tři důležité věci naráz:
     #  1) zahashuje heslo jednosměrnou funkcí
     #  2) přidá "sůl" - náhodnou přísadu, takže dva lidé se stejným heslem
@@ -1731,8 +1879,9 @@ def vytvor_uzivatele(jmeno, heslo, prava=None):
             prvni = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] == 0
 
             kurzor = db.execute(
-                "INSERT INTO uzivatele (jmeno, heslo_hash) VALUES (?, ?)",
-                (jmeno, hash_hesla),
+                "INSERT INTO uzivatele (jmeno, email, heslo_hash) "
+                "VALUES (?, ?, ?)",
+                (jmeno, email, hash_hesla),
             )
 
             if prvni:
@@ -1752,7 +1901,9 @@ def vytvor_uzivatele(jmeno, heslo, prava=None):
                     )
         return True
     except sqlite3.IntegrityError:
-        # Sem se dostaneme, když jméno porušilo pravidlo UNIQUE.
+        # Sem se dostaneme, když e-mail už někdo používá. Jméno se od
+        # 5. 9. 2026 nehlídá - přihlašovacím údajem je e-mail, takže není
+        # důvod někomu brát jméno jen proto, že ho má i někdo jiný.
         return False
 
 
@@ -1829,7 +1980,7 @@ def zapomen_pokusy(ip):
         db.execute("DELETE FROM pokusy_prihlaseni WHERE ip = ?", (ip,))
 
 
-def over_uzivatele(jmeno, heslo):
+def over_uzivatele(email, heslo):
     """
     Ověří přihlašovací údaje.
 
@@ -1838,11 +1989,19 @@ def over_uzivatele(jmeno, heslo):
     Všimni si, že heslo NEHLEDÁME v databázi. Vytáhneme uloženy hash
     a necháme check_password_hash spočítat, jestli k němu zadané heslo
     pasuje. Databáze původní heslo nezná a znát nemá.
+
+    Hledá se podle E-MAILU, ne podle jména - od 5. 9. 2026. Adresa se
+    přitom srovnává stejnou funkcí, jakou se ukládala, takže na velikosti
+    písmen ani mezerách od telefonu nezáleží.
     """
+    email = _uprav_email(email)
+    if email is None:
+        return None
+
     with _spojeni() as db:
         radek = db.execute(
-            "SELECT id, jmeno, heslo_hash FROM uzivatele WHERE jmeno = ?",
-            (jmeno,),
+            "SELECT id, jmeno, heslo_hash FROM uzivatele WHERE email = ?",
+            (email,),
         ).fetchone()
 
     if radek is None:

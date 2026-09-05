@@ -81,14 +81,14 @@ def test_zapomen_pokusy_pocitadlo_vynuluje():
 
 def test_formular_odmitne_i_spravne_heslo_behem_blokace():
     """To hlavní: když je adresa zablokovaná, nepomůže ani správné heslo."""
-    jmeno, heslo = zaloz_uzivatele()
+    email, heslo = zaloz_uzivatele()
     prohlizec = klient()
 
     for _ in range(5):
-        prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": "spatne"},
+        prohlizec.post("/prihlaseni", data={"email": email, "heslo": "spatne"},
                        environ_base={"REMOTE_ADDR": IP})
 
-    odpoved = prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": heslo},
+    odpoved = prohlizec.post("/prihlaseni", data={"email": email, "heslo": heslo},
                              environ_base={"REMOTE_ADDR": IP})
 
     # 302 by znamenalo přesměrování na přihlášenou stránku, tedy průchod.
@@ -100,14 +100,14 @@ def test_formular_odmitne_i_spravne_heslo_behem_blokace():
 def test_uspesne_prihlaseni_smaze_pocitadlo():
     """Rodina má doma jednu společnou adresu, takže pár překlepů před
     úspěšným přihlášením nesmí nikoho zablokovat."""
-    jmeno, heslo = zaloz_uzivatele()
+    email, heslo = zaloz_uzivatele()
     prohlizec = klient()
 
     for _ in range(4):
-        prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": "spatne"},
+        prohlizec.post("/prihlaseni", data={"email": email, "heslo": "spatne"},
                        environ_base={"REMOTE_ADDR": IP})
 
-    prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": heslo},
+    prohlizec.post("/prihlaseni", data={"email": email, "heslo": heslo},
                    environ_base={"REMOTE_ADDR": IP})
 
     assert database.zbyva_blokace(IP) == 0
@@ -120,8 +120,8 @@ def test_uspesne_prihlaseni_smaze_pocitadlo():
 
 def test_spravne_heslo_bez_blokace_projde():
     """Pojistka, ať se strop nezvrhne v to, že nepustí dovnitř nikoho."""
-    jmeno, heslo = zaloz_uzivatele()
-    odpoved = klient().post("/prihlaseni", data={"jmeno": jmeno, "heslo": heslo},
+    email, heslo = zaloz_uzivatele()
+    odpoved = klient().post("/prihlaseni", data={"email": email, "heslo": heslo},
                             environ_base={"REMOTE_ADDR": IP})
     assert odpoved.status_code == 302, "správné heslo mělo pustit dál"
 

@@ -81,11 +81,28 @@
 
     {# ---------- Nový účet ---------- #}
     <div class="karta">
+        <h2>🔑 Registrační kód</h2>
+        <p class="popisek-radku">Bez něj se nikdo nezaregistruje. Komu ho
+           pošleš, ten si může založit účet.</p>
+        <div class="pozvanka">
+            <code class="kod" title="Registrační kód">{{ registracni_kod }}</code>
+            <form method="post"
+                  action="{{ url_for('sprava_novy_registracni_kod') }}"
+                  data-potvrdit="Vygenerovat nový registrační kód? Ten starý přestane platit.">
+                <button type="submit" class="caste-tlacitko">Nový kód</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="karta">
         <h2>➕ Nový účet</h2>
         <form method="post" action="{{ url_for('sprava_pridat') }}"
               class="novy-ucet" autocomplete="off">
             <input type="text" name="jmeno" placeholder="Jméno"
                    required maxlength="40">
+            {# E-mail je povinný: přihlašuje se podle něj, takže účet bez
+               něj by se nedostal dovnitř. #}
+            <input type="email" name="email" placeholder="E-mail" required>
             <input type="password" name="heslo" placeholder="Heslo (min. 6 znaků)"
                    required minlength="6">
             <button type="submit">Založit</button>

@@ -31,6 +31,13 @@ def pridej_ucet():
 
     # getpass čte heslo, ale NEZOBRAZUJE ho - nikdo ti ho nepřečte přes rameno
     # a nezůstane v historii terminálu.
+    # E-mail je od 5. 9. 2026 přihlašovací údaj, takže účet bez něj by se
+    # dovnitř nedostal.
+    email = input("  E-mail: ").strip()
+    if not email:
+        print("  E-mail nesmí být prázdný.")
+        return
+
     heslo = getpass("  Heslo: ")
     if len(heslo) < 6:
         print("  Heslo je moc krátké (aspoň 6 znaků).")
@@ -40,21 +47,32 @@ def pridej_ucet():
         print("  Hesla se neshodují.")
         return
 
-    if database.vytvor_uzivatele(jmeno, heslo):
+    if database.vytvor_uzivatele(jmeno, email, heslo):
         print(f"  Účet '{jmeno}' vytvořen.")
     else:
-        print(f"  Účet '{jmeno}' už existuje.")
+        print("  Účet se nezaložil: e-mail už někdo používá, "
+              "nebo to není adresa.")
 
 
 def smaz_ucet():
-    jmeno = input("  Jméno účtu ke smazání: ").strip()
-    with database._spojeni() as db:
-        kurzor = db.execute("DELETE FROM uzivatele WHERE jmeno = ?", (jmeno,))
-        # rowcount říká, kolik řádků příkaz opravdu změnil
-        if kurzor.rowcount:
-            print(f"  Účet '{jmeno}' smazán.")
-        else:
-            print(f"  Účet '{jmeno}' neexistuje.")
+    """
+    Maže podle ID, ne podle jména.
+
+    ⚠️ Do 5. 9. 2026 se mazalo podle jména a bylo to bezpečné, protože
+    jména byla jedinečná. Od chvíle, kdy jedinečná nejsou, by
+    `DELETE ... WHERE jmeno = ?` smazal VŠECHNY účty toho jména naraz.
+    Id je vypsané v seznamu účtů o kus výš.
+
+    Kontroly (poslední správce, vlastník seznamu nebo domácnosti) dělá
+    database.smaz_uzivatele() - proto se volá ona, a ne holý DELETE.
+    """
+    zadano = input("  ID účtu ke smazání: ").strip()
+    if not zadano.isdigit():
+        print("  Zadej číslo ze sloupce id.")
+        return
+
+    ok, duvod = database.smaz_uzivatele(int(zadano))
+    print("  Účet smazán." if ok else "  " + duvod)
 
 
 def main():

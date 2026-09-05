@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% include "motiv_skript.html" %}
+
+    <title>Registrace — Domácí asistent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+{# Tatáž kostra jako přihlašovací stránka: je to táž brána do aplikace,
+   jen druhými dveřmi. Náladu spočítal server podle hodiny, aby bylo pozadí
+   správné hned při prvním vykreslení a neproblikávalo se. #}
+<body class="prihlaseni-stranka nalada-{{ nalada }}">
+
+<svg class="pozadi-vzor" aria-hidden="true">
+    <defs>
+        <pattern id="trojuhelniky" width="60" height="52"
+                 patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 60 52 L 0 52 Z"/>
+            <path d="M 0 0 L 30 52 L -30 52 Z"/>
+            <path d="M 60 0 L 90 52 L 30 52 Z"/>
+        </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#trojuhelniky)"/>
+</svg>
+
+<button type="button" id="prepinac-motivu"
+        class="prepinac-motivu prepinac-roh" hidden>🌗</button>
+
+<div class="obal obal-uzky">
+
+    <div class="karta karta-prihlaseni">
+
+        <h1 class="prihlaseni-nadpis">🏠 Domácí asistent</h1>
+
+        {% if chyba %}
+            <p class="chyba">{{ chyba }}</p>
+        {% endif %}
+
+        <p class="prazdno">
+            Účet si založíš sám, ale potřebuješ k tomu registrační kód —
+            ten ti pošle někdo, kdo aplikaci už používá.
+        </p>
+
+        <form method="post" class="formular" autocomplete="off">
+            <label>
+                <span>Jméno</span>
+                {# Jen zobrazované jméno. Nemusí být jedinečné a nikdo se
+                   podle něj nepřihlašuje - od toho je e-mail. #}
+                <input type="text" name="jmeno" required autofocus
+                       maxlength="40" autocomplete="nickname">
+            </label>
+
+            <label>
+                <span>E-mail</span>
+                <input type="email" name="email" required
+                       autocomplete="username">
+            </label>
+
+            <label>
+                <span>Heslo</span>
+                <input type="password" name="heslo" required minlength="6"
+                       autocomplete="new-password">
+            </label>
+
+            <label>
+                <span>Registrační kód</span>
+                <input type="text" name="kod" required maxlength="20"
+                       placeholder="např. K7M-4QP">
+            </label>
+
+            <button type="submit">Založit účet</button>
+        </form>
+
+        <p class="prazdno">
+            Účet už máš? <a href="{{ url_for('prihlaseni') }}">Přihlas se</a>.
+        </p>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='motiv.js') }}"></script>
+</body>
+</html>

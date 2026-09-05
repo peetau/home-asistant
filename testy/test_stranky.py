@@ -16,9 +16,9 @@ STRANKY = ["/", "/domacnost", "/nakup", "/profil", "/sprava"]
 
 
 def prihlaseny_prohlizec():
-    jmeno, heslo = zaloz_uzivatele()
+    email, heslo = zaloz_uzivatele()
     prohlizec = klient()
-    prohlizec.post("/prihlaseni", data={"jmeno": jmeno, "heslo": heslo})
+    prohlizec.post("/prihlaseni", data={"email": email, "heslo": heslo})
     return prohlizec
 
 

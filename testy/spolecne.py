@@ -53,8 +53,9 @@ def zaloz_uzivatele(jmeno="Testovaci", heslo="tajne-heslo"):
     První účet v prázdné databázi dostane automaticky všechna práva, takže
     se s ním dostaneme i do Správy.
     """
-    database.vytvor_uzivatele(jmeno, heslo)
-    return jmeno, heslo
+    email = "%s@test.cz" % jmeno.lower()
+    database.vytvor_uzivatele(jmeno, email, heslo)
+    return email, heslo
 
 
 def klient():

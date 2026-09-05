@@ -67,8 +67,10 @@
            v Pythonu vyzvedneme z request.form. #}
         <form method="post" class="formular">
             <label>
-                <span>Jméno</span>
-                <input type="text" name="jmeno" required autofocus
+                <span>E-mail</span>
+                {# Od 5. 9. 2026 se přihlašuje e-mailem, ne jménem. Jméno
+                   přestalo být jedinečné, takže už nemá co identifikovat. #}
+                <input type="email" name="email" required autofocus
                        autocomplete="username">
             </label>
 
@@ -81,6 +83,11 @@
 
             <button type="submit">Přihlásit se</button>
         </form>
+
+        <p class="prazdno">
+            Nemáš účet? <a href="{{ url_for('registrace') }}">Založ si ho</a> —
+            budeš potřebovat registrační kód.
+        </p>
 
         {# ---------- Stav systému ---------- #}
         {#

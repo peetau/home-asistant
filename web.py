@@ -436,7 +436,7 @@ def prihlaseni():
     if request.method == "POST":
         # request.form je slovník s odeslanými poli. Klíče odpovídají
         # atributům name="..." v HTML formuláři.
-        jmeno = request.form.get("jmeno", "").strip()
+        email = request.form.get("email", "")
         heslo = request.form.get("heslo", "")
 
         # Skutečnou adresu návštěvníka sem dosazuje ProxyFix z hlavičky,
@@ -453,7 +453,7 @@ def prihlaseni():
             chyba = ("Příliš mnoho pokusů o přihlášení. "
                      "Zkus to znovu za %s." % _za_jak_dlouho(zbyva))
         else:
-            uzivatel = database.over_uzivatele(jmeno, heslo)
+            uzivatel = database.over_uzivatele(email, heslo)
 
             if uzivatel:
                 # Povedlo se - počítadlo chyb té adresy jde pryč, ať se
@@ -470,9 +470,10 @@ def prihlaseni():
 
             database.zaznamenej_chybny_pokus(adresa)
 
-            # Schválně neříkáme, jestli je špatně jméno, nebo heslo. Kdybychom
-            # rozlišovali, útočník by si mohl ověřit, která jména existují.
-            chyba = "Nesprávné jméno nebo heslo."
+            # Schválně neříkáme, jestli je špatně e-mail, nebo heslo.
+            # Kdybychom rozlišovali, dalo by se zkoušením adres zjistit,
+            # kdo u nás účet má.
+            chyba = "Nesprávný e-mail nebo heslo."
 
     return render_template(
         "prihlaseni.html",
@@ -485,6 +486,70 @@ def prihlaseni():
         stav_sber=stav_sberu(),
         stav_zaloha=stav_zalohy(),
     )
+
+
+@app.route("/registrace", methods=["GET", "POST"])
+def registrace():
+    """
+    Založení účtu na registrační kód.
+
+    Kód rozdává správce; bez něj se dovnitř nedostane nikdo. Je to
+    rozhodnutí z 5. 9. 2026: e-mail se neověřuje (nic neposíláme), takže
+    otevřená registrace na veřejné adrese by byla pozvánka pro kohokoliv.
+
+    ⚠️ Platí tu STEJNÝ STROP podle IP jako na přihlášení. Formulář musí
+    u obsazené adresy říct, že je obsazená - jinak člověk neví, proč to
+    neprošlo. Tím se ale dá zkoušením adres zjišťovat, kdo u nás účet má,
+    a bez stropu by byla ochrana přihlašování poloviční: útočník by prostě
+    přešel na tenhle formulář.
+    """
+    chyba = None
+
+    if request.method == "POST":
+        adresa = request.remote_addr or "neznámá"
+        zbyva = database.zbyva_blokace(adresa)
+
+        if zbyva:
+            chyba = ("Příliš mnoho pokusů o registraci. "
+                     "Zkus to znovu za %s." % _za_jak_dlouho(zbyva))
+        else:
+            jmeno = request.form.get("jmeno", "").strip()
+            email = request.form.get("email", "")
+            heslo = request.form.get("heslo", "")
+            kod = request.form.get("kod", "")
+
+            chyba = _co_brani_registraci(jmeno, heslo, kod)
+
+            if chyba is None and database.vytvor_uzivatele(jmeno, email, heslo):
+                database.zapomen_pokusy(adresa)
+                uzivatel = database.over_uzivatele(email, heslo)
+                session["uzivatel"] = uzivatel["jmeno"]
+                session["uzivatel_id"] = uzivatel["id"]
+                return redirect(url_for("asistent"))
+
+            if chyba is None:
+                chyba = "Tenhle e-mail už u nás někdo používá, nebo to není adresa."
+
+            database.zaznamenej_chybny_pokus(adresa)
+
+    return render_template("registrace.html", chyba=chyba,
+                           nalada=denni_nalada())
+
+
+def _co_brani_registraci(jmeno, heslo, kod):
+    """Vrátí důvod, proč registrace neprojde, nebo None."""
+    if _uprav_kod_registrace(kod) != database.registracni_kod():
+        return "Registrační kód nesouhlasí."
+    if not jmeno:
+        return "Jméno nesmí být prázdné."
+    if len(heslo) < 6:
+        return "Heslo musí mít aspoň 6 znaků."
+    return None
+
+
+def _uprav_kod_registrace(kod):
+    """Kód se přepisuje z telefonu, takže velikost písmen a mezery odpouštíme."""
+    return (kod or "").strip().upper()
 
 
 @app.route("/odhlaseni")
@@ -1247,6 +1312,7 @@ def sprava():
         ucty=database.uzivatele_s_pravy(),
         vsechny_taby=database.VSECHNY_TABY,
         popisy_tabu=POPISY_TABU,
+        registracni_kod=database.registracni_kod(),
         muj_id=session.get("uzivatel_id"),
         stav=podrobny_stav(),
         # Adresu bereme z požadavku, ne z configu - Flask ji zná a díky
@@ -1262,6 +1328,7 @@ def sprava():
 @vyzaduje_pravo("sprava")
 def sprava_pridat():
     jmeno = request.form.get("jmeno", "").strip()
+    email = request.form.get("email", "")
     heslo = request.form.get("heslo", "")
 
     if not jmeno:
@@ -1269,7 +1336,9 @@ def sprava_pridat():
     if len(heslo) < 6:
         return redirect(url_for("sprava", chyba="Heslo musí mít aspoň 6 znaků."))
 
-    if database.vytvor_uzivatele(jmeno, heslo):
+    # E-mail je povinný: přihlašuje se podle něj, takže účet bez něj by se
+    # nedostal dovnitř.
+    if database.vytvor_uzivatele(jmeno, email, heslo):
         return redirect(url_for(
             "sprava", zprava=f"Účet {jmeno} vytvořen (zatím jen Nákup)."))
     return redirect(url_for("sprava", chyba=f"Účet {jmeno} už existuje."))
@@ -1287,6 +1356,15 @@ def sprava_prava(id_uzivatele):
     if not ok:
         return redirect(url_for("sprava", chyba=chyba))
     return redirect(url_for("sprava", zprava="Práva uložena."))
+
+
+@app.route("/sprava/novy-registracni-kod", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_novy_registracni_kod():
+    """Vyrobí nový registrační kód. Ten starý přestane platit."""
+    database.novy_registracni_kod()
+    return redirect(url_for(
+        "sprava", zprava="Nový registrační kód je hotový, starý už neplatí."))
 
 
 @app.route("/sprava/<int:id_uzivatele>/email", methods=["POST"])
