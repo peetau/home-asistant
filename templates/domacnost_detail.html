@@ -155,7 +155,18 @@
         </div>
         {% endif %}
 
-        {% if not domacnost.je_vlastnik %}
+        {# Vlastník neodchází, ten domácnost ruší. Tlačítko je vidět vždycky,
+           i když je domácnost plná - odmítnutí pak řekne proč. Kdyby se
+           schovávalo, majitel by po hlášce "nejdřív domácnost smaž"
+           u mazání účtu marně hledal, čím. #}
+        {% if domacnost.je_vlastnik %}
+        <form method="post"
+              action="{{ url_for('domacnost_smazat', id_domacnosti=domacnost.id) }}"
+              class="uklid-form"
+              data-potvrdit="Opravdu smazat domácnost {{ domacnost.nazev }}?">
+            <button type="submit" class="uklidit">Smazat domácnost</button>
+        </form>
+        {% else %}
         <form method="post"
               action="{{ url_for('domacnost_odejit', id_domacnosti=domacnost.id) }}"
               class="uklid-form"

@@ -709,6 +709,22 @@ def domacnost_novy_kod(id_domacnosti):
         **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
+@app.route("/domacnost/<int:id_domacnosti>/smazat", methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_smazat(id_domacnosti):
+    """
+    Vlastník smaže prázdnou domácnost bez zařízení.
+
+    Vrací se na SEZNAM, ne na detail - ten už neexistuje a dal by 404,
+    což by vypadalo jako chyba, a ne jako hotovo.
+    """
+    _moje_domacnost(id_domacnosti)
+    ok, hlaska = database.smaz_domacnost(id_domacnosti, session["uzivatel_id"])
+
+    return redirect(url_for(
+        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
 @app.route("/domacnost/<int:id_domacnosti>/odejit", methods=["POST"])
 @vyzaduje_prihlaseni
 def domacnost_odejit(id_domacnosti):

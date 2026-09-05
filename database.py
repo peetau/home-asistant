@@ -1446,6 +1446,59 @@ def domacnost_pro_uzivatele(id_domacnosti, id_uzivatele):
             "je_vlastnik": bool(radek[2]), "ma_zarizeni": bool(radek[3])}
 
 
+def _pocet_domacnosti(kolik):
+    """Napíše počet domácností česky: 'domácnost', '3 domácnosti'."""
+    if kolik == 1:
+        return "domácnost"
+    if kolik < 5:
+        return "%d domácnosti" % kolik
+    return "%d domácností" % kolik
+
+
+def smaz_domacnost(id_domacnosti, id_vlastnika):
+    """
+    Smaže domácnost. Smí to jen vlastník a jen když je prázdná. Vrací
+    (povedlo_se, hláška).
+
+    Dvě podmínky, obě z dobrého důvodu:
+
+    ⚠️ **Domácnost se zařízeními smazat nejde.** Zařízení jsou v config.py
+    a patří té jedné domácnosti, která je zdědila; kdyby zmizela, nikdo by
+    se k Solárům nedostal a musela by se dědit znovu.
+
+    ⚠️ **Domácnost s dalšími členy smazat nejde.** Lidem, kteří na ni jsou,
+    by beze slova zmizel přístup k zařízením. Radši to odmítneme a řekneme
+    proč - stejné pravidlo jako u nákupního seznamu, který smazat jde taky
+    jen prázdný.
+    """
+    with _spojeni() as db:
+        radek = db.execute(
+            "SELECT nazev, ma_zarizeni FROM domacnosti "
+            "WHERE id = ? AND vlastnik_id = ?",
+            (id_domacnosti, id_vlastnika),
+        ).fetchone()
+        if radek is None:
+            return False, "Smazat domácnost může jen její vlastník."
+
+        nazev, ma_zarizeni = radek
+        if ma_zarizeni:
+            return False, ("Domácnost %s má připojená zařízení, takže smazat "
+                           "nejde." % nazev)
+
+        clenu = db.execute(
+            "SELECT COUNT(*) FROM clenove_domacnosti WHERE domacnost_id = ?",
+            (id_domacnosti,),
+        ).fetchone()[0]
+        if clenu:
+            return False, ("V domácnosti %s je ještě někdo další. Smazat jde "
+                           "jen prázdná." % nazev)
+
+        db.execute("DELETE FROM domacnosti WHERE id = ? AND vlastnik_id = ?",
+                   (id_domacnosti, id_vlastnika))
+
+    return True, "Domácnost %s je smazaná." % nazev
+
+
 def clenove_domacnosti(id_domacnosti):
     """
     Kdo do domácnosti patří. Vlastník první, pak přizvaní podle abecedy.
@@ -2041,6 +2094,21 @@ def smaz_uzivatele(id_uzivatele):
         if vlastni:
             return False, ("Tenhle účet vlastní %s. Nejdřív ho smaž nebo "
                            "předej někomu jinému." % _pocet_seznamu(vlastni))
+
+        # POJISTKA: účet, který vlastní domácnost, smazat nejde.
+        #
+        # Stejný důvod jako u seznamů výš - jenže tahle pojistka tu 5. 9.
+        # 2026 chyběla a mazání účtu kvůli tomu spadlo na produkci: DELETE
+        # narazil na cizí klíč domacnosti.vlastnik_id, který nemá ON DELETE,
+        # a route vrátila chybu serveru místo vysvětlení. Schéma domácností
+        # je opsané ze seznamů, ale tahle pojistka se s ním neopsala.
+        vlastni_dom = db.execute(
+            "SELECT COUNT(*) FROM domacnosti WHERE vlastnik_id = ?",
+            (id_uzivatele,),
+        ).fetchone()[0]
+        if vlastni_dom:
+            return False, ("Tenhle účet vlastní %s. Nejdřív ji smaž nebo "
+                           "předej někomu jinému." % _pocet_domacnosti(vlastni_dom))
 
         db.execute("DELETE FROM uzivatele WHERE id = ?", (id_uzivatele,))
     return True, None

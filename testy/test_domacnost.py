@@ -740,6 +740,125 @@ def test_detail_nabizi_pridat_zarizeni():
     assert "Přidat zařízení" in html, "v detailu chybí tlačítko na zařízení"
 
 
+# --- mazání účtu a domácnosti -----------------------------------------
+
+def test_smazat_ucet_ktery_vlastni_domacnost_nejde():
+    """5. 9. 2026 tohle shodilo mazání účtu na produkci: DELETE narazil na
+    cizí klíč domacnosti.vlastnik_id a route vrátila chybu serveru. Pojistka
+    pro nákupní seznamy tu byla už dávno, pro domácnosti chyběla."""
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    database.zaloz_domacnost("Doma", id_tester)
+
+    ok, hlaska = database.smaz_uzivatele(id_tester)
+
+    assert not ok, "účet vlastnící domácnost se smazal"
+    assert "domácnost" in hlaska.lower(), \
+        "hláška neřekne, co překáží: %r" % hlaska
+    with database._spojeni() as db:
+        zbyl = db.execute("SELECT COUNT(*) FROM uzivatele WHERE id = ?",
+                          (id_tester,)).fetchone()[0]
+    assert zbyl == 1, "účet zmizel, i když se to mělo odmítnout"
+
+
+def test_ucet_bez_niceho_smazat_jde():
+    """Pojistka nesmí zamknout i běžné mazání."""
+    zaloz_ucet("Petr")
+    id_host = zaloz_ucet("Host")
+
+    ok, hlaska = database.smaz_uzivatele(id_host)
+
+    assert ok, hlaska
+
+
+def test_vlastnik_smaze_prazdnou_domacnost():
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    database.zaloz_domacnost("Prvni", id_petr)   # tahle si vezme zařízení
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+
+    povedlo, hlaska = database.smaz_domacnost(id_dom, id_tester)
+
+    assert povedlo, hlaska
+    assert database.domacnosti_uzivatele(id_tester) == []
+
+
+def test_po_smazani_domacnosti_uz_ucet_smazat_jde():
+    """To hlavní: hláška u mazání účtu musí radit něco splnitelného."""
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    database.zaloz_domacnost("Prvni", id_petr)   # tahle si vezme zařízení
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+
+    database.smaz_domacnost(id_dom, id_tester)
+    ok, hlaska = database.smaz_uzivatele(id_tester)
+
+    assert ok, hlaska
+
+
+def test_domacnost_se_zarizenimi_smazat_nejde():
+    """Zařízení jsou v config.py a patří té jedné domácnosti, co je
+    zdědila. Kdyby zmizela, nikdo by se k Solárům nedostal."""
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    povedlo, hlaska = database.smaz_domacnost(id_dom, id_petr)
+
+    assert not povedlo, "smazala se domácnost se zařízeními"
+    assert database.domacnost_uzivatele(id_petr) is not None
+
+
+def test_domacnost_se_cleny_smazat_nejde():
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    id_hana = zaloz_ucet("Hana")
+    database.zaloz_domacnost("Prvni", id_petr)      # tahle si vezme zařízení
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.smaz_domacnost(id_dom, id_tester)
+
+    assert not povedlo, "smazala se domácnost, na které někdo je"
+    assert database.domacnost_pro_uzivatele(id_dom, id_hana) is not None
+
+
+def test_clen_domacnost_smazat_nemuze():
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    id_hana = zaloz_ucet("Hana")
+    database.zaloz_domacnost("Prvni", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+    pridej_clena(id_dom, id_hana)
+
+    povedlo, hlaska = database.smaz_domacnost(id_dom, id_hana)
+
+    assert not povedlo, "člen smazal cizí domácnost"
+    assert database.domacnost_pro_uzivatele(id_dom, id_tester) is not None
+
+
+def test_vlastnik_vidi_tlacitko_smazat_domacnost():
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    database.zaloz_domacnost("Prvni", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+
+    html = stranka(prihlaseny("Tester"), "/domacnost/%d" % id_dom)
+    assert "/domacnost/%d/smazat" % id_dom in html, \
+        "vlastník nemá čím domácnost smazat"
+
+
+def test_clen_tlacitko_smazat_domacnost_nevidi():
+    id_petr = zaloz_ucet("Petr")
+    id_tester = zaloz_ucet("Tester")
+    id_hana = zaloz_ucet("Hana")
+    database.zaloz_domacnost("Prvni", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_tester)
+    pridej_clena(id_dom, id_hana)
+
+    html = stranka(prihlaseny("Hana"), "/domacnost/%d" % id_dom)
+    assert "/smazat" not in html, "člen má tlačítko na smazání cizí domácnosti"
+
+
 if __name__ == "__main__":
     import sys
     kolik, spadlo = spust(globals(), __doc__.strip().splitlines()[0])
