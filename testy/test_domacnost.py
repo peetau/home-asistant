@@ -317,19 +317,16 @@ def test_nanoleaf_je_chraneny_stejne():
         "nečlen se dostal na Nanoleaf (%d)" % odpoved.status_code
 
 
-def test_sablony_dostanou_domacnost():
-    """spolecna_data() posílá do šablon proměnnou 'domacnost' - podle ní se
-    filtruje pruh tabů."""
+def test_detail_ukaze_nazev_domacnosti():
+    """Do 5. 9. 2026 tady bylo, že spolecna_data() posílá do KAŽDÉ šablony
+    proměnnou 'domacnost' - podle ní se filtroval pruh tabů. Filtrování
+    zaniklo se zařízeními v liště, takže se místo plumbingu zkouší to, co
+    je vidět: že detail ví, kterou domácnost ukazuje."""
     id_petr = zaloz_ucet("Petr")
-    database.zaloz_domacnost("Doma", id_petr)
+    ok, id_dom = database.zaloz_domacnost("U Pavelků", id_petr)
 
-    with web.app.test_request_context("/"):
-        from flask import session as flask_session
-        flask_session["uzivatel"] = "Petr"
-        flask_session["uzivatel_id"] = id_petr
-        data = web.spolecna_data()
-
-    assert data["domacnost"] is not None, "šablony se o domácnosti nedozvědí"
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "U Pavelků" in html, "detail neukázal název domácnosti"
 
 
 # --- pozvánka kódem ---------------------------------------------------
@@ -394,6 +391,19 @@ def test_vlastnik_se_ke_sve_domacnosti_nepripoji():
 
 # --- co je na stránkách vidět ------------------------------------------
 
+def pruh_tabu(html):
+    """
+    Vyřízne z HTML jen pruh tabů.
+
+    Hrubé hledání "/solary" v celé stránce nestačí: od 5. 9. 2026 vede na
+    Soláry odkaz z karty zařízení v detailu domácnosti, takže by se test
+    ptal na něco jiného, než si myslí.
+    """
+    zacatek = html.find('<nav class="taby">')
+    assert zacatek != -1, "pruh tabů se na stránce nenašel"
+    return html[zacatek:html.find("</nav>", zacatek)]
+
+
 def stranka(prohlizec, cesta):
     """Vrátí HTML stránky, se zařízeními umlčenými."""
     vrat_zpatky = bez_skutecnych_zarizeni()
@@ -415,12 +425,10 @@ def test_neclen_vidi_pozvankovou_kartu():
 
 def test_clen_vidi_karty_zarizeni():
     id_petr = zaloz_ucet("Petr")
-    database.zaloz_domacnost("Doma", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
     assert "Solární elektrárna" in html, "členovi se nevykreslily karty zařízení"
-    assert "/domacnost/pripojit" not in html, \
-        "členovi se pořád nabízí připojení kódem"
 
 
 def test_v_asistentovi_nejsou_taby_zarizeni():
@@ -429,32 +437,46 @@ def test_v_asistentovi_nejsou_taby_zarizeni():
     id_petr = zaloz_ucet("Petr")
     database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/nakup")
-    assert "/solary" not in html, "tab Soláry svítí i v Asistentovi"
-    assert "/nanoleaf" not in html, "tab Nanoleaf svítí i v Asistentovi"
+    taby = pruh_tabu(stranka(prihlaseny("Petr"), "/nakup"))
+    assert "/solary" not in taby, "tab Soláry svítí i v Asistentovi"
+    assert "/nanoleaf" not in taby, "tab Nanoleaf svítí i v Asistentovi"
 
 
-def test_v_domacnosti_taby_zarizeni_jsou():
+def test_zarizeni_uz_nejsou_v_pruhu_tabu():
+    """Od 5. 9. 2026 patří zařízení konkrétní domácnosti, ne půlce - takže
+    se na ně chodí z jejího detailu a v liště nemají co dělat. Jinak by
+    lišta ukazovala zařízení jedné domácnosti i při otevřené jiné."""
     id_petr = zaloz_ucet("Petr")
-    database.zaloz_domacnost("Doma", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
-    assert "/solary" in html, "tab Soláry chybí i členovi v Domácnosti"
+    for cesta in ("/domacnost", "/domacnost/%d" % id_dom):
+        taby = pruh_tabu(stranka(prihlaseny("Petr"), cesta))
+        assert "/solary" not in taby, "Soláry pořád visí v liště na %s" % cesta
+        assert "/nanoleaf" not in taby, "Nanoleaf pořád visí v liště na %s" % cesta
+
+
+def test_ze_detailu_vede_odkaz_na_solary():
+    """Z lišty zmizely, takže cesta k nim musí vést odjinud."""
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "/solary" in html, "z detailu domácnosti se na Soláry nedá dostat"
 
 
 def test_nakup_v_domacnosti_neni():
     id_petr = zaloz_ucet("Petr")
     database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
-    assert "/nakup" not in html, "tab Nákup svítí i v Domácnosti"
+    taby = pruh_tabu(stranka(prihlaseny("Petr"), "/domacnost"))
+    assert "/nakup" not in taby, "tab Nákup svítí i v Domácnosti"
 
 
 def test_vlastnik_vidi_kod_pozvanky():
     id_petr = zaloz_ucet("Petr")
     ok, id_domacnosti = database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_domacnosti)
     assert kod_domacnosti(id_domacnosti) in html, \
         "vlastník nemá kde vzít kód, který má rozeslat"
 
@@ -467,7 +489,7 @@ def test_clen_kod_pozvanky_nevidi():
     ok, id_domacnosti = database.zaloz_domacnost("Doma", id_petr)
     pridej_clena(id_domacnosti, id_hana)
 
-    html = stranka(prihlaseny("Hana"), "/domacnost")
+    html = stranka(prihlaseny("Hana"), "/domacnost/%d" % id_domacnosti)
     assert kod_domacnosti(id_domacnosti) not in html, \
         "člen vidí kód pozvánky, i když zvát nesmí"
 
@@ -595,9 +617,9 @@ def test_vlastnik_vidi_u_clena_odebrat():
     ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
     pridej_clena(id_dom, id_hana)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
     assert "Hana" in html, "vlastník nevidí výpis členů"
-    assert "/domacnost/odebrat/%d" % id_hana in html, \
+    assert "/domacnost/%d/odebrat/%d" % (id_dom, id_hana) in html, \
         "vlastník nemá čím člena odebrat"
 
 
@@ -607,19 +629,19 @@ def test_clen_vidi_vypis_ale_neodebira():
     ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
     pridej_clena(id_dom, id_hana)
 
-    html = stranka(prihlaseny("Hana"), "/domacnost")
+    html = stranka(prihlaseny("Hana"), "/domacnost/%d" % id_dom)
     assert "Petr" in html, "člen nevidí, kdo do domácnosti patří"
-    assert "/domacnost/odebrat/" not in html, "člen má tlačítko Odebrat"
-    assert "/domacnost/novy-kod" not in html, "člen může přegenerovat kód"
-    assert "/domacnost/odejit" in html, "člen nemá jak odejít"
+    assert "/odebrat/" not in html, "člen má tlačítko Odebrat"
+    assert "/novy-kod" not in html, "člen může přegenerovat kód"
+    assert "/odejit" in html, "člen nemá jak odejít"
 
 
 def test_vlastnik_nema_tlacitko_odejit():
     id_petr = zaloz_ucet("Petr")
-    database.zaloz_domacnost("Doma", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
 
-    html = stranka(prihlaseny("Petr"), "/domacnost")
-    assert "/domacnost/odejit" not in html, \
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "/odejit" not in html, \
         "vlastník má nabídnuté odejít, čímž by domácnost osiřela"
 
 
@@ -632,7 +654,7 @@ def test_odebrany_clen_prijde_o_zarizeni_hned():
     pridej_clena(id_dom, id_hana)
 
     hana = prihlaseny("Hana")
-    prihlaseny("Petr").post("/domacnost/odebrat/%d" % id_hana)
+    prihlaseny("Petr").post("/domacnost/%d/odebrat/%d" % (id_dom, id_hana))
 
     assert hana.get("/solary").status_code == 302, \
         "odebraná Hana se pořád dostane na Soláry"
@@ -642,12 +664,80 @@ def test_domacnost_ukazuje_stari_mereni():
     """Když karta Solárů hlásí chybu, tohle je odpověď na otázku, jestli
     sběrač ještě měří."""
     id_petr = zaloz_ucet("Petr")
-    database.zaloz_domacnost("Doma", id_petr)
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
     with database._spojeni() as db:
         db.execute("INSERT INTO mereni (cas) VALUES (datetime('now','localtime'))")
 
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "Poslední měření" in html, "v detailu domácnosti chybí stáří měření"
+
+
+# --- seznam domácností a branka na konkrétní ---------------------------
+
+def test_seznam_ukaze_moje_domacnosti_a_cizi_ne():
+    id_petr = zaloz_ucet("Petr")
+    id_cizi = zaloz_ucet("Cizi")
+    database.zaloz_domacnost("Nase doma", id_petr)
+    database.zaloz_domacnost("Cizi barak", id_cizi)
+
+    seznam = database.domacnosti_uzivatele(id_petr)
+    assert [d["nazev"] for d in seznam] == ["Nase doma"], \
+        "v seznamu je cizí domácnost nebo chybí vlastní"
+    assert seznam[0]["je_vlastnik"] is True
+    assert seznam[0]["clenu"] == 1, "počet členů nesedí"
+
+
+def test_v_seznamu_je_i_domacnost_kde_jsem_jen_clen():
+    id_petr = zaloz_ucet("Petr")
+    id_hana = zaloz_ucet("Hana")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+    pridej_clena(id_dom, id_hana)
+
+    seznam = database.domacnosti_uzivatele(id_hana)
+    assert [d["nazev"] for d in seznam] == ["Doma"]
+    assert seznam[0]["je_vlastnik"] is False
+    assert seznam[0]["clenu"] == 2
+
+
+def test_branka_pusti_jen_sveho():
+    id_petr = zaloz_ucet("Petr")
+    id_cizi = zaloz_ucet("Cizi")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    assert database.domacnost_pro_uzivatele(id_dom, id_petr) is not None
+    assert database.domacnost_pro_uzivatele(id_dom, id_cizi) is None, \
+        "branka pustila cizího člověka do cizí domácnosti"
+
+
+def test_cizi_domacnost_vraci_404_ne_presmerovani():
+    """U tabu stačí 302, ale tady jde o konkrétní věc někoho jiného -
+    a ten se nemá dozvědět ani to, že existuje. Stejné pravidlo jako
+    u nákupního seznamu."""
+    id_petr = zaloz_ucet("Petr")
+    zaloz_ucet("Cizi")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    odpoved = prihlaseny("Cizi").get("/domacnost/%d" % id_dom)
+    assert odpoved.status_code == 404, \
+        "cizí domácnost vrátila %d místo 404" % odpoved.status_code
+
+
+def test_seznam_nabizi_zalozit_i_pripojit():
+    zaloz_ucet("Petr")
+
     html = stranka(prihlaseny("Petr"), "/domacnost")
-    assert "Poslední měření" in html, "na Domácnosti chybí stáří měření"
+    assert "/domacnost/zalozit" in html, "v seznamu chybí založení domácnosti"
+    assert "/domacnost/pripojit" in html, "v seznamu chybí připojení kódem"
+
+
+def test_detail_nabizi_pridat_zarizeni():
+    """Zatím jen cedule - zařízení jsou v config.py a přidat je půjde až
+    s konektory. Tlačítko ale musí být na svém místě už teď."""
+    id_petr = zaloz_ucet("Petr")
+    ok, id_dom = database.zaloz_domacnost("Doma", id_petr)
+
+    html = stranka(prihlaseny("Petr"), "/domacnost/%d" % id_dom)
+    assert "Přidat zařízení" in html, "v detailu chybí tlačítko na zařízení"
 
 
 if __name__ == "__main__":

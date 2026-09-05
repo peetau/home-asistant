@@ -1,0 +1,188 @@
+{% extends "zaklad.html" %}
+
+{% block titulek %}{{ domacnost.nazev }} — Domácí asistent{% endblock %}
+
+{# Obnovovat má smysl jen tam, kde běží živá data ze zařízení. Domácnost
+   bez zařízení se sama od sebe nezmění a nemá proč každých deset sekund
+   tahat celou stránku na mobilních datech. #}
+{% block hlava_navic %}
+    {% if domacnost.ma_zarizeni %}<meta http-equiv="refresh" content="10">{% endif %}
+{% endblock %}
+
+{% block obsah %}
+
+    <p class="odkaz-detail">
+        <a href="{{ url_for('domacnost') }}">← Všechny domácnosti</a></p>
+
+    <h1 class="nadpis-stranky">🏠 {{ domacnost.nazev }}</h1>
+
+{% if domacnost.ma_zarizeni %}
+
+    {# ---------- Soláry: to nejdůležitější ---------- #}
+    <div class="karta">
+        <h2>☀️ Solární elektrárna</h2>
+        {% if solax %}
+            <div class="hero">
+                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
+                <span class="jednotka">kW právě vyrábí</span>
+            </div>
+
+            <div class="dlazdice">
+                <div class="polozka">
+                    <div class="popisek">Dnešní výroba</div>
+                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Výkon střídače</div>
+                    <div class="hodnota">{{ solax.vykon_stridace }} W</div>
+                </div>
+                <div class="polozka">
+                    <div class="popisek">Baterie</div>
+                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
+                    <div class="pruh">
+                        <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
+        {% endif %}
+
+        {# Odkaz je i tehdy, když zařízení neodpovědělo: grafy a historie se
+           čtou z databáze a fungují dál. Od chvíle, kdy Soláry zmizely
+           z lišty, je tohle jediná cesta k nim. #}
+        <p class="odkaz-detail">
+            <a href="{{ url_for('solary') }}">Podrobnosti a grafy →</a></p>
+    </div>
+
+    {# ---------- Nanoleaf: to nejdůležitější ---------- #}
+    <div class="karta">
+        <h2>💡 Nanoleaf</h2>
+        {% if nanoleaf %}
+            <div class="stav-radek">
+                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
+                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
+            </div>
+            <div class="radek">
+                <span class="popisek">Jas</span>
+                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
+            </div>
+            <div class="radek">
+                <span class="popisek">Efekt</span>
+                <span class="hodnota">{{ nanoleaf.effect }}</span>
+            </div>
+
+        {% else %}
+            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
+        {% endif %}
+
+        <p class="odkaz-detail">
+            <a href="{{ url_for('nanoleaf') }}">Podrobnosti a ovládání →</a></p>
+    </div>
+
+{% else %}
+
+    {# Zařízení jsou zatím v config.py, tedy jedna sada na celý server, a má
+       je ta domácnost, která je zdědila. Ostatní čekají na konektory. #}
+    <div class="karta">
+        <h2>🔌 Zatím žádná zařízení</h2>
+        <p class="prazdno">Do téhle domácnosti se ještě nedá nic připojit.
+           Přidávání zařízení se teprve staví.</p>
+    </div>
+
+{% endif %}
+
+    {# ---------- Správa domácnosti ----------
+       Kdo co smí, rozhoduje SQL v database.py - tohle je jen pohodlí, aby
+       se nenabízela tlačítka, která by stejně neprošla. #}
+    <div class="karta">
+        <h2>⚙️ Správa domácnosti</h2>
+
+        <div class="blok">
+            <h3>Členové ({{ clenove|length }})</h3>
+            {% for c in clenove %}
+            <div class="radek">
+                <span class="popisek">
+                    {{ c.jmeno }}
+                    {% if c.je_vlastnik %}<span class="ja">vlastník</span>{% endif %}
+                </span>
+                <span class="hodnota">
+                    {# Vlastníka odebrat nejde - domácnost musí někomu patřit. #}
+                    {% if domacnost.je_vlastnik and not c.je_vlastnik %}
+                    <form method="post"
+                          action="{{ url_for('domacnost_odebrat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
+                          data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti? Přijde o její zařízení.">
+                        <button type="submit" class="caste-tlacitko">Odebrat</button>
+                    </form>
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Kód dostane do šablony jen vlastník - route ho ostatním vůbec
+           nepošle, stejně jako u nákupního seznamu. #}
+        {% if kod %}
+        <div class="blok">
+            <h3>Pozvánka</h3>
+            <p class="popisek-radku">Komu pošleš tenhle kód, ten se k domácnosti
+               připojí a uvidí její zařízení.</p>
+            <div class="pozvanka">
+                <code class="kod" title="Kód pozvánky do domácnosti">{{ kod }}</code>
+                <form method="post"
+                      action="{{ url_for('domacnost_novy_kod', id_domacnosti=domacnost.id) }}"
+                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
+                    <button type="submit" class="caste-tlacitko">Nový kód</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Přestěhováno ze Správy. Když karta Solárů hlásí chybu, tohle je
+           odpověď na otázku, jestli sběrač ještě měří. #}
+        {% if domacnost.ma_zarizeni %}
+        <div class="blok">
+            <h3>Sběr měření</h3>
+            <div class="radek">
+                <span class="popisek">Poslední měření</span>
+                <span class="hodnota">
+                    {% if mereni_minut is none %}zatím žádné
+                    {% elif mereni_minut < 60 %}před {{ mereni_minut }} min
+                    {% else %}před {{ (mereni_minut / 60)|round(1) }} h{% endif %}
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not domacnost.je_vlastnik %}
+        <form method="post"
+              action="{{ url_for('domacnost_odejit', id_domacnosti=domacnost.id) }}"
+              class="uklid-form"
+              data-potvrdit="Opravdu odejít z domácnosti? Přijdeš o její zařízení.">
+            <button type="submit" class="uklidit">Odejít z domácnosti</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {# Plovoucí tlačítko je na stejném místě jako v seznamu, ale znamená
+       něco jiného: v seznamu přidává domácnosti, tady zařízení. Zatím je
+       pod ním jen cedule - zařízení jsou v config.py a připojovat je půjde
+       až s konektory. #}
+    <details class="seznam-plovouci">
+        <summary title="Přidat do domácnosti zařízení">
+            <span class="plus" aria-hidden="true">+</span>
+            <span class="popis">Zařízení</span>
+        </summary>
+
+        <div class="seznam-panel">
+            <div class="blok">
+                <h3>Přidat zařízení</h3>
+                <p class="popisek-radku">Bude přidáno. Soláry a Nanoleaf jsou
+                   zatím nastavené v souboru na serveru, ne v aplikaci —
+                   připojování vlastních zařízení se teprve staví.</p>
+            </div>
+        </div>
+    </details>
+
+{% endblock %}

@@ -101,19 +101,10 @@
            může požadavek poslat i tak. #}
         {% if pulka == "domacnost" %}
 
-            {# Zařízení vidí jen člen domácnosti, které patří. Kdo v žádné
-               není, má Domácnost prázdnou i bez tabů - a na ní pozvánku. #}
-            {% if domacnost %}
-            <a href="{{ url_for('solary') }}"
-               class="{{ 'aktivni' if aktivni == 'solary' }}">
-                <span class="tab-ikona">☀️</span><span class="tab-text">Soláry</span>
-            </a>
-
-            <a href="{{ url_for('nanoleaf') }}"
-               class="{{ 'aktivni' if aktivni == 'nanoleaf' }}">
-                <span class="tab-ikona">💡</span><span class="tab-text">Nanoleaf</span>
-            </a>
-            {% endif %}
+            {# Tady schválně nic není. Od 5. 9. 2026 patří zařízení
+               KONKRÉTNÍ domácnosti, ne půlce aplikace, takže se na ně chodí
+               z jejího detailu. V liště by ukazovala zařízení jedné
+               domácnosti i při otevřené jiné. #}
 
         {% else %}
 

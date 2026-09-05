@@ -19,7 +19,8 @@ from datetime import datetime
 from functools import wraps
 from pathlib import Path
 
-from flask import (Flask, render_template, request, redirect, url_for,
+from flask import (
+    abort,Flask, render_template, request, redirect, url_for,
                    session, g, jsonify, abort)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -393,7 +394,6 @@ def spolecna_data():
         "uzivatel": session.get("uzivatel"),
         "uzivatel_id": session.get("uzivatel_id"),
         "prava": aktualni_prava(),
-        "domacnost": aktualni_domacnost(),
         "pulka_tabu": PULKA_TABU,
     }
 
@@ -600,41 +600,73 @@ def asistent():
 @vyzaduje_prihlaseni
 def domacnost():
     """
-    Domácnost - od každého zařízení to nejdůležitější.
+    Seznam domácností, do kterých člověk patří.
 
-    Stránku otevře každý přihlášený, ale zařízení na ní uvidí jen člen
-    domácnosti, které patří. Kdo do žádné nepatří, dostane pozvánkovou
-    kartu místo prázdna.
+    Od 5. 9. 2026 je Domácnost rozcestník, ne jedna stránka: domácností
+    může být víc a zařízení patří konkrétní z nich, ne půlce aplikace.
+    Kdo není v žádné, uvidí prázdno a plovoucí tlačítko, kterým se dá
+    domácnost založit nebo se k ní připojit kódem.
     """
-    # Čteme jen tehdy, když je komu co ukázat. Nejde jen o úsporu: každé
-    # čtení je volání po síti, takže bez téhle podmínky by se čekalo
-    # i na data, která se stejně nezobrazí.
-    domacnost = aktualni_domacnost()
+    return render_template(
+        "domacnost.html", aktivni="domacnost",
+        domacnosti=database.domacnosti_uzivatele(session["uzivatel_id"]),
+    )
 
+
+@app.route("/domacnost/<int:id_domacnosti>")
+@vyzaduje_prihlaseni
+def domacnost_detail(id_domacnosti):
+    """
+    Jedna domácnost: její zařízení, členové a pozvánka.
+
+    Cizí domácnost vrací 404, ne přesměrování. U tabu stačí 302, protože
+    tam není co prozradit - tady jde o konkrétní věc někoho jiného a ten
+    se nemá dozvědět ani to, že existuje. Stejné pravidlo jako u Nákupu.
+    """
+    domacnost = database.domacnost_pro_uzivatele(
+        id_domacnosti, session["uzivatel_id"])
+    if domacnost is None:
+        abort(404)
+
+    # Zařízení jsou zatím v config.py, takže je má jen ta jedna domácnost,
+    # která je zdědila. Ostatní jsou zatím prázdné - čekají na konektory.
+    #
+    # Čteme jen tehdy, když je co ukazovat. Nejde o úsporu řádků: každé
+    # čtení je volání po síti, takže by se jinak čekalo i nadarmo.
     nanoleaf, nanoleaf_chyba = (
-        _stav_nanoleaf() if domacnost else (None, None))
+        _stav_nanoleaf() if domacnost["ma_zarizeni"] else (None, None))
     solax, solax_chyba = (
-        _stav_solax() if domacnost else (None, None))
+        _stav_solax() if domacnost["ma_zarizeni"] else (None, None))
 
     # Kód pozvánky dostane do šablony jen vlastník. Nerozhoduje o tom
     # tenhle řádek, ale SQL dotaz uvnitř - komu kód nepatří, tomu se vrátí
     # None a do šablony se nedostane vůbec.
-    kod = (database.kod_domacnosti(domacnost[0], session["uzivatel_id"])
-           if domacnost else None)
+    kod = database.kod_domacnosti(id_domacnosti, session["uzivatel_id"])
 
-    # Stáří posledního měření se sem přestěhovalo ze Správy. Když karta
-    # Solárů hlásí chybu, tohle je odpověď na otázku, jestli sběrač ještě
-    # měří - a to je věc členů domácnosti, ne správce serveru.
-    clenove = database.clenove_domacnosti(domacnost[0]) if domacnost else []
-    minuty = _bezpecne(database.stari_posledniho_mereni)[0] if domacnost else None
+    minuty = (_bezpecne(database.stari_posledniho_mereni)[0]
+              if domacnost["ma_zarizeni"] else None)
 
     return render_template(
-        "domacnost.html", aktivni="domacnost", kod=kod,
-        clenove=clenove, je_vlastnik=bool(domacnost and domacnost[2]),
+        "domacnost_detail.html", aktivni="domacnost",
+        domacnost=domacnost, kod=kod,
+        clenove=database.clenove_domacnosti(id_domacnosti),
         mereni_minut=None if minuty is None else round(minuty),
         nanoleaf=nanoleaf, nanoleaf_chyba=nanoleaf_chyba,
         solax=solax, solax_chyba=solax_chyba,
     )
+
+
+def _moje_domacnost(id_domacnosti):
+    """
+    Branka pro akce nad domácností. Vrátí ji, nebo skončí 404.
+
+    Je to jedno místo, aby se na kontrolu nedalo v žádné route zapomenout.
+    """
+    domacnost = database.domacnost_pro_uzivatele(
+        id_domacnosti, session["uzivatel_id"])
+    if domacnost is None:
+        abort(404)
+    return domacnost
 
 
 @app.route("/domacnost/zalozit", methods=["POST"])
@@ -645,40 +677,49 @@ def domacnost_zalozit():
         request.form.get("nazev", ""), session["uzivatel_id"])
 
     if ok:
-        return redirect(url_for("domacnost", zprava="Domácnost je založená."))
+        return redirect(url_for("domacnost_detail", id_domacnosti=vysledek,
+                                zprava="Domácnost je založená."))
     return redirect(url_for("domacnost", chyba=vysledek))
 
 
-@app.route("/domacnost/odebrat/<int:id_clena>", methods=["POST"])
-@vyzaduje_domacnost
-def domacnost_odebrat(id_clena):
+@app.route("/domacnost/<int:id_domacnosti>/odebrat/<int:id_clena>",
+           methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_odebrat(id_domacnosti, id_clena):
     """Vlastník vyhodí člena z domácnosti."""
-    domacnost = aktualni_domacnost()
+    _moje_domacnost(id_domacnosti)
     ok, hlaska = database.odeber_clena_domacnosti(
-        domacnost[0], session["uzivatel_id"], id_clena)
+        id_domacnosti, session["uzivatel_id"], id_clena)
 
     return redirect(url_for(
-        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+        "domacnost_detail", id_domacnosti=id_domacnosti,
+        **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
-@app.route("/domacnost/novy-kod", methods=["POST"])
-@vyzaduje_domacnost
-def domacnost_novy_kod():
+@app.route("/domacnost/<int:id_domacnosti>/novy-kod", methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_novy_kod(id_domacnosti):
     """Vlastník vygeneruje nový kód pozvánky, starý přestane platit."""
-    domacnost = aktualni_domacnost()
+    _moje_domacnost(id_domacnosti)
     ok, hlaska = database.novy_kod_domacnosti(
-        domacnost[0], session["uzivatel_id"])
+        id_domacnosti, session["uzivatel_id"])
 
     return redirect(url_for(
-        "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+        "domacnost_detail", id_domacnosti=id_domacnosti,
+        **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
-@app.route("/domacnost/odejit", methods=["POST"])
-@vyzaduje_domacnost
-def domacnost_odejit():
-    """Člen z domácnosti odejde sám."""
-    domacnost = aktualni_domacnost()
-    ok, hlaska = database.opust_domacnost(domacnost[0], session["uzivatel_id"])
+@app.route("/domacnost/<int:id_domacnosti>/odejit", methods=["POST"])
+@vyzaduje_prihlaseni
+def domacnost_odejit(id_domacnosti):
+    """
+    Člen z domácnosti odejde sám.
+
+    Po odchodu se vrací na SEZNAM, ne na detail - tam by po odchodu
+    dostal 404, což by vypadalo jako chyba, a ne jako "hotovo".
+    """
+    _moje_domacnost(id_domacnosti)
+    ok, hlaska = database.opust_domacnost(id_domacnosti, session["uzivatel_id"])
 
     return redirect(url_for(
         "domacnost", **({"zprava": hlaska} if ok else {"chyba": hlaska})))

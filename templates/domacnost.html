@@ -2,188 +2,72 @@
 
 {% block titulek %}Domácnost — Domácí asistent{% endblock %}
 
-{# Obnovování má smysl jen pro člena - jemu na stránce běží živá data ze
-   zařízení. Kdo do domácnosti nepatří, kouká na pozvánku, a ta se sama od
-   sebe nezmění; nemá proč každých deset sekund tahat celou stránku na
-   mobilních datech. #}
-{% block hlava_navic %}
-    {% if domacnost %}<meta http-equiv="refresh" content="10">{% endif %}
-{% endblock %}
+{# Tahle stránka je rozcestník, ne živá data - obnovovat ji nemá co.
+   Obnovování zůstalo v detailu domácnosti se zařízeními. #}
 
 {% block obsah %}
 
-{% if not domacnost %}
-
-    {# ---------- Kdo do žádné domácnosti nepatří ----------
-       Do 4. 9. 2026 tady bylo prázdno. Teď je tu cesta dovnitř: buď kód,
-       který ti někdo poslal, nebo vlastní domácnost. #}
+    {# ---------- Seznam domácností ----------
+       Od 5. 9. 2026 je Domácnost rozcestník: domácností může být víc
+       a zařízení patří konkrétní z nich, ne půlce aplikace. #}
     <div class="karta">
-        <h2>🏠 Zatím nejsi v žádné domácnosti</h2>
-        <p class="prazdno">
-            Domácnost sdružuje lidi, kterým patří stejná zařízení — soláry,
-            světla a časem další. Kdo do ní patří, vidí je na téhle stránce.
-        </p>
+        <h2>🏠 Domácnosti</h2>
 
-        <div class="blok">
-            <h3>Připojit se ke stávající</h3>
-            <p class="popisek-radku">Kód pozvánky, který ti někdo poslal.</p>
-            <form method="post" action="{{ url_for('domacnost_pripojit') }}"
-                  class="pridat-form">
-                <input type="text" name="kod" placeholder="např. K7M-4QP"
-                       required autocomplete="off" maxlength="20">
-                <button type="submit">Připojit</button>
-            </form>
-        </div>
-
-        <div class="blok">
-            <h3>Nebo si založit vlastní</h3>
-            <p class="popisek-radku">Zařízení do ní přibudou, až je bude kam
-               připojit.</p>
-            <form method="post" action="{{ url_for('domacnost_zalozit') }}"
-                  class="pridat-form">
-                <input type="text" name="nazev" placeholder="Název domácnosti"
-                       required autocomplete="off" maxlength="60">
-                <button type="submit">Založit</button>
-            </form>
-        </div>
-    </div>
-
-{% else %}
-
-    {# ---------- Soláry: to nejdůležitější ---------- #}
-    <div class="karta">
-        <h2>☀️ Solární elektrárna</h2>
-        {% if solax %}
-            <div class="hero">
-                <span class="cislo">{{ "%.2f"|format(solax.vykon_panelu / 1000) }}</span>
-                <span class="jednotka">kW právě vyrábí</span>
-            </div>
-
+        {% if domacnosti %}
             <div class="dlazdice">
-                <div class="polozka">
-                    <div class="popisek">Dnešní výroba</div>
-                    <div class="hodnota">{{ solax.denni_vyroba }} kWh</div>
-                </div>
-                <div class="polozka">
-                    <div class="popisek">Výkon střídače</div>
-                    <div class="hodnota">{{ solax.vykon_stridace }} W</div>
-                </div>
-                <div class="polozka">
-                    <div class="popisek">Baterie</div>
-                    <div class="hodnota">{{ solax.baterie_soc }} %</div>
-                    <div class="pruh">
-                        <div class="naplneni" style="width: {{ solax.baterie_soc }}%"></div>
+                {% for d in domacnosti %}
+                <a class="polozka seznam-dlazdice"
+                   href="{{ url_for('domacnost_detail', id_domacnosti=d.id) }}">
+                    <div class="popisek">{{ d.nazev }}</div>
+                    <div class="hodnota">{{ d.clenu }}</div>
+                    <div class="popisek">
+                        {% if d.clenu == 1 %}člen
+                        {% elif d.clenu < 5 %}členové
+                        {% else %}členů{% endif %}
+                        · {% if d.je_vlastnik %}vlastník{% else %}člen{% endif %}
                     </div>
-                </div>
+                </a>
+                {% endfor %}
             </div>
-
-            <p class="odkaz-detail">
-                <a href="{{ url_for('solary') }}">Podrobnosti a grafy →</a></p>
         {% else %}
-            <p class="chyba">Nepodařilo se načíst: {{ solax_chyba }}</p>
+            <p class="prazdno">Zatím nejsi v žádné domácnosti. Domácnost
+               sdružuje lidi, kterým patří stejná zařízení — soláry, světla
+               a časem další. Tlačítkem vpravo dole si můžeš založit vlastní
+               nebo se připojit kódem, který ti někdo poslal.</p>
         {% endif %}
     </div>
 
-    {# ---------- Nanoleaf: to nejdůležitější ---------- #}
-    <div class="karta">
-        <h2>💡 Nanoleaf</h2>
-        {% if nanoleaf %}
-            <div class="stav-radek">
-                <span class="tecka {{ 'zapnuto' if nanoleaf.on else 'vypnuto' }}"></span>
-                <strong>{{ "Zapnuto" if nanoleaf.on else "Vypnuto" }}</strong>
+    {# Plovoucí tlačítko umí obojí, co se dá s domácnostmi dělat zvenčí.
+       Je to stejný trik jako na Nákupu: <details>, žádný JavaScript,
+       a panel se otevírá NAD tlačítko, protože to sedí dole. #}
+    <details class="seznam-plovouci">
+        <summary title="Založit domácnost nebo se připojit k cizí">
+            <span class="plus" aria-hidden="true">+</span>
+            <span class="popis">Domácnost</span>
+        </summary>
+
+        <div class="seznam-panel">
+            <div class="blok">
+                <h3>Nová domácnost</h3>
+                <form method="post" action="{{ url_for('domacnost_zalozit') }}"
+                      class="pridat-form">
+                    <input type="text" name="nazev" placeholder="Název domácnosti"
+                           required autocomplete="off" maxlength="60">
+                    <button type="submit">Založit</button>
+                </form>
             </div>
-            <div class="radek">
-                <span class="popisek">Jas</span>
-                <span class="hodnota">{{ nanoleaf.brightness }} %</span>
-            </div>
-            <div class="radek">
-                <span class="popisek">Efekt</span>
-                <span class="hodnota">{{ nanoleaf.effect }}</span>
-            </div>
 
-            <p class="odkaz-detail">
-                <a href="{{ url_for('nanoleaf') }}">Podrobnosti a ovládání →</a></p>
-        {% else %}
-            <p class="chyba">Nepodařilo se načíst: {{ nanoleaf_chyba }}</p>
-        {% endif %}
-    </div>
-
-    {# ---------- Správa domácnosti ----------
-       Karta, ne vlastní tab: zvát a odebírat se bude párkrát za rok, takže
-       by tab byl zbytečně nahlas. Je to stejné místo, kde má Nákup kartu
-       „Správa aktuálního seznamu".
-
-       Kdo co smí, rozhoduje SQL v database.py - tohle je jen pohodlí, aby
-       se nenabízela tlačítka, která by stejně neprošla. #}
-    <div class="karta">
-        <h2>⚙️ Správa domácnosti</h2>
-
-        <div class="blok">
-            <h3>Členové ({{ clenove|length }})</h3>
-            {% for c in clenove %}
-            <div class="radek">
-                <span class="popisek">
-                    {{ c.jmeno }}
-                    {% if c.je_vlastnik %}<span class="ja">vlastník</span>{% endif %}
-                </span>
-                <span class="hodnota">
-                    {# Vlastníka odebrat nejde - domácnost musí někomu patřit. #}
-                    {% if je_vlastnik and not c.je_vlastnik %}
-                    <form method="post"
-                          action="{{ url_for('domacnost_odebrat', id_clena=c.id) }}"
-                          data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti? Přijde o Soláry i Nanoleaf.">
-                        <button type="submit" class="caste-tlacitko">Odebrat</button>
-                    </form>
-                    {% endif %}
-                </span>
-            </div>
-            {% endfor %}
-        </div>
-
-        {# Kód dostane do šablony jen vlastník - route ho ostatním vůbec
-           nepošle, stejně jako u nákupního seznamu. #}
-        {% if kod %}
-        <div class="blok">
-            <h3>Pozvánka</h3>
-            <p class="popisek-radku">Komu pošleš tenhle kód, ten se k domácnosti
-               připojí a uvidí její zařízení.</p>
-            <div class="pozvanka">
-                <code class="kod" title="Kód pozvánky do domácnosti">{{ kod }}</code>
-                <form method="post" action="{{ url_for('domacnost_novy_kod') }}"
-                      data-potvrdit="Vygenerovat nový kód? Ten starý přestane platit.">
-                    <button type="submit" class="caste-tlacitko">Nový kód</button>
+            <div class="blok">
+                <h3>Připojit se ke stávající</h3>
+                <p class="popisek-radku">Kód pozvánky, který ti někdo poslal.</p>
+                <form method="post" action="{{ url_for('domacnost_pripojit') }}"
+                      class="pridat-form">
+                    <input type="text" name="kod" placeholder="např. K7M-4QP"
+                           required autocomplete="off" maxlength="20">
+                    <button type="submit">Připojit</button>
                 </form>
             </div>
         </div>
-        {% endif %}
+    </details>
 
-        {# Přestěhováno ze Správy. Když karta Solárů hlásí chybu, tohle je
-           odpověď na otázku, jestli sběrač ještě měří. #}
-        <div class="blok">
-            <h3>Sběr měření</h3>
-            <div class="radek">
-                <span class="popisek">Poslední měření</span>
-                <span class="hodnota">
-                    {% if mereni_minut is none %}zatím žádné
-                    {% elif mereni_minut < 60 %}před {{ mereni_minut }} min
-                    {% else %}před {{ (mereni_minut / 60)|round(1) }} h{% endif %}
-                </span>
-            </div>
-        </div>
-
-        {% if not je_vlastnik %}
-        <form method="post" action="{{ url_for('domacnost_odejit') }}"
-              class="uklid-form"
-              data-potvrdit="Opravdu odejít z domácnosti? Přijdeš o Soláry i Nanoleaf.">
-            <button type="submit" class="uklidit">Odejít z domácnosti</button>
-        </form>
-        {% endif %}
-    </div>
-
-{% endif %}
-
-{% endblock %}
-
-{% block paticka %}
-    {% if domacnost %}Stránka se sama obnovuje každých 10 sekund.{% endif %}
 {% endblock %}

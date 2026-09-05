@@ -1367,6 +1367,63 @@ def domacnost_uzivatele(id_uzivatele):
     return None if zaznam is None else zaznam[2]
 
 
+def domacnosti_uzivatele(id_uzivatele):
+    """
+    Domácnosti, do kterých uživatel patří. Vlastní první, pak podle názvu.
+
+    Vrací seznam slovníků s klíči id, nazev, je_vlastnik, ma_zarizeni
+    a clenu (počet lidí včetně vlastníka).
+
+    Vlastník není v tabulce členů, takže se počet skládá z jedničky za něj
+    a počtu přizvaných - a proto je v podmínce i "nebo jsi vlastník".
+    """
+    with _spojeni() as db:
+        radky = db.execute("""
+            SELECT d.id, d.nazev, d.vlastnik_id = ? AS je_vlastnik,
+                   d.ma_zarizeni,
+                   1 + (SELECT COUNT(*) FROM clenove_domacnosti c
+                        WHERE c.domacnost_id = d.id) AS clenu
+            FROM domacnosti d
+            WHERE d.vlastnik_id = ?
+               OR d.id IN (SELECT domacnost_id FROM clenove_domacnosti
+                           WHERE uzivatel_id = ?)
+            ORDER BY je_vlastnik DESC, d.nazev
+        """, (id_uzivatele, id_uzivatele, id_uzivatele)).fetchall()
+
+    return [{"id": r[0], "nazev": r[1], "je_vlastnik": bool(r[2]),
+             "ma_zarizeni": bool(r[3]), "clenu": r[4]} for r in radky]
+
+
+def domacnost_pro_uzivatele(id_domacnosti, id_uzivatele):
+    """
+    Vrátí domácnost, ale jen když do ní uživatel patří. Jinak None.
+
+    Branka na KONKRÉTNÍ domácnost - obdoba seznam_pro_uzivatele() u Nákupu.
+    Podmínka je v SQL dotazu, ne v Pythonu za ním: kdyby se řádek načetl
+    a teprve pak posuzoval, dřív nebo později vznikne místo, kde se na to
+    posouzení zapomene.
+
+    Pozor, tohle je něco jiného než domacnost_uzivatele(): ta odpovídá na
+    "kam patří zařízení z config.py a smíš k nim", tahle na "smíš vidět
+    tuhle konkrétní domácnost".
+    """
+    with _spojeni() as db:
+        radek = db.execute("""
+            SELECT d.id, d.nazev, d.vlastnik_id = ? AS je_vlastnik,
+                   d.ma_zarizeni
+            FROM domacnosti d
+            WHERE d.id = ?
+              AND (d.vlastnik_id = ?
+                   OR d.id IN (SELECT domacnost_id FROM clenove_domacnosti
+                               WHERE uzivatel_id = ?))
+        """, (id_uzivatele, id_domacnosti, id_uzivatele, id_uzivatele)).fetchone()
+
+    if radek is None:
+        return None
+    return {"id": radek[0], "nazev": radek[1],
+            "je_vlastnik": bool(radek[2]), "ma_zarizeni": bool(radek[3])}
+
+
 def clenove_domacnosti(id_domacnosti):
     """
     Kdo do domácnosti patří. Vlastník první, pak přizvaní podle abecedy.
