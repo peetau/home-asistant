@@ -386,6 +386,28 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
+        # MIGRACE: e-mail, kterým se bude přihlašovat.
+        #
+        # Zatím SMÍ být prázdný - dnešní účty žádný nemají a doplní se
+        # ručně ve Správě. Teprve až je budou mít všechny, přepne se
+        # přihlašování ze jména na e-mail. Kdyby se to přehodilo dřív,
+        # nepřihlásil by se nikdo včetně správce, a protože Správa je za
+        # přihlášením, nešlo by to spravit odjinud než zápisem do databáze.
+        if "email" not in sloupce_u:
+            try:
+                db.execute("ALTER TABLE uzivatele ADD COLUMN email TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+        # Jedinečnost e-mailu hlídá index, ne sloupec: ALTER TABLE v SQLite
+        # neumí přidat sloupec s UNIQUE. Vyjde to nastejno a navíc to
+        # dovoluje víc prázdných hodnot - NULL se v unikátním indexu
+        # opakovat smí, a to je přesně to, co teď potřebujeme.
+        db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS jeden_email_na_ucet
+                ON uzivatele (email)
+        """)
+
         # MIGRACE: tři nové veličiny ze soláru.
         #
         # Dřív jsme z dongle uměli přečíst jen výkon panelů a baterii.
@@ -1583,6 +1605,52 @@ def pripoj_domacnost_kodem(kod, id_uzivatele):
     return True, "Připojeno k domácnosti %s." % nazev
 
 
+def _uprav_email(email):
+    """
+    Srovná e-mail do jedné podoby a vrátí ho, nebo None když to e-mail není.
+
+    Malá písmena a bez mezer po krajích: přihlašovat se bude podle něj,
+    takže "Petr@Example.CZ" a "petr@example.cz" musí být tentýž člověk.
+    Telefon navíc rád přidá mezeru a velké první písmeno.
+
+    Kontrola je schválně hrubá - jen zavináč, něco před ním a něco za ním
+    a žádné mezery uvnitř. Skutečně ověřit e-mailovou adresu jde jediným
+    způsobem: poslat na ni zprávu. To zatím neděláme, takže se aspoň
+    nebudeme tvářit, že to umíme.
+    """
+    email = (email or "").strip().lower()
+    if email.count("@") != 1:
+        return None
+
+    pred, za = email.split("@")
+    if not pred or not za or any(z.isspace() for z in email):
+        return None
+
+    return email
+
+
+def nastav_email(id_uzivatele, email):
+    """
+    Nastaví uživateli e-mail. Vrací (povedlo_se, hláška).
+
+    Adresu smí mít každý účet jen jednu a žádní dva účty stejnou - hlídá
+    to unikátní index, ne kontrola před zápisem. Kdyby se to ptalo dopředu,
+    dva souběžné zápisy by mohly projít oba.
+    """
+    upraveny = _uprav_email(email)
+    if upraveny is None:
+        return False, "Tohle nevypadá jako e-mailová adresa."
+
+    with _spojeni() as db:
+        try:
+            db.execute("UPDATE uzivatele SET email = ? WHERE id = ?",
+                       (upraveny, id_uzivatele))
+        except sqlite3.IntegrityError:
+            return False, "Tenhle e-mail už u nás někdo používá."
+
+    return True, "E-mail uložen."
+
+
 def vytvor_uzivatele(jmeno, heslo, prava=None):
     """
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
@@ -1994,7 +2062,8 @@ def uzivatele_s_pravy():
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT u.id, u.jmeno, u.vytvoren, o.tab, u.posledni_prihlaseni
+            SELECT u.id, u.jmeno, u.vytvoren, o.tab, u.posledni_prihlaseni,
+                   u.email
             FROM uzivatele u
             LEFT JOIN opravneni o ON o.uzivatel_id = u.id
             ORDER BY u.id
@@ -2003,11 +2072,11 @@ def uzivatele_s_pravy():
     # Dotaz vrací jeden řádek na KAŽDÉ právo, takže se uživatel opakuje.
     # Poskládáme to zpátky do jednoho záznamu na uživatele.
     podle_id = {}
-    for id_u, jmeno, vytvoren, tab, posledni in radky:
+    for id_u, jmeno, vytvoren, tab, posledni, email in radky:
         if id_u not in podle_id:
             podle_id[id_u] = {"id": id_u, "jmeno": jmeno,
                               "vytvoren": vytvoren, "posledni": posledni,
-                              "prava": set()}
+                              "email": email, "prava": set()}
         if tab:
             podle_id[id_u]["prava"].add(tab)
 

@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import spolecne  # noqa: E402  (musí být první, přepíná na dočasnou databázi)
 import test_domacnost  # noqa: E402
 import test_prihlaseni  # noqa: E402
+import test_registrace  # noqa: E402
 import test_spojeni  # noqa: E402
 import test_stranky  # noqa: E402
 
@@ -24,6 +25,7 @@ SOUBORY = [
     (test_spojeni, "Spojení s databází"),
     (test_prihlaseni, "Strop na přihlašování"),
     (test_domacnost, "Domácnost"),
+    (test_registrace, "Registrace"),
     (test_stranky, "Stránky"),
 ]
 

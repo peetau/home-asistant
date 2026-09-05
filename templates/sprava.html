@@ -120,6 +120,19 @@
             </summary>
 
             <div class="ucet-obsah">
+                {# --- E-mail ---
+                   První krok k přihlašování e-mailem: adresy se doplnily
+                   ručně tady. Až je budou mít všechny účty, přepne se
+                   přihlašování ze jména na e-mail. #}
+                <form method="post"
+                      action="{{ url_for('sprava_email', id_uzivatele=ucet.id) }}"
+                      class="heslo-form" autocomplete="off">
+                    <input type="email" name="email"
+                           placeholder="E-mail pro přihlašování"
+                           value="{{ ucet.email or '' }}" required>
+                    <button type="submit">Uložit e-mail</button>
+                </form>
+
                 {# --- Práva na taby --- #}
                 <form method="post"
                       action="{{ url_for('sprava_prava', id_uzivatele=ucet.id) }}">

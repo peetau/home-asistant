@@ -1273,6 +1273,22 @@ def sprava_prava(id_uzivatele):
     return redirect(url_for("sprava", zprava="Práva uložena."))
 
 
+@app.route("/sprava/<int:id_uzivatele>/email", methods=["POST"])
+@vyzaduje_pravo("sprava")
+def sprava_email(id_uzivatele):
+    """
+    Nastaví účtu e-mail.
+
+    Je to první krok k přihlašování e-mailem: adresy se doplní ručně tady
+    a teprve až je budou mít všechny účty, přepne se přihlašování.
+    """
+    ok, hlaska = database.nastav_email(
+        id_uzivatele, request.form.get("email", ""))
+
+    return redirect(url_for(
+        "sprava", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
+
+
 @app.route("/sprava/<int:id_uzivatele>/heslo", methods=["POST"])
 @vyzaduje_pravo("sprava")
 def sprava_heslo(id_uzivatele):
