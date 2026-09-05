@@ -6,6 +6,26 @@ v [`plan.md`](plan.md). Tohle je odkladiště, ať nezapadnou.
 Co odtud přešlo mezi podmínky otevření veřejnosti, tady zůstává i tak:
 plán říká *že* se to musí udělat, tenhle soubor *jak*.
 
+## Bezpečnost
+
+### Hádání kódu pozvánky nemá strop
+**Priorita: nízká, ale oprava je malá.** Našlo se při auditu 5. 9. 2026.
+Adresy `/nakup/pripojit` a `/domacnost/pripojit` přijmou libovolný počet
+pokusů — třicet za sebou, nula blokace. Přihlášení i registrace přitom
+strop podle IP mají.
+
+Praktické riziko je dnes zanedbatelné: kód má 6 znaků z 32znakové abecedy,
+tedy přes miliardu kombinací, a platných kódů je v aplikaci hrstka.
+Uhodnout ho náhodou je nereálné.
+
+Je to ale táž díra, kterou jsme zavírali u přihlašování, a se stejným
+odůvodněním: *bez stropu by byla ochrana poloviční, útočník by přešel na
+vedlejší formulář.* Kód je plnohodnotný klíč — kdo ho má, je členem.
+
+Co s tím: navěsit na obě adresy `zbyva_blokace()`,
+`zaznamenej_chybny_pokus()` a `zapomen_pokusy()`, stejně jako to má
+přihlášení a registrace. Mechanika už existuje, jde o pár řádků.
+
 ## Výkon a provoz stránek
 
 ### Stránka Soláry je velká (284 kB)

@@ -74,11 +74,15 @@ si smaže účet?
 „Správce vidí všechny uživatele, mění jim práva a hesla" je rodinný
 koncept. U cizích lidí je to něco jiného a je potřeba rozmyslet co.
 
-### 6. Zásada 404 místo 403 platí všude
-U Nákupu už to platí: kdo na cizí seznam nemá právo, dostane 404, a kdo
-smí co, se počítá **v SQL dotazu**, ne v Pythonu za ním. Zbytek aplikace
-se tím řídit nemusel, protože všichni uživatelé byli rodina. To přestává
-platit.
+### 6. ~~Zásada 404 místo 403 platí všude~~ — ověřeno 5. 9. 2026
+Platí. **Auditem se změřilo všech 20 adres, které berou `id`** něčeho
+cizího, a odpovídají **stejně, ať ta věc existuje nebo ne** — u Nákupu
+i u domácností 404, u Správy shodné přesměrování. Domácnosti pravidlo
+zdědily, protože se u nich opisoval vzor seznamů i s brankou v SQL.
+
+Výsledky a metoda jsou v `poznamky/audit-404.md` (mimo Git), včetně toho,
+co se liší a přesto to leak není: člen na akci jen pro vlastníka dostane
+302 místo 404, ale svůj seznam už vidí, takže se nic nedozvídá.
 
 ## Co bude se zařízeními
 
