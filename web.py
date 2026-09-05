@@ -107,12 +107,6 @@ PULKA_TABU = {
     "profil": "asistent",
 }
 
-# Lidské názvy tabů pro Správu. Klíče musí sedět na database.VSECHNY_TABY.
-POPISY_TABU = {
-    "sprava": "⚙️ Správa",
-}
-
-
 # Jak staré smí být, aby to ještě bylo "v pořádku".
 # Sběrač měří po 5 minutách, takže dvě zmeškaná kola ještě nejsou porucha.
 # Záloha běží denně, jeden vynechaný běh taky ne.
@@ -245,7 +239,7 @@ def stav_zalohy():
     return "ok" if hodiny <= LIMIT_ZALOHY_HODIN else "problem"
 
 
-def aktualni_prava():
+def aktualni_spravce():
     """
     Práva přihlášeného uživatele, čtená z DATABÁZE - ne ze session.
 
@@ -261,23 +255,23 @@ def aktualni_prava():
     Když už uživatel neexistuje (správce mu smazal účet), session se
     vyprázdní a pošleme ho na přihlášení.
     """
-    if "prava" in g:
-        return g.prava
+    if "spravce" in g:
+        return g.spravce
 
     if "uzivatel_id" not in session:
-        g.prava = set()
+        g.spravce = False
         g.domacnost = None
-        return g.prava
+        return g.spravce
 
     zaznam = database.uzivatel_a_prava(session["uzivatel_id"])
     if zaznam is None:
         session.clear()
-        g.prava = set()
+        g.spravce = False
         g.domacnost = None
     else:
-        g.prava = zaznam[1]
+        g.spravce = zaznam[1]
         g.domacnost = zaznam[2]
-    return g.prava
+    return g.spravce
 
 
 def aktualni_domacnost():
@@ -292,7 +286,7 @@ def aktualni_domacnost():
     Bere se ze stejného dotazu jako práva, takže dotazů na požadavek
     nepřibylo - a stejně jako práva se schovává do g na dobu požadavku.
     """
-    aktualni_prava()          # naplní g.prava i g.domacnost jedním dotazem
+    aktualni_spravce()        # naplní g.spravce i g.domacnost jedním dotazem
     return g.domacnost
 
 
@@ -347,12 +341,12 @@ def vyzaduje_prihlaseni(funkce):
     return obalena_funkce
 
 
-def vyzaduje_pravo(tab):
+def vyzaduje_spravce(funkce):
     """
     Nálepka pro route, které smí jen uživatel s právem na daný tab.
 
         @app.route("/sprava")
-        @vyzaduje_pravo("sprava")
+        @vyzaduje_spravce
         def sprava(): ...
 
     Od 4. 9. 2026 zbylo jediné právo, a to na Správu - k zařízením se chodí
@@ -366,17 +360,15 @@ def vyzaduje_pravo(tab):
     DŮLEŽITÉ: tahle kontrola je ta skutečná ochrana. Skrytí tabu v menu
     je jen pohodlí - kdo zná adresu, může požadavek poslat i tak.
     """
-    def dekorator(funkce):
-        @wraps(funkce)
-        def obalena_funkce(*args, **kwargs):
-            if "uzivatel" not in session:
-                return redirect(url_for("prihlaseni"))
-            if tab not in aktualni_prava():
-                # Bez práva pošleme na Asistenta - ten je pro každého.
-                return redirect(url_for("asistent"))
-            return funkce(*args, **kwargs)
-        return obalena_funkce
-    return dekorator
+    @wraps(funkce)
+    def obalena_funkce(*args, **kwargs):
+        if "uzivatel" not in session:
+            return redirect(url_for("prihlaseni"))
+        if not aktualni_spravce():
+            # Bez správcovství pošleme na Asistenta - ten je pro každého.
+            return redirect(url_for("asistent"))
+        return funkce(*args, **kwargs)
+    return obalena_funkce
 
 
 @app.context_processor
@@ -393,7 +385,7 @@ def spolecna_data():
     return {
         "uzivatel": session.get("uzivatel"),
         "uzivatel_id": session.get("uzivatel_id"),
-        "prava": aktualni_prava(),
+        "je_spravce": aktualni_spravce(),
         "pulka_tabu": PULKA_TABU,
     }
 
@@ -550,6 +542,26 @@ def _co_brani_registraci(jmeno, heslo, kod):
 def _uprav_kod_registrace(kod):
     """Kód se přepisuje z telefonu, takže velikost písmen a mezery odpouštíme."""
     return (kod or "").strip().upper()
+
+
+@app.route("/profil/zrusit", methods=["POST"])
+@vyzaduje_prihlaseni
+def profil_zrusit():
+    """
+    Zrušení vlastního účtu. Chce heslo.
+
+    Kdo si účet založil sám, má ho umět i zrušit - a kdo správci nevěří,
+    má cestu ven. Pojistka ze Správy "sám sebe smazat nemůžeš" tu neplatí:
+    tady je to celý smysl.
+    """
+    ok, hlaska = database.smaz_vlastni_ucet(
+        session["uzivatel_id"], request.form.get("heslo", ""))
+
+    if not ok:
+        return redirect(url_for("profil", chyba=hlaska))
+
+    session.clear()
+    return redirect(url_for("prihlaseni"))
 
 
 @app.route("/odhlaseni")
@@ -1299,19 +1311,16 @@ def profil():
         udaje=_bezpecne(lambda: database.udaje_uzivatele(
             session["uzivatel_id"]))[0],
         chyba=chyba, zprava=zprava,
-        popisy_tabu=POPISY_TABU,
     )
 
 
 @app.route("/sprava")
-@vyzaduje_pravo("sprava")
+@vyzaduje_spravce
 def sprava():
     """Seznam účtů, jejich práva a zakládání nových."""
     return render_template(
         "sprava.html", aktivni="sprava",
         ucty=database.uzivatele_s_pravy(),
-        vsechny_taby=database.VSECHNY_TABY,
-        popisy_tabu=POPISY_TABU,
         registracni_kod=database.registracni_kod(),
         muj_id=session.get("uzivatel_id"),
         stav=podrobny_stav(),
@@ -1324,42 +1333,24 @@ def sprava():
     )
 
 
-@app.route("/sprava/pridat", methods=["POST"])
-@vyzaduje_pravo("sprava")
-def sprava_pridat():
-    jmeno = request.form.get("jmeno", "").strip()
-    email = request.form.get("email", "")
-    heslo = request.form.get("heslo", "")
+@app.route("/sprava/<int:id_uzivatele>/spravce", methods=["POST"])
+@vyzaduje_spravce
+def sprava_spravce(id_uzivatele):
+    """
+    Zapne nebo vypne někomu správcovství.
 
-    if not jmeno:
-        return redirect(url_for("sprava", chyba="Jméno nesmí být prázdné."))
-    if len(heslo) < 6:
-        return redirect(url_for("sprava", chyba="Heslo musí mít aspoň 6 znaků."))
+    Z práv zbylo od 5. 9. 2026 jediné, takže mřížku zaškrtávátek nahradil
+    přepínač. Poslednímu správci ho vzít nejde - hlídá to database.
+    """
+    ok, hlaska = database.nastav_spravce(
+        id_uzivatele, request.form.get("spravce") == "1")
 
-    # E-mail je povinný: přihlašuje se podle něj, takže účet bez něj by se
-    # nedostal dovnitř.
-    if database.vytvor_uzivatele(jmeno, email, heslo):
-        return redirect(url_for(
-            "sprava", zprava=f"Účet {jmeno} vytvořen (zatím jen Nákup)."))
-    return redirect(url_for("sprava", chyba=f"Účet {jmeno} už existuje."))
-
-
-@app.route("/sprava/<int:id_uzivatele>/prava", methods=["POST"])
-@vyzaduje_pravo("sprava")
-def sprava_prava(id_uzivatele):
-    # getlist, ne get: zaškrtávátek se stejným name je víc a chceme
-    # VŠECHNA zaškrtnutá. Nezaškrtnutá se neodešlou vůbec - proto stačí
-    # vzít, co přišlo, a zbytek se odebere.
-    taby = request.form.getlist("tab")
-
-    ok, chyba = database.nastav_prava(id_uzivatele, taby)
-    if not ok:
-        return redirect(url_for("sprava", chyba=chyba))
-    return redirect(url_for("sprava", zprava="Práva uložena."))
+    return redirect(url_for(
+        "sprava", **({"zprava": hlaska} if ok else {"chyba": hlaska})))
 
 
 @app.route("/sprava/novy-registracni-kod", methods=["POST"])
-@vyzaduje_pravo("sprava")
+@vyzaduje_spravce
 def sprava_novy_registracni_kod():
     """Vyrobí nový registrační kód. Ten starý přestane platit."""
     database.novy_registracni_kod()
@@ -1368,7 +1359,7 @@ def sprava_novy_registracni_kod():
 
 
 @app.route("/sprava/<int:id_uzivatele>/email", methods=["POST"])
-@vyzaduje_pravo("sprava")
+@vyzaduje_spravce
 def sprava_email(id_uzivatele):
     """
     Nastaví účtu e-mail.
@@ -1384,7 +1375,7 @@ def sprava_email(id_uzivatele):
 
 
 @app.route("/sprava/<int:id_uzivatele>/heslo", methods=["POST"])
-@vyzaduje_pravo("sprava")
+@vyzaduje_spravce
 def sprava_heslo(id_uzivatele):
     ok, chyba = database.zmen_heslo(id_uzivatele, request.form.get("heslo", ""))
     if not ok:
@@ -1393,7 +1384,7 @@ def sprava_heslo(id_uzivatele):
 
 
 @app.route("/sprava/<int:id_uzivatele>/smazat", methods=["POST"])
-@vyzaduje_pravo("sprava")
+@vyzaduje_spravce
 def sprava_smazat(id_uzivatele):
     # Pojistka proti sebevraždě. Databáze hlídá "poslední správce",
     # tohle navíc brání i tomu, aby ses smazal, když jsou správci dva.

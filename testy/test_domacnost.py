@@ -32,31 +32,6 @@ def pridej_clena(id_domacnosti, id_uzivatele):
             "VALUES (?, ?)",
             (id_domacnosti, id_uzivatele),
         )
-
-
-def zestarni_migraci():
-    """
-    Udělá z databáze takovou, jaká byla před migrací.
-
-    cista_databaze() volá init_db(), takže migrace už proběhla (naprázdno,
-    nebyli tam uživatelé). Aby šlo otestovat, co udělá se skutečnými daty,
-    musí se jí uvolnit název, který si zabrala.
-    """
-    with database._spojeni() as db:
-        db.execute("DELETE FROM migrace WHERE nazev = 'zalozeni_domacnosti'")
-
-
-def dej_stare_pravo(id_uzivatele, tab):
-    """Zapíše právo přímo, protože VSECHNY_TABY už 'solary' nezná."""
-    with database._spojeni() as db:
-        db.execute(
-            "INSERT OR IGNORE INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
-            (id_uzivatele, tab),
-        )
-
-
-# --- zakládání a sloupec ma_zarizeni ----------------------------------
-
 def test_prvni_domacnost_zdedi_zarizeni_z_configu():
     """Na čerstvé databázi žádná domácnost není. Ta první dostane zařízení,
     jinak by je neuviděl ani majitel serveru."""
@@ -147,69 +122,6 @@ def test_clen_domacnosti_bez_zarizeni_nedostane_nic():
 
 
 # --- migrace ze starých práv ------------------------------------------
-
-def priprav_starou_databazi():
-    """Účty s právy na zařízení, tak jak vypadala databáze před migrací."""
-    id_petr = zaloz_ucet("Petrjr")     # první účet dostane 'sprava'
-    id_hana = zaloz_ucet("Hana")
-    id_kamarad = zaloz_ucet("Kamarad")  # jen Nákup, žádné zařízení
-
-    zestarni_migraci()
-    dej_stare_pravo(id_petr, "solary")
-    dej_stare_pravo(id_petr, "nanoleaf")
-    dej_stare_pravo(id_hana, "solary")
-
-    database.init_db()
-    return id_petr, id_hana, id_kamarad
-
-
-def test_migrace_udela_z_prav_clenstvi():
-    id_petr, id_hana, id_kamarad = priprav_starou_databazi()
-
-    assert database.domacnost_uzivatele(id_petr) is not None, \
-        "vlastník po migraci na svá zařízení nedosáhne"
-    assert database.domacnost_uzivatele(id_hana) is not None, \
-        "kdo měl právo na Soláry, měl se stát členem"
-    assert database.domacnost_uzivatele(id_kamarad) is None, \
-        "kdo zařízení nikdy neměl, členem být nemá"
-
-
-def test_migrace_smaze_prava_na_zarizeni():
-    priprav_starou_databazi()
-
-    with database._spojeni() as db:
-        zbylo = db.execute(
-            "SELECT COUNT(*) FROM opravneni WHERE tab IN ('solary','nanoleaf')"
-        ).fetchone()[0]
-    assert zbylo == 0, "stará práva na zařízení měla zmizet"
-
-
-def test_migrace_nikoho_neudela_spravcem():
-    """Mazání řádků z opravneni kdysi hrozilo spuštěním záchranné migrace,
-    která rozdala všem všechna práva. Tenhle test to hlídá."""
-    id_petr, id_hana, id_kamarad = priprav_starou_databazi()
-
-    with database._spojeni() as db:
-        spravci = [r[0] for r in db.execute(
-            "SELECT uzivatel_id FROM opravneni WHERE tab = 'sprava'")]
-
-    assert id_hana not in spravci, "Hana se omylem stala správcem"
-    assert id_kamarad not in spravci, "kamarád se omylem stal správcem"
-
-
-def test_migrace_probehne_jen_jednou():
-    """init_db() se volá při každém startu, takže musí být bezpečné ho
-    pouštět opakovaně."""
-    priprav_starou_databazi()
-    database.init_db()
-    database.init_db()
-
-    with database._spojeni() as db:
-        kolik = db.execute("SELECT COUNT(*) FROM domacnosti").fetchone()[0]
-    assert kolik == 1, "domácností vzniklo %d místo jedné" % kolik
-
-
-# --- přístup k zařízením přes web -------------------------------------
 
 def bez_skutecnych_zarizeni():
     """

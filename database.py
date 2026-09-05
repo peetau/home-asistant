@@ -30,20 +30,11 @@ DB_SOUBOR = os.path.join(os.path.dirname(__file__), "asistent.db")
 #
 # Přehled ani Nákup tu SCHVÁLNĚ NEJSOU. Přehled je vždy dostupný každému
 # přihlášenému a jeho obsah se poskládá z toho, na co uživatel právo má.
-# Nákup má od 3. 9. 2026 taky každý: aplikace se dělí na Domácnost
-# (zařízení jednoho konkrétního domu) a Asistenta, který je pro kohokoliv -
-# a Nákup patří k Asistentovi. Viz migrace 'zruseni_prava_nakup' níž.
-#
-# Od 4. 9. 2026 tu nejsou ani 'solary' a 'nanoleaf'. K zařízením se nechodí
-# přes právo, ale přes ČLENSTVÍ v domácnosti - viz migrace
-# 'zalozeni_domacnosti' níž a funkce domacnost_uzivatele(). Práva tak zbyla
-# jen na Správu, tedy na účty celé aplikace.
-VSECHNY_TABY = ("sprava",)
-
-# Co dostane nově založený uživatel: nic. Není to skoupost - Přehled
-# i Nákup dostane každý přihlášený a právo zbylo jediné, na Správu.
-# Úplně první účet je výjimka, viz vytvor_uzivatele().
-VYCHOZI_PRAVA = ()
+# Správcovství je od 5. 9. 2026 sloupec `uzivatele.spravce`, ne řádek
+# v tabulce práv. Z práv zbylo po zrušení 'nakup', 'solary' a 'nanoleaf'
+# jediné, takže celá tabulka i tři konstanty kolem ní existovaly kvůli
+# jedné nule nebo jedničce. K zařízením se chodí přes členství
+# v domácnosti, viz domacnost_uzivatele().
 
 
 # Z čeho se skládá kód pozvánky. Chybí O/0 a I/1 schválně - kód se bude
@@ -174,10 +165,14 @@ def init_db():
         # se stejným jménem - nemusíme to hlídat v Pythonu.
         db.execute("""
             CREATE TABLE IF NOT EXISTS uzivatele (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                jmeno       TEXT    NOT NULL UNIQUE,
-                heslo_hash  TEXT    NOT NULL,
-                vytvoren    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                jmeno               TEXT    NOT NULL,
+                email               TEXT,
+                heslo_hash          TEXT    NOT NULL,
+                spravce             INTEGER NOT NULL DEFAULT 0,
+                vytvoren            TEXT    NOT NULL
+                                    DEFAULT (datetime('now', 'localtime')),
+                posledni_prihlaseni TEXT
             )
         """)
         # Nákupní seznam - společný pro celou rodinu.
@@ -201,28 +196,6 @@ def init_db():
                 koupil_id    INTEGER REFERENCES uzivatele(id) ON DELETE SET NULL,
                 koupeno_kdy  TEXT,
                 cena         REAL
-            )
-        """)
-
-        # Oprávnění: kdo smí na který tab.
-        #
-        # Jeden řádek = jedno udělené právo. Proč zvláštní tabulka místo
-        # sloupců "muze_solary", "muze_nakup"? Protože přidání dalšího
-        # zařízení pak nevyžaduje ŽÁDNOU změnu struktury - jen se začnou
-        # zapisovat řádky s novým názvem tabu.
-        #
-        # PRIMARY KEY přes obě pole znamená, že stejná dvojice nemůže být
-        # dvakrát - o duplicity se postará databáze sama.
-        #
-        # ON DELETE CASCADE = "když zmizí uživatel, zmiz i jeho práva".
-        # Bez toho by v tabulce zůstaly řádky ukazující na neexistující účet.
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS opravneni (
-                uzivatel_id INTEGER NOT NULL,
-                tab         TEXT    NOT NULL,
-                PRIMARY KEY (uzivatel_id, tab),
-                FOREIGN KEY (uzivatel_id) REFERENCES uzivatele(id)
-                    ON DELETE CASCADE
             )
         """)
 
@@ -405,6 +378,33 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
+        # MIGRACE: správcovství se stěhuje z tabulky do sloupce.
+        #
+        # Z práv zbylo po zrušení 'solary' a 'nanoleaf' jediné, 'sprava',
+        # takže celá tabulka opravneni i konstanty kolem ní existovaly kvůli
+        # jedné nule nebo jedničce.
+        #
+        # ⚠️ NA POŘADÍ ZÁLEŽÍ: nejdřív se z opravneni PŘEČTE, kdo je správce,
+        # pak se to zapíše do sloupce, a teprve potom se tabulka zahodí.
+        # Obráceně by se správcovství ztratilo a do Správy by se nedostal
+        # nikdo.
+        if "spravce" not in sloupce_u:
+            try:
+                db.execute("ALTER TABLE uzivatele ADD COLUMN "
+                           "spravce INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
+
+        stare_tabulky = [r[0] for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'")]
+        if "opravneni" in stare_tabulky:
+            for (id_u,) in db.execute(
+                    "SELECT DISTINCT uzivatel_id FROM opravneni "
+                    "WHERE tab = 'sprava'").fetchall():
+                db.execute("UPDATE uzivatele SET spravce = 1 WHERE id = ?",
+                           (id_u,))
+            db.execute("DROP TABLE opravneni")
+
         # MIGRACE: e-mail, kterým se bude přihlašovat.
         #
         # Zatím SMÍ být prázdný - dnešní účty žádný nemají a doplní se
@@ -451,269 +451,6 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
 
-        # MIGRACE: právo "nakup" se ruší, Nákup má každý přihlášený.
-        #
-        # Aplikace se dělí na Domácnost (zařízení jednoho konkrétního domu)
-        # a Asistenta, který je pro kohokoliv. Nákup patří k Asistentovi,
-        # takže se na něj právo neuděluje - a řádky, které ho udělovaly,
-        # jsou od téhle chvíle jen smetí. Mazat se dá opakovaně, proto se to
-        # nehlídá zámkem (viz _migrace_zabrana - ten je na zakládání).
-        db.execute("DELETE FROM opravneni WHERE tab = 'nakup'")
-
-        # ⚠️ POJISTKA. MUSÍ BÝT PŘED ZÁCHRANNOU MIGRACÍ NÍŽ, NE ZA NÍ.
-        #
-        # Smazáním řádků výš může tabulka 'opravneni' zůstat PRÁZDNÁ -
-        # stačí, aby v databázi byly jen účty, která měla pouze Nákup
-        # (kamarádi bez jediného zařízení). Záchranná migrace pod tímhle
-        # blokem by pak "všem udělila všechna práva" a z kamaráda by se
-        # rázem stal správce se Soláry.
-        #
-        # Zabereme proto její název jednou provždy. INSERT OR IGNORE proto,
-        # že na produkci už ten řádek je - tam migrace opravdu proběhla.
-        db.execute(
-            "INSERT OR IGNORE INTO migrace (nazev) VALUES ('prvni_opravneni')")
-
-        # MIGRACE: práva 'solary' a 'nanoleaf' se ruší, nahrazuje je
-        # ČLENSTVÍ v domácnosti.
-        #
-        # ⚠️ Pod zámkem je i to MAZÁNÍ, na rozdíl od práva 'nakup' výš.
-        # Tam mazání na ničem nezáviselo, tady ano: nejdřív se z 'opravneni'
-        # čte, kdo se má stát členem, a teprve pak se maže. Kdyby mazal
-        # druhý worker mimo zámek, mohl by to stihnout dřív, než si to první
-        # přečte - a vznikla by domácnost bez jediného člena.
-        if _migrace_zabrana(db, "zalozeni_domacnosti"):
-            lide = [r[0] for r in db.execute(
-                "SELECT DISTINCT uzivatel_id FROM opravneni "
-                "WHERE tab IN ('solary', 'nanoleaf')"
-            ).fetchall()]
-
-            if lide:
-                # Vlastníkem se stane správce, který zařízení taky měl -
-                # a když takový není, prostě nejstarší z nich. Někdo to být
-                # musí, vlastnik_id je NOT NULL.
-                spravci = {r[0] for r in db.execute(
-                    "SELECT uzivatel_id FROM opravneni WHERE tab = 'sprava'"
-                ).fetchall()}
-                vlastnik = min(set(lide) & spravci) if set(lide) & spravci \
-                    else min(lide)
-
-                db.execute(
-                    "INSERT INTO domacnosti (nazev, vlastnik_id, kod, ma_zarizeni) "
-                    "VALUES (?, ?, ?, 1)",
-                    ("Domácnost", vlastnik, _novy_kod()),
-                )
-                id_domacnosti = db.execute(
-                    "SELECT last_insert_rowid()").fetchone()[0]
-
-                for id_u in lide:
-                    if id_u != vlastnik:
-                        db.execute(
-                            "INSERT OR IGNORE INTO clenove_domacnosti "
-                            "(domacnost_id, uzivatel_id) VALUES (?, ?)",
-                            (id_domacnosti, id_u),
-                        )
-
-            db.execute(
-                "DELETE FROM opravneni WHERE tab IN ('solary', 'nanoleaf')")
-
-        # MIGRACE existující databáze. UŽ SE NIKDY NESPUSTÍ - viz pojistka výš.
-        #
-        # Zůstává tu kvůli tomu, co říká: tabulka uživatelů obsahovala účty
-        # založené dřív, než oprávnění vůbec existovala. Kdybychom tenkrát
-        # nic neudělali, neměl by po nasazení nikdo právo na nic - včetně
-        # Správy - a nikdo by se do aplikace nedostal.
-        #
-        # Proto: když jsou oprávnění prázdná, ale uživatelé ne, udělíme
-        # všem existujícím účtům všechna práva.
-        #
-        # Dnes už by to byla chyba, ne záchrana. Prázdná tabulka oprávnění
-        # neznamená "ještě se nerozdávalo", ale "nikdo nemá žádné zařízení" -
-        # což je u veřejné aplikace normální stav. Zamknout se ven nejde ani
-        # bez ní: úplně první účet dostane všechna práva ve vytvor_uzivatele().
-        prazdna = db.execute("SELECT COUNT(*) FROM opravneni").fetchone()[0] == 0
-        nejaci = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] > 0
-        if prazdna and nejaci and _migrace_zabrana(db, "prvni_opravneni"):
-            for (id_u,) in db.execute("SELECT id FROM uzivatele").fetchall():
-                for tab in VSECHNY_TABY:
-                    db.execute(
-                        "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
-                        (id_u, tab),
-                    )
-
-        # MIGRACE: položky patří do seznamu a vědí, kdo je přidal.
-        #
-        # Sloupce se jménem (pridal, koupil) ZŮSTÁVAJÍ vedle nových s ID.
-        # Není to nedopatření: ID slouží k rozhodování, kdo smí položku
-        # upravit, kdežto jméno je záznam do historie. Když se účet smaže,
-        # ID se vynuluje (ON DELETE SET NULL), ale u položky pořád zůstane
-        # napsané, kdo ji tenkrát přidal.
-        sloupce_n = [r[1] for r in db.execute("PRAGMA table_info(nakup)")]
-        if "seznam_id" not in sloupce_n:
-            try:
-                db.execute("ALTER TABLE nakup ADD COLUMN seznam_id INTEGER "
-                           "REFERENCES seznamy(id) ON DELETE CASCADE")
-                db.execute("ALTER TABLE nakup ADD COLUMN pridal_id INTEGER "
-                           "REFERENCES uzivatele(id) ON DELETE SET NULL")
-                db.execute("ALTER TABLE nakup ADD COLUMN koupil_id INTEGER "
-                           "REFERENCES uzivatele(id) ON DELETE SET NULL")
-            except sqlite3.OperationalError:
-                pass
-
-        # MIGRACE: smí členové zvát další lidi?
-        #
-        # Výchozí je NE, a to i u seznamů, které už existují. Zvát dál je
-        # rozšíření důvěry - to má vlastník zapnout vědomě, ne ho k tomu
-        # přivést aktualizace.
-        sloupce_s = [r[1] for r in db.execute("PRAGMA table_info(seznamy)")]
-        if "clenove_zvou" not in sloupce_s:
-            try:
-                db.execute("ALTER TABLE seznamy ADD COLUMN clenove_zvou "
-                           "INTEGER NOT NULL DEFAULT 0")
-            except sqlite3.OperationalError:
-                pass
-
-        # MIGRACE: kolik položka stála.
-        #
-        # Vyplňuje ji ten, kdo nákup zaplatil, a je nepovinná - kdo si
-        # účtenku hlídat nechce, prostě nic nezadá.
-        if "cena" not in sloupce_n:
-            try:
-                db.execute("ALTER TABLE nakup ADD COLUMN cena REAL")
-            except sqlite3.OperationalError:
-                pass
-
-        # MIGRACE: první seznam pro to, co v aplikaci už je.
-        #
-        # Nákupní seznam dosud patřil "všem, kdo mají právo na Nákup".
-        # Teď musí patřit konkrétnímu seznamu, jinak by po nasazení nebylo
-        # jasné, čí ty položky vlastně jsou. Založíme "Domácnost",
-        # vlastníkem uděláme prvního správce a členy všechny ostatní,
-        # kdo dnes na Nákup právo mají.
-        #
-        # Běží to jen jednou - podmínkou je, že tabulka seznamů je prázdná.
-        # Musí to být až tady, za migrací oprávnění výš: bez ní by na
-        # čerstvě povýšené databázi ještě žádná práva neexistovala a seznam
-        # by zůstal bez členů.
-        zadny_seznam = db.execute("SELECT COUNT(*) FROM seznamy").fetchone()[0] == 0
-        if zadny_seznam:
-            # Vlastníkem první správce, a když žádný není, první účet vůbec.
-            # Řazení: nejdřív ti s právem na Správu (o.tab není prázdné),
-            # uvnitř skupiny podle pořadí založení.
-            vlastnik = db.execute("""
-                SELECT u.id FROM uzivatele u
-                LEFT JOIN opravneni o ON o.uzivatel_id = u.id AND o.tab = 'sprava'
-                ORDER BY (o.tab IS NULL), u.id
-                LIMIT 1
-            """).fetchone()
-
-            # Zámek až tady: na prázdné databázi bez účtů není co zakládat
-            # a nemá smysl si migraci zabírat - udělá se, až účet vznikne.
-            if vlastnik and _migrace_zabrana(db, "prvni_seznam"):
-                id_vlastnika = vlastnik[0]
-                db.execute(
-                    "INSERT INTO seznamy (nazev, vlastnik_id, kod) VALUES (?, ?, ?)",
-                    ("Domácnost", id_vlastnika, _novy_kod()),
-                )
-                id_seznamu = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-
-                db.execute("""
-                    INSERT OR IGNORE INTO clenove_seznamu (seznam_id, uzivatel_id)
-                    SELECT ?, uzivatel_id FROM opravneni
-                    WHERE tab = 'nakup' AND uzivatel_id <> ?
-                """, (id_seznamu, id_vlastnika))
-
-                db.execute("UPDATE nakup SET seznam_id = ? WHERE seznam_id IS NULL",
-                           (id_seznamu,))
-
-                # Jména u položek přeložíme na účty. Jméno, které už žádnému
-                # účtu neodpovídá (smazaný účet), zůstane bez ID - a to je
-                # v pořádku, text jména u položky pořád zůstává.
-                db.execute("""
-                    UPDATE nakup SET pridal_id =
-                        (SELECT id FROM uzivatele WHERE jmeno = nakup.pridal)
-                    WHERE pridal_id IS NULL
-                """)
-                db.execute("""
-                    UPDATE nakup SET koupil_id =
-                        (SELECT id FROM uzivatele WHERE jmeno = nakup.koupil)
-                    WHERE koupil_id IS NULL AND koupil IS NOT NULL
-                """)
-
-        # ÚKLID po chybě: první nasazení založilo "Domácnost" dvakrát.
-        #
-        # Oba workery migraci provedly současně (proto teď existuje
-        # _migrace_zabrana). Položky i historie skončily jen v jednom z nich,
-        # druhý zůstal prázdný. Necháme ten s obsahem a prázdné duplikáty
-        # smažeme.
-        #
-        # Maže se JEN seznam, ve kterém není vůbec nic. Kdyby se obsah nějak
-        # rozdělil do obou, radši zůstanou oba a člověk si to srovná ručně -
-        # tichá ztráta cizích položek je horší než dva seznamy v proužku.
-        if _migrace_zabrana(db, "uklid_dvojiteho_seznamu"):
-            skupiny = db.execute("""
-                SELECT s.nazev, s.vlastnik_id, COUNT(*)
-                FROM seznamy s GROUP BY s.nazev, s.vlastnik_id
-                HAVING COUNT(*) > 1
-            """).fetchall()
-
-            for nazev, vlastnik_id, _ in skupiny:
-                stejne = db.execute("""
-                    SELECT s.id,
-                           (SELECT COUNT(*) FROM nakup n WHERE n.seznam_id = s.id)
-                         + (SELECT COUNT(*) FROM historie_nakupu h
-                            WHERE h.seznam_id = s.id) AS obsah
-                    FROM seznamy s
-                    WHERE s.nazev = ? AND s.vlastnik_id = ?
-                    ORDER BY s.id
-                """, (nazev, vlastnik_id)).fetchall()
-
-                # Necháme ten s nejvíc obsahem; při shodě ten starší.
-                nechat = max(stejne, key=lambda r: (r[1], -r[0]))[0]
-                for id_seznamu, obsah in stejne:
-                    if id_seznamu != nechat and obsah == 0:
-                        db.execute("DELETE FROM clenove_seznamu WHERE seznam_id = ?",
-                                   (id_seznamu,))
-                        db.execute("DELETE FROM seznamy WHERE id = ?", (id_seznamu,))
-
-        # MIGRACE: historie se vede zvlášť pro každý seznam.
-        #
-        # Tady nestačí přidat sloupec. Klíčem tabulky byl NÁZEV POLOŽKY
-        # samotný, takže by dva seznamy nemohly mít v historii stejnou věc -
-        # jakmile by si jeden zapsal mléko, druhý už ho zapsat nemohl.
-        # Klíčem musí být dvojice (seznam, název), a klíč se v SQLite
-        # dodatečně změnit nedá. Tabulka se proto postaví znovu a data se
-        # přelijí do ní.
-        sloupce_h = [r[1] for r in db.execute("PRAGMA table_info(historie_nakupu)")]
-        if "seznam_id" not in sloupce_h:
-            cil = db.execute("SELECT id FROM seznamy ORDER BY id LIMIT 1").fetchone()
-            kolik = db.execute("SELECT COUNT(*) FROM historie_nakupu").fetchone()[0]
-
-            # Když ještě žádný seznam není, ale historie už něco obsahuje,
-            # radši nesaháme na nic - jinak bychom neměli kam ta data přelít.
-            if cil or kolik == 0:
-                try:
-                    db.execute("""
-                        CREATE TABLE historie_nova (
-                            seznam_id INTEGER NOT NULL
-                                      REFERENCES seznamy(id) ON DELETE CASCADE,
-                            klic      TEXT    NOT NULL,
-                            text      TEXT    NOT NULL,
-                            pocet     INTEGER NOT NULL DEFAULT 1,
-                            naposledy TEXT    NOT NULL,
-                            PRIMARY KEY (seznam_id, klic)
-                        )
-                    """)
-                    if cil:
-                        db.execute("""
-                            INSERT INTO historie_nova
-                                   (seznam_id, klic, text, pocet, naposledy)
-                            SELECT ?, klic, text, pocet, naposledy
-                            FROM historie_nakupu
-                        """, (cil[0],))
-                    db.execute("DROP TABLE historie_nakupu")
-                    db.execute("ALTER TABLE historie_nova RENAME TO historie_nakupu")
-                except sqlite3.OperationalError:
-                    pass
     # 'with' se postará o uzavření spojení a uložení (commit) změn.
 
     # Až nakonec, mimo blok výš: přestavba potřebuje vlastní spojení
@@ -768,17 +505,20 @@ def _zrus_jedinecnost_jmena():
                 CREATE TABLE uzivatele_nova (
                     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
                     jmeno               TEXT    NOT NULL,
+                    email               TEXT,
                     heslo_hash          TEXT    NOT NULL,
+                    spravce             INTEGER NOT NULL DEFAULT 0,
                     vytvoren            TEXT    NOT NULL
                                         DEFAULT (datetime('now', 'localtime')),
-                    posledni_prihlaseni TEXT,
-                    email               TEXT
+                    posledni_prihlaseni TEXT
                 )
             """)
             spojeni.execute("""
                 INSERT INTO uzivatele_nova
-                       (id, jmeno, heslo_hash, vytvoren, posledni_prihlaseni, email)
-                SELECT  id, jmeno, heslo_hash, vytvoren, posledni_prihlaseni, email
+                       (id, jmeno, email, heslo_hash, spravce, vytvoren,
+                        posledni_prihlaseni)
+                SELECT  id, jmeno, email, heslo_hash, spravce, vytvoren,
+                        posledni_prihlaseni
                 FROM uzivatele
             """)
             spojeni.execute("DROP TABLE uzivatele")
@@ -1843,12 +1583,9 @@ def nastav_email(id_uzivatele, email):
     return True, "E-mail uložen."
 
 
-def vytvor_uzivatele(jmeno, email, heslo, prava=None):
+def vytvor_uzivatele(jmeno, email, heslo):
     """
     Založí nového uživatele. Heslo uloží jako hash, nikdy v původní podobě.
-
-    prava - seznam tabů, které má dostat. Když se nezadá, použijí se
-            VYCHOZI_PRAVA (tedy žádná - Přehled a Nákup má každý).
 
     Vrací True když se povedlo, False když e-mail už někdo používá nebo
     to e-mail vůbec není.
@@ -1876,29 +1613,17 @@ def vytvor_uzivatele(jmeno, email, heslo, prava=None):
             # vznikl první uživatel jen s právem na nákup - a protože by
             # nikdo neměl Správu, nešlo by ji nikomu přidělit. Zamčeno
             # zvenku hned při prvním spuštění.
+            # ÚPLNĚ PRVNÍ účet dostane správcovství, ať se zadá cokoliv.
+            # Bez toho by na čerstvé databázi nikdo neměl Správu a nešlo by
+            # ji nikomu přidělit - zamčeno zvenku hned při prvním spuštění.
             prvni = db.execute("SELECT COUNT(*) FROM uzivatele").fetchone()[0] == 0
 
             kurzor = db.execute(
-                "INSERT INTO uzivatele (jmeno, email, heslo_hash) "
-                "VALUES (?, ?, ?)",
-                (jmeno, email, hash_hesla),
+                "INSERT INTO uzivatele (jmeno, email, heslo_hash, spravce) "
+                "VALUES (?, ?, ?, ?)",
+                (jmeno, email, hash_hesla, 1 if prvni else 0),
             )
 
-            if prvni:
-                udelit = VSECHNY_TABY
-            elif prava is not None:
-                udelit = prava
-            else:
-                udelit = VYCHOZI_PRAVA
-
-            # lastrowid = id právě vloženého řádku. Potřebujeme ho hned,
-            # abychom novému účtu rovnou udělili práva.
-            for tab in udelit:
-                if tab in VSECHNY_TABY:
-                    db.execute(
-                        "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
-                        (kurzor.lastrowid, tab),
-                    )
         return True
     except sqlite3.IntegrityError:
         # Sem se dostaneme, když e-mail už někdo používá. Jméno se od
@@ -2075,17 +1800,6 @@ def seznam_uzivatelu():
 
 # ==================== Oprávnění ====================
 
-def prava_uzivatele(id_uzivatele):
-    """Vrátí množinu tabů, na které má uživatel právo."""
-    with _spojeni() as db:
-        radky = db.execute(
-            "SELECT tab FROM opravneni WHERE uzivatel_id = ?", (id_uzivatele,)
-        ).fetchall()
-    # set() místo seznamu: ptáme se hlavně "je tam tenhle tab?",
-    # a na to je množina rychlejší i čitelnější (tab in prava).
-    return {radek[0] for radek in radky}
-
-
 def stari_posledniho_mereni():
     """
     Kolik minut uplynulo od posledního uloženého měření.
@@ -2133,9 +1847,8 @@ def uzivatel_a_prava(id_uzivatele):
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT u.jmeno, o.tab, d.id, d.nazev, d.vlastnik_id = u.id
+            SELECT u.jmeno, u.spravce, d.id, d.nazev, d.vlastnik_id = u.id
             FROM uzivatele u
-            LEFT JOIN opravneni o ON o.uzivatel_id = u.id
             LEFT JOIN domacnosti d
                    ON d.ma_zarizeni = 1
                   AND (d.vlastnik_id = u.id
@@ -2147,20 +1860,10 @@ def uzivatel_a_prava(id_uzivatele):
     if not radky:
         return None
 
-    prava = {radek[1] for radek in radky if radek[1]}
-
     prvni = radky[0]
     domacnost = None if prvni[2] is None else (prvni[2], prvni[3], bool(prvni[4]))
 
-    return prvni[0], prava, domacnost
-
-
-def pocet_spravcu():
-    """Kolik uživatelů má právo na Správu. Používá se v pojistkách."""
-    with _spojeni() as db:
-        return db.execute(
-            "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
-        ).fetchone()[0]
+    return prvni[0], bool(prvni[1]), domacnost
 
 
 def _pocet_seznamu(kolik):
@@ -2173,46 +1876,58 @@ def _pocet_seznamu(kolik):
 
 
 def _je_spravce(db, id_uzivatele):
-    """Má daný uživatel právo na Správu? (uvnitř už otevřeného spojení)"""
-    return db.execute(
-        "SELECT 1 FROM opravneni WHERE uzivatel_id = ? AND tab = 'sprava'",
-        (id_uzivatele,),
-    ).fetchone() is not None
+    """Je to správce? (uvnitř už otevřeného spojení)"""
+    radek = db.execute("SELECT spravce FROM uzivatele WHERE id = ?",
+                       (id_uzivatele,)).fetchone()
+    return radek is not None and bool(radek[0])
 
 
-def nastav_prava(id_uzivatele, taby):
+def nastav_spravce(id_uzivatele, je_spravce):
     """
-    Nastaví uživateli přesně tahle práva (stará se zahodí).
+    Zapne nebo vypne správcovství. Vrací (povedlo_se, hláška).
 
-    Vrací (True, None) při úspěchu, jinak (False, "důvod").
-
-    POJISTKA: odmítne odebrat Správu poslednímu, kdo ji má - jinak by se
-    do správy uživatelů už nikdo nedostal a šlo by to spravit jen
-    přes příkazovou řádku.
+    ⚠️ POJISTKA: poslednímu správci se vzít nedá. Kdyby se dalo, do Správy
+    by se už nedostal nikdo a nešlo by to vrátit odjinud než zápisem do
+    databáze.
     """
-    # Pustíme dál jen názvy, které známe. Kdyby někdo do formuláře
-    # podstrčil vlastní hodnotu, tady skončí.
-    nove = {tab for tab in taby if tab in VSECHNY_TABY}
-
     with _spojeni() as db:
-        if _je_spravce(db, id_uzivatele) and "sprava" not in nove:
+        if not je_spravce and _je_spravce(db, id_uzivatele):
             pocet = db.execute(
-                "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
+                "SELECT COUNT(*) FROM uzivatele WHERE spravce = 1"
             ).fetchone()[0]
             if pocet <= 1:
-                return False, ("Tohle je poslední účet se Správou. "
-                               "Nejdřív ji dej někomu jinému.")
+                return False, "Tohle je poslední správce, o Správu přijít nesmí."
 
-        # Smazat a zapsat znovu je jednodušší a spolehlivější než počítat,
-        # co přibylo a co ubylo. Obojí je v jedné transakci ('with'),
-        # takže se buď povede všechno, nebo nic.
-        db.execute("DELETE FROM opravneni WHERE uzivatel_id = ?", (id_uzivatele,))
-        for tab in nove:
-            db.execute(
-                "INSERT INTO opravneni (uzivatel_id, tab) VALUES (?, ?)",
-                (id_uzivatele, tab),
-            )
-    return True, None
+        kurzor = db.execute("UPDATE uzivatele SET spravce = ? WHERE id = ?",
+                            (1 if je_spravce else 0, id_uzivatele))
+        if kurzor.rowcount == 0:
+            return False, "Účet neexistuje."
+
+    return True, "Správcovství je nastavené."
+
+
+def smaz_vlastni_ucet(id_uzivatele, heslo):
+    """
+    Zrušení vlastního účtu. Vyžaduje heslo. Vrací (povedlo_se, hláška).
+
+    Heslo se chce ze stejného důvodu jako u změny hesla: účet mizí
+    nenávratně, takže odemčený mobil na stole stačit nesmí.
+
+    Pojistky (poslední správce, vlastník seznamu nebo domácnosti) dělá
+    smaz_uzivatele() - proto se volá ona a ne holý DELETE. Pojistka
+    "sám sebe smazat nemůžeš" ze Správy tu naopak neplatí: tady je to
+    celý smysl.
+    """
+    with _spojeni() as db:
+        radek = db.execute("SELECT heslo_hash FROM uzivatele WHERE id = ?",
+                           (id_uzivatele,)).fetchone()
+
+    if radek is None:
+        return False, "Účet neexistuje."
+    if not check_password_hash(radek[0], heslo):
+        return False, "Heslo nesouhlasí."
+
+    return smaz_uzivatele(id_uzivatele)
 
 
 def zmen_heslo(id_uzivatele, nove_heslo):
@@ -2237,7 +1952,7 @@ def smaz_uzivatele(id_uzivatele):
     with _spojeni() as db:
         if _je_spravce(db, id_uzivatele):
             pocet = db.execute(
-                "SELECT COUNT(*) FROM opravneni WHERE tab = 'sprava'"
+                "SELECT COUNT(*) FROM uzivatele WHERE spravce = 1"
             ).fetchone()[0]
             if pocet <= 1:
                 return False, "Tohle je poslední účet se Správou, nelze smazat."
@@ -2289,23 +2004,19 @@ def uzivatele_s_pravy():
     """
     with _spojeni() as db:
         radky = db.execute("""
-            SELECT u.id, u.jmeno, u.vytvoren, o.tab, u.posledni_prihlaseni,
-                   u.email
+            SELECT u.id, u.jmeno, u.vytvoren, u.spravce,
+                   u.posledni_prihlaseni, u.email
             FROM uzivatele u
-            LEFT JOIN opravneni o ON o.uzivatel_id = u.id
             ORDER BY u.id
         """).fetchall()
 
     # Dotaz vrací jeden řádek na KAŽDÉ právo, takže se uživatel opakuje.
     # Poskládáme to zpátky do jednoho záznamu na uživatele.
     podle_id = {}
-    for id_u, jmeno, vytvoren, tab, posledni, email in radky:
-        if id_u not in podle_id:
-            podle_id[id_u] = {"id": id_u, "jmeno": jmeno,
-                              "vytvoren": vytvoren, "posledni": posledni,
-                              "email": email, "prava": set()}
-        if tab:
-            podle_id[id_u]["prava"].add(tab)
+    for id_u, jmeno, vytvoren, spravce, posledni, email in radky:
+        podle_id[id_u] = {"id": id_u, "jmeno": jmeno, "vytvoren": vytvoren,
+                          "posledni": posledni, "email": email,
+                          "spravce": bool(spravce)}
 
     return list(podle_id.values())
 

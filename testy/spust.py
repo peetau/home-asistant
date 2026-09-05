@@ -18,6 +18,7 @@ import spolecne  # noqa: E402  (musí být první, přepíná na dočasnou datab
 import test_domacnost  # noqa: E402
 import test_prihlaseni  # noqa: E402
 import test_registrace  # noqa: E402
+import test_sprava  # noqa: E402
 import test_spojeni  # noqa: E402
 import test_stranky  # noqa: E402
 
@@ -26,6 +27,7 @@ SOUBORY = [
     (test_prihlaseni, "Strop na přihlašování"),
     (test_domacnost, "Domácnost"),
     (test_registrace, "Registrace"),
+    (test_sprava, "Správa"),
     (test_stranky, "Stránky"),
 ]
 

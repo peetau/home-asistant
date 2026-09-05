@@ -56,9 +56,10 @@
        foťák. Kód se kreslí z matice, kterou spočítalo segno; barvu
        řídí currentColor, takže funguje i v tmavém motivu.
     #}
-    {% if qr_kod %}
     <div class="karta qr-karta">
-        <h2>📱 Adresa pro rodinu</h2>
+        <h2>📨 Pozvat člověka</h2>
+
+        {% if qr_kod %}
         <div class="qr-obsah">
             <svg class="qr" viewBox="0 0 {{ qr_kod.strana }} {{ qr_kod.strana }}"
                  role="img" aria-label="QR kód s adresou {{ adresa }}">
@@ -73,15 +74,12 @@
             <div class="qr-popis">
                 <p class="qr-adresa">{{ adresa }}</p>
                 <p class="prazdno">Namiř foťák a otevře se přihlášení.
-                   Účet musíš každému nejdřív založit níž.</p>
+                   Účet si člověk založí sám — potřebuje k tomu kód níž.</p>
             </div>
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    {# ---------- Nový účet ---------- #}
-    <div class="karta">
-        <h2>🔑 Registrační kód</h2>
+        <h3>Registrační kód</h3>
         <p class="popisek-radku">Bez něj se nikdo nezaregistruje. Komu ho
            pošleš, ten si může založit účet.</p>
         <div class="pozvanka">
@@ -92,23 +90,6 @@
                 <button type="submit" class="caste-tlacitko">Nový kód</button>
             </form>
         </div>
-    </div>
-
-    <div class="karta">
-        <h2>➕ Nový účet</h2>
-        <form method="post" action="{{ url_for('sprava_pridat') }}"
-              class="novy-ucet" autocomplete="off">
-            <input type="text" name="jmeno" placeholder="Jméno"
-                   required maxlength="40">
-            {# E-mail je povinný: přihlašuje se podle něj, takže účet bez
-               něj by se nedostal dovnitř. #}
-            <input type="email" name="email" placeholder="E-mail" required>
-            <input type="password" name="heslo" placeholder="Heslo (min. 6 znaků)"
-                   required minlength="6">
-            <button type="submit">Založit</button>
-        </form>
-        <p class="prazdno">Nový účet dostane zatím jen Nákup.
-           Zbytek mu zaškrtneš níž.</p>
     </div>
 
     {# ---------- Účty ---------- #}
@@ -126,7 +107,7 @@
                 <span class="ucet-jmeno">
                     {{ ucet.jmeno }}
                     {% if ucet.id == muj_id %}<span class="ja">ty</span>{% endif %}
-                    {% if "sprava" in ucet.prava %}
+                    {% if ucet.spravce %}
                         <span class="znacka-spravce">správce</span>
                     {% endif %}
                 </span>
@@ -150,26 +131,23 @@
                     <button type="submit">Uložit e-mail</button>
                 </form>
 
-                {# --- Práva na taby --- #}
-                <form method="post"
-                      action="{{ url_for('sprava_prava', id_uzivatele=ucet.id) }}">
-                    <div class="prava-mrizka">
-                        {% for tab in vsechny_taby %}
-                            <label class="pravo">
-                                {# Všechna zaškrtávátka mají stejné name="tab".
-                                   Odešlou se jen ta ZAŠKRTNUTÁ a server je
-                                   vezme přes getlist() jako seznam. #}
-                                <input type="checkbox" name="tab" value="{{ tab }}"
-                                       {{ "checked" if tab in ucet.prava }}>
-                                <span>{{ popisy_tabu[tab] }}</span>
-                            </label>
-                        {% endfor %}
-                    </div>
-                    <div class="ucet-akce">
-                        <span class="prazdno">Přehled má vždy každý.</span>
-                        <button type="submit">Uložit práva</button>
-                    </div>
-                </form>
+                {# --- Správcovství ---
+                   Z práv zbylo od 5. 9. 2026 jediné, takže mřížku
+                   zaškrtávátek nahradil přepínač. Poslednímu správci ho
+                   vzít nejde - hlídá to databaze, ne šablona. #}
+                <div class="radek">
+                    <span class="popisek">Správce</span>
+                    <span class="hodnota">
+                        <form method="post"
+                              action="{{ url_for('sprava_spravce', id_uzivatele=ucet.id) }}">
+                            <input type="hidden" name="spravce"
+                                   value="{{ 0 if ucet.spravce else 1 }}">
+                            <button type="submit" class="caste-tlacitko">
+                                {% if ucet.spravce %}Ano — odebrat
+                                {% else %}Ne — udělit{% endif %}</button>
+                        </form>
+                    </span>
+                </div>
 
                 {# --- Reset hesla (nouzová cesta, bez starého hesla) --- #}
                 <form method="post"

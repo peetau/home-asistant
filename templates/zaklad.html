@@ -115,7 +115,7 @@
                 <span class="tab-ikona">🛒</span><span class="tab-text">Nákup</span>
             </a>
 
-            {% if "sprava" in prava %}
+            {% if je_spravce %}
             <a href="{{ url_for('sprava') }}"
                class="{{ 'aktivni' if aktivni == 'sprava' }}">
                 <span class="tab-ikona">⚙️</span><span class="tab-text">Správa</span>

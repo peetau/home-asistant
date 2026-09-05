@@ -232,23 +232,6 @@ def test_registrace_kratke_heslo_neprojde():
     with database._spojeni() as db:
         assert db.execute("SELECT COUNT(*) FROM uzivatele WHERE email = ?",
                           ("nova@test.cz",)).fetchone()[0] == 0
-
-
-def test_novy_ucet_z_registrace_nema_zadna_prava():
-    zaloz_ucet("Petr")
-    kod = database.registracni_kod()
-
-    registruj(klient(), "Nova", "nova@test.cz", "dost-dlouhe", kod)
-
-    with database._spojeni() as db:
-        prava = db.execute("""
-            SELECT COUNT(*) FROM opravneni o
-            JOIN uzivatele u ON u.id = o.uzivatel_id
-            WHERE u.email = ?
-        """, ("nova@test.cz",)).fetchone()[0]
-    assert prava == 0, "registrovaný účet dostal práva"
-
-
 def test_strop_plati_i_na_registraci():
     """Formulář musí u obsazené adresy říct, že je obsazená - jinak člověk
     neví, proč to neprošlo. Tím se ale dá zkoušením adres zjišťovat, kdo

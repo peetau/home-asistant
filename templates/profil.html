@@ -26,22 +26,14 @@
             <p class="chyba">Údaje se nepodařilo načíst.</p>
         {% endif %}
 
-        {# Vlastní práva jen ke čtení - měnit je může jen správce
-           a dělá to v tabu Správa. #}
-        <div class="moje-prava">
-            <span class="popisek">Přístup do částí</span>
-            <div class="prava-znacky">
-                {# Přehled a Nákup má každý přihlášený - jsou to části
-                   Asistenta, na které se právo neuděluje. #}
-                <span class="znacka">🏠 Přehled</span>
-                <span class="znacka">🛒 Nákup</span>
-                {% for tab in ["solary", "nanoleaf", "sprava"] %}
-                    {% if tab in prava %}
-                        <span class="znacka">{{ popisy_tabu[tab] }}</span>
-                    {% endif %}
-                {% endfor %}
-            </div>
+        {# Správcovství jen ke čtení - udělit ho může jen jiný správce
+           v tabu Správa. #}
+        {% if je_spravce %}
+        <div class="radek">
+            <span class="popisek">Správa</span>
+            <span class="hodnota">⚙️ máš přístup</span>
         </div>
+        {% endif %}
     </div>
 
     {# ---------- Změna hesla ---------- #}
@@ -71,6 +63,33 @@
                        autocomplete="new-password">
             </label>
             <button type="submit">Změnit heslo</button>
+        </form>
+    </div>
+
+
+    {# ---------- Zrušení účtu ----------
+       Chce heslo ze stejného důvodu jako změna hesla: účet mizí
+       nenávratně, takže odemčený mobil na stole stačit nesmí.
+
+       Věta o správci je tu schválně. Rozhodnutí z 5. 9. 2026 zní, že
+       správce zůstává pečovatel - bez posílání e-mailů nemá zapomenuté
+       heslo jinou cestu. Má to ale být řečené, ne schované. #}
+    <div class="karta">
+        <h2>🗑️ Zrušení účtu</h2>
+        <p class="popisek-radku">Kdo aplikaci provozuje, může tvému účtu
+           přepsat heslo nebo ho smazat — zapomenuté heslo se zatím neřeší
+           jinak. Kdyby ti to nesedělo, tady je cesta ven.</p>
+        <p class="prazdno">Položky, které jsi napsal nebo koupil, ze seznamů
+           nezmizí a tvé jméno u nich zůstane, aby vyúčtování dál sedělo.
+           Nejdřív musíš předat nebo smazat seznamy a domácnosti, které
+           vlastníš.</p>
+
+        <form method="post" action="{{ url_for('profil_zrusit') }}"
+              class="heslo-form" autocomplete="off"
+              data-potvrdit="Opravdu zrušit účet? Tohle už nejde vrátit.">
+            <input type="password" name="heslo" required
+                   placeholder="Potvrď heslem">
+            <button type="submit" class="uklidit">Zrušit účet</button>
         </form>
     </div>
 
