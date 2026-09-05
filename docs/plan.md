@@ -50,9 +50,11 @@ a kdo nemá nic, na větu „řekni si správci".
 Tohle není seznam nápadů, ale **podmínek**. Dokud neplatí, nemá smysl
 komukoliv mimo rodinu dávat adresu.
 
-### 1. Registrace
-Účty dnes zakládá správce ručně přes Správu nebo `sprava_uctu.py`. To
-u cizích lidí nejde — musí si účet založit sami.
+### 1. ~~Registrace~~ — hotovo 5. 9. 2026
+Účet si člověk založí sám na `/registrace`, ale potřebuje **registrační
+kód**, který spravuje správce. Přihlašuje se **e-mailem**, ne jménem.
+E-maily se neposílají, takže adresa nejde ověřit — proto ten kód.
+Podrobnosti v `poznamky/plan-registrace.md` (mimo Git).
 
 ### 2. ~~Limit pokusů o přihlášení~~ — hotovo 4. 9. 2026
 Přihlašovací formulář je veřejně na internetu a neměl žádný strop na počet
@@ -65,14 +67,22 @@ vyřadit z provozu. Podrobnosti v [`struktura.md`](struktura.md).
 Kdo dnes zapomene heslo, nemá žádnou cestu zpátky — musí napsat správci,
 který mu ho v aplikaci přepíše. Cizí člověk nikoho takového nemá.
 
-### 4. Smazání účtu
-Kdo svěří svoje data cizímu serveru, musí je umět i odnést. Souvisí to
-s nákupními seznamy: co se stane se sdíleným seznamem, jehož vlastník
-si smaže účet?
+### 4. ~~Smazání účtu~~ — hotovo 5. 9. 2026
+V Profilu je **Zrušit účet** a chce heslo. Odpověď na „co se sdíleným
+seznamem": účet, který vlastní seznam nebo domácnost, se zrušit **nedá** —
+nejdřív je musí předat nebo smazat. Položky, které člověk napsal nebo
+koupil, zůstávají i se jménem jako textem, aby vyúčtování sedělo.
 
-### 5. Přehodnocení Správy
-„Správce vidí všechny uživatele, mění jim práva a hesla" je rodinný
-koncept. U cizích lidí je to něco jiného a je potřeba rozmyslet co.
+⚠️ **Zůstává díra:** předání vlastnictví neexistuje, takže kdo vlastní
+domácnost s lidmi, se zrušit nemůže vůbec.
+
+### 5. ~~Přehodnocení Správy~~ — hotovo 5. 9. 2026
+Správce **zůstává pečovatel**: smí přepsat cizí heslo i smazat účet. Bez
+posílání e-mailů nemá zapomenuté heslo jinou cestu. **Je to ale řečené
+nahlas** na registrační stránce i v Profilu, ne schované.
+
+Z práv zbylo jediné, takže tabulka `opravneni` zanikla a správcovství je
+sloupec. Podrobnosti v `poznamky/plan-sprava.md` (mimo Git).
 
 ### 6. ~~Zásada 404 místo 403 platí všude~~ — ověřeno 5. 9. 2026
 Platí. **Auditem se změřilo všech 20 adres, které berou `id`** něčeho
@@ -105,9 +115,13 @@ Zůstane ale **větší půlka a je celá obecná**: `svatky.py` (440 řádků),
    a Asistenta (3. 9. 2026): obnovuje se jen Domácnost, kde běží živá data
    ze zařízení, a od 4. 9. ani ta, když do domácnosti nepatříš. Zbývá
    velikost stránky Soláry v [`dalsi-kroky.md`](dalsi-kroky.md).
-3. **Přehled: prázdný stav** — hláška „Zatím ti nikdo nepřidělil přístup,
+3. ~~**Přehled: prázdný stav**~~ — hotovo průběžně 3.–5. 9.: Asistent má
+   hlášku o prázdném seznamu, Domácnost nabídne připojení kódem nebo
+   založení vlastní. Původní znění: „Zatím ti nikdo nepřidělil přístup,
    řekni si správci" je psaná pro člena rodiny, ne pro cizího člověka.
-4. **Registrace** — a s ní podmínky 2 až 6 výš.
+4. ~~**Registrace**~~ — hotovo 5. 9. 2026. Z podmínek zbývá už jen
+   **č. 3, zapomenuté heslo**, které čeká na rozhodnutí o posílání
+   e-mailů.
 5. **Další věci do „vše"** — co asistent bude umět kromě nákupu. Zatím
    otevřené, viz níž.
 
