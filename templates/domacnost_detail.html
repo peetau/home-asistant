@@ -117,21 +117,35 @@
                     {% if domacnost.je_vlastnik and not c.je_vlastnik %}
                     <details class="clen-vice">
                         <summary title="Co se dá s členem dělat">⋯ Více</summary>
-                        <div class="clen-vice-akce">
-                            {# Předání je nevratné jedním klepnutím, proto
-                               potvrzení říká i to, co nový vlastník získá.
-                               U domácnosti se zařízeními je to ovládání
-                               skutečných krabiček. #}
-                            <form method="post"
-                                  action="{{ url_for('domacnost_predat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
-                                  data-potvrdit="Předat domácnost {{ domacnost.nazev }} komu: {{ c.jmeno }}?{% if domacnost.ma_zarizeni %} Získá přístup k Solárům a Nanoleafu.{% endif %} Tobě zůstane jen členství.">
-                                <button type="submit" class="caste-tlacitko">Předat vlastnictví</button>
-                            </form>
-                            <form method="post"
-                                  action="{{ url_for('domacnost_odebrat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
-                                  data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti? Přijde o její zařízení.">
-                                <button type="submit" class="caste-tlacitko">Odebrat z domácnosti</button>
-                            </form>
+                        <div class="seznam-panel clen-panel">
+                            <div class="blok">
+                                <h3>Předat vlastnictví</h3>
+                                {# Předání je nevratné jedním klepnutím, proto
+                                   se dopředu říká, co nový vlastník získá.
+                                   U domácnosti se zařízeními je to ovládání
+                                   skutečných krabiček. #}
+                                <p class="popisek-radku">{{ c.jmeno }} začne
+                                   o domácnosti rozhodovat{% if domacnost.ma_zarizeni %}
+                                   a získá přístup k Solárům i Nanoleafu{% endif %};
+                                   tobě zůstane členství.</p>
+                                <form method="post"
+                                      action="{{ url_for('domacnost_predat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
+                                      data-potvrdit="Předat domácnost {{ domacnost.nazev }} komu: {{ c.jmeno }}? Tohle už nevrátíš sám.">
+                                    <button type="submit" class="uklidit">Předat</button>
+                                </form>
+                            </div>
+
+                            <div class="blok">
+                                <h3>Odebrat z domácnosti</h3>
+                                <p class="popisek-radku">{{ c.jmeno }} přijde
+                                   o přístup k zařízením. Zpátky ho dostaneš
+                                   kódem pozvánky.</p>
+                                <form method="post"
+                                      action="{{ url_for('domacnost_odebrat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
+                                      data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti?">
+                                    <button type="submit" class="uklidit">Odebrat</button>
+                                </form>
+                            </div>
                         </div>
                     </details>
                     {% endif %}

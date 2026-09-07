@@ -1823,15 +1823,22 @@ details.karta[open] summary { margin-bottom: 1rem; }
 .clen-vice summary:hover { color: var(--text); }
 .clen-vice[open] summary { color: var(--text); }
 
-/* Akce pod sebou, ne vedle sebe: na 320 px se dvě tlačítka s popiskem
-   vedle sebe nevejdou a text by z nich vytekl. */
-.clen-vice-akce {
-    display: flex;
-    flex-direction: column;
-    gap: .35rem;
-    margin-top: .45rem;
+/* Panel vyjede NAD obsah, ne do řádku - jinak by rozbalení posunulo
+   všechno pod ním. Vzhled si bere ze .seznam-panel, tedy z panelu
+   u tlačítka "+ Seznam", aby se táž věc nevykreslovala dvakrát jinak.
+
+   Zarovnává se doprava, takže roste doleva a nevyteče z karty ven ani
+   u posledního člena. */
+.clen-vice { position: relative; }
+.clen-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + .4rem);
+    z-index: 5;
+    text-align: left;
+    white-space: normal;
 }
-.clen-vice-akce form { margin: 0; }
+.clen-panel form { margin: 0; }
 
 .uprava { flex: none; }
 .uprava summary {

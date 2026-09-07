@@ -289,19 +289,31 @@
                     {% if seznam.je_vlastnik and not c.je_vlastnik %}
                     <details class="clen-vice">
                         <summary title="Co se dá s členem dělat">⋯ Více</summary>
-                        <div class="clen-vice-akce">
-                            <form method="post"
-                                  action="{{ url_for('nakup_predat',
-                                                     id_seznamu=seznam.id, id_clena=c.id) }}"
-                                  data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tobě zůstane jen členství.">
-                                <button type="submit" class="caste-tlacitko">Předat vlastnictví</button>
-                            </form>
-                            <form method="post"
-                                  action="{{ url_for('nakup_odebrat_clena',
-                                                     id_seznamu=seznam.id, id_clena=c.id) }}"
-                                  data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
-                                <button type="submit" class="caste-tlacitko">Odebrat ze seznamu</button>
-                            </form>
+                        <div class="seznam-panel clen-panel">
+                            <div class="blok">
+                                <h3>Předat vlastnictví</h3>
+                                <p class="popisek-radku">{{ c.jmeno }} začne
+                                   o seznamu rozhodovat; tobě zůstane členství.</p>
+                                <form method="post"
+                                      action="{{ url_for('nakup_predat',
+                                                         id_seznamu=seznam.id, id_clena=c.id) }}"
+                                      data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tohle už nevrátíš sám.">
+                                    <button type="submit" class="uklidit">Předat</button>
+                                </form>
+                            </div>
+
+                            <div class="blok">
+                                <h3>Odebrat ze seznamu</h3>
+                                <p class="popisek-radku">{{ c.jmeno }} seznam
+                                   přestane vidět. Zpátky ho dostaneš kódem
+                                   pozvánky.</p>
+                                <form method="post"
+                                      action="{{ url_for('nakup_odebrat_clena',
+                                                         id_seznamu=seznam.id, id_clena=c.id) }}"
+                                      data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
+                                    <button type="submit" class="uklidit">Odebrat</button>
+                                </form>
+                            </div>
                         </div>
                     </details>
                     {% endif %}
