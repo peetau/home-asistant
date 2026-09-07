@@ -298,7 +298,7 @@
                                       action="{{ url_for('nakup_predat',
                                                          id_seznamu=seznam.id, id_clena=c.id) }}"
                                       data-potvrdit="Předat seznam {{ seznam.nazev }} komu: {{ c.jmeno }}? Tohle už nevrátíš sám.">
-                                    <button type="submit" class="uklidit">Předat</button>
+                                    <button type="submit" class="tlacitko-pozor">⚠ Předat</button>
                                 </form>
                             </div>
 
@@ -311,7 +311,7 @@
                                       action="{{ url_for('nakup_odebrat_clena',
                                                          id_seznamu=seznam.id, id_clena=c.id) }}"
                                       data-potvrdit="Odebrat {{ c.jmeno }} ze seznamu?">
-                                    <button type="submit" class="uklidit">Odebrat</button>
+                                    <button type="submit" class="tlacitko-nebezpeci">Odebrat</button>
                                 </form>
                             </div>
                         </div>

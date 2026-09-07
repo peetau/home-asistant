@@ -131,7 +131,7 @@
                                 <form method="post"
                                       action="{{ url_for('domacnost_predat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
                                       data-potvrdit="Předat domácnost {{ domacnost.nazev }} komu: {{ c.jmeno }}? Tohle už nevrátíš sám.">
-                                    <button type="submit" class="uklidit">Předat</button>
+                                    <button type="submit" class="tlacitko-pozor">⚠ Předat</button>
                                 </form>
                             </div>
 
@@ -143,7 +143,7 @@
                                 <form method="post"
                                       action="{{ url_for('domacnost_odebrat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
                                       data-potvrdit="Odebrat {{ c.jmeno }} z domácnosti?">
-                                    <button type="submit" class="uklidit">Odebrat</button>
+                                    <button type="submit" class="tlacitko-nebezpeci">Odebrat</button>
                                 </form>
                             </div>
                         </div>

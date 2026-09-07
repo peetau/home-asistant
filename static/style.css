@@ -38,6 +38,11 @@
     --cervena:      #dc2626;
     --cervena-pozadi: #fef2f2;
 
+    /* Žlutá na „rozmysli si to“ - mírnější než červená. Ve světlém režimu
+       je to tmavší jantar, aby byla čitelná na bílé; v tmavém světlejší. */
+    --zluta:        #b45309;
+    --zluta-pozadi: #fffbeb;
+
     /* Barvy grafů. Pro tmavý režim mají VLASTNÍ odstíny (níž) - tmavý
        režim není převrácení světlého. Obě sady prošly kontrolou na
        rozlišitelnost při barvosleposti i na kontrast vůči pozadí. */
@@ -86,6 +91,8 @@
         --na-zelene:    #0b1f13;
         --cervena:      #f87171;
         --cervena-pozadi: rgba(248,113,113,.12);
+        --zluta:        #fbbf24;
+        --zluta-pozadi: rgba(251,191,36,.12);
 
         --serie-vykon:   #d95926;
         --serie-baterie: #3987e5;
@@ -121,6 +128,8 @@
     --na-zelene:    #0b1f13;
     --cervena:      #f87171;
     --cervena-pozadi: rgba(248,113,113,.12);
+    --zluta:        #fbbf24;
+    --zluta-pozadi: rgba(251,191,36,.12);
 
     --serie-vykon:   #d95926;
     --serie-baterie: #3987e5;
@@ -1147,6 +1156,34 @@ details.karta[open] summary { margin-bottom: 1rem; }
     color: var(--text-slaby); cursor: pointer;
 }
 .uklidit:hover { border-color: var(--cervena); color: var(--cervena); }
+
+/* Dvě váhy pro akce, které něco vezmou. Tvar mají stejný jako .uklidit,
+   liší se jen barvou a tím, jak nahlas mluví.
+
+   ŽLUTÁ = rozmysli si to: předání vlastnictví nic nesmazá, ale sami si ho
+   už nevezmete zpátky. ČERVENÁ = tohle bere přístup.
+
+   ⚠️ Barva nesmí být jediný nositel významu - kdo barvy nerozliší,
+   potřebuje text. Proto má žluté tlačítko i vykřičník a obě mají
+   potvrzovací okénko, které řekne, co se stane. */
+.tlacitko-pozor,
+.tlacitko-nebezpeci {
+    font: inherit; font-size: .85rem;
+    background: none;
+    border-radius: 8px; padding: .45rem .8rem;
+    cursor: pointer;
+}
+.tlacitko-pozor {
+    border: 1px solid var(--zluta);
+    color: var(--zluta);
+}
+.tlacitko-pozor:hover { background: var(--zluta-pozadi); }
+
+.tlacitko-nebezpeci {
+    border: 1px solid var(--cervena);
+    color: var(--cervena);
+}
+.tlacitko-nebezpeci:hover { background: var(--cervena-pozadi); }
 
 
 /* ==================== 5) Mobil ==================== */
