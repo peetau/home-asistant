@@ -1855,6 +1855,13 @@ details.karta[open] summary { margin-bottom: 1rem; }
     color: var(--text-slaby);
     font-size: .8rem;
     white-space: nowrap;
+    /* Verzálky schválně, ať to vypadá stejně na obou místech.
+       Na Nákupu je členský seznam uvnitř details.karta a pravidlo
+       `details.karta summary` na něj dosáhlo i přes vnoření - tam byly
+       verzálky náhodou. V domácnosti je karta obyčejný div, takže ne.
+       Tohle to sjednocuje a hlavně to dělá záměrem. */
+    text-transform: uppercase;
+    letter-spacing: .05em;
 }
 .clen-vice summary::-webkit-details-marker { display: none; }
 .clen-vice summary:hover { color: var(--text); }
@@ -2119,14 +2126,16 @@ header .cas { display: flex; align-items: center; gap: .5rem; }
     border-radius: var(--radius);
     background: var(--karta);
     color: var(--text);
-    padding: 1.5rem;
-    max-width: min(90vw, 22rem);
+    /* Okénko se ptá na jednu věc, takže nemá proč zabírat půl displeje.
+       Tlačítka zůstávají dost velká na prst - zmenšuje se rám, ne cíle. */
+    padding: 1.1rem 1.2rem;
+    max-width: min(88vw, 20rem);
     box-shadow: 0 10px 40px rgba(0,0,0,.3);
 }
 /* ::backdrop je plocha za oknem - prohlížeč ji vykreslí sám. */
 .potvrzeni::backdrop { background: rgba(0,0,0,.45); }
 
-.potvrzeni-text { margin: 0 0 1.3rem; font-size: 1rem; }
+.potvrzeni-text { margin: 0 0 1rem; font-size: .95rem; line-height: 1.45; }
 
 .potvrzeni-tlacitka { display: flex; gap: .6rem; justify-content: flex-end; }
 .potvrzeni-tlacitka button {

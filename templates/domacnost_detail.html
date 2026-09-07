@@ -130,7 +130,7 @@
                                    tobě zůstane členství.</p>
                                 <form method="post"
                                       action="{{ url_for('domacnost_predat', id_domacnosti=domacnost.id, id_clena=c.id) }}"
-                                      data-potvrdit="Předat domácnost {{ domacnost.nazev }} komu: {{ c.jmeno }}? Tohle už nevrátíš sám.">
+                                      data-potvrdit="Předat vlastnictví domácnosti {{ domacnost.nazev }}? Nový vlastník: {{ c.jmeno }}. Vrátit to půjde jen přes nového vlastníka.">
                                     <button type="submit" class="tlacitko-pozor">⚠ Předat</button>
                                 </form>
                             </div>
