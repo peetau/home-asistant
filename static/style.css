@@ -1846,7 +1846,7 @@ details.karta[open] summary { margin-bottom: 1rem; }
    Bez toho by řádek rostl s každou další akcí - a stejně by na úzkém
    displeji nebylo místo. <details> jako jinde: žádný JavaScript. */
 .clen-vice { flex: none; }
-.clen-vice summary {
+details.clen-vice summary {
     cursor: pointer;
     list-style: none;
     padding: .25rem .6rem;
@@ -1855,17 +1855,19 @@ details.karta[open] summary { margin-bottom: 1rem; }
     color: var(--text-slaby);
     font-size: .8rem;
     white-space: nowrap;
-    /* Verzálky schválně, ať to vypadá stejně na obou místech.
-       Na Nákupu je členský seznam uvnitř details.karta a pravidlo
-       `details.karta summary` na něj dosáhlo i přes vnoření - tam byly
-       verzálky náhodou. V domácnosti je karta obyčejný div, takže ne.
-       Tohle to sjednocuje a hlavně to dělá záměrem. */
-    text-transform: uppercase;
-    letter-spacing: .05em;
+    /* ⚠️ Tenhle pár řádků MUSÍ zůstat, a selektor musí začínat
+       `details.` - jinak nezabere. Na Nákupu je členský seznam uvnitř
+       details.karta a pravidlo `details.karta summary` na vnořené summary
+       dosáhne. Má specificitu (0,1,2), takže samotné `.clen-vice summary`
+       (0,1,1) by prohrálo a bylo by tam "VÍCE" verzálkami, kdežto
+       v domácnosti (obyčejný div) "Více". S `details.` je specificita
+       stejná a rozhodne pořadí v souboru - tohle pravidlo je níž. */
+    text-transform: none;
+    letter-spacing: normal;
 }
-.clen-vice summary::-webkit-details-marker { display: none; }
-.clen-vice summary:hover { color: var(--text); }
-.clen-vice[open] summary { color: var(--text); }
+details.clen-vice summary::-webkit-details-marker { display: none; }
+details.clen-vice summary:hover { color: var(--text); }
+details.clen-vice[open] summary { color: var(--text); }
 
 /* Panel vyjede NAD obsah, ne do řádku - jinak by rozbalení posunulo
    všechno pod ním. Vzhled si bere ze .seznam-panel, tedy z panelu
