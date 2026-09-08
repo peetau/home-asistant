@@ -139,8 +139,11 @@ Tyhle otázky nejsou opomenutí — jsou zapsané schválně, aby bylo vidět,
 
 - **Co asistent umí kromě Nákupu?** Nápady vznikají za pochodu. Dokud
   nebudou aspoň dva nebo tři, Přehled nemá co skládat dohromady.
-- **Zůstanou zařízení, nebo odejdou?** Padlo, že ovládání Nanoleafu by
-  mohlo dávat smysl i obecněji — rozmyslí se.
+- ~~**Zůstanou zařízení, nebo odejdou?**~~ — rozhodnuto 3. 9. 2026:
+  **zůstanou.** Aplikace se rozdělila na Domácnost (zařízení) a Asistenta
+  (pro kohokoliv) a domácnost se 5. 9. stala věcí v databázi s vlastníkem
+  a členy. Otevřené zůstává už jen, jak připojit **cizí** zařízení — úvaha
+  je v `poznamky/konektory-uvaha.md` (mimo Git).
 - **Jak se aplikace bude jmenovat?** „Domácí asistent" přestává sedět,
   když nejde o dům. Není to jen titulek: slovo *rodina* je zapsané
   i v kódu — `sprava_uctu.py` se hlásí jako „Správa rodinných účtů",
